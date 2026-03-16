@@ -40,7 +40,11 @@ export async function POST(req: NextRequest) {
             .eq('user_id', user.id)
             .single();
 
-        if (existingSub?.plan_id === planId && existingSub?.status === 'active' && existingSub?.stripe_subscription_id) {
+        const isAlreadyActive = existingSub?.plan_id === planId
+            && ['active', 'trialing'].includes(existingSub?.status)
+            && existingSub?.stripe_subscription_id;
+
+        if (isAlreadyActive) {
             return NextResponse.json({
                 verified: true,
                 message: 'Abonnement déjà actif pour ce plan.'
@@ -51,7 +55,7 @@ export async function POST(req: NextRequest) {
         if (sessionId) {
             const session = await stripe.checkout.sessions.retrieve(sessionId);
 
-            if (session.payment_status === 'paid' && session.subscription) {
+            if (['paid', 'no_payment_required'].includes(session.payment_status) && session.subscription) {
                 const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
                 const currentPeriodEnd = getSubscriptionPeriodEnd(subscription);
                 const status = subscription.status === 'trialing' ? 'trialing' : 'active';
@@ -99,7 +103,7 @@ export async function POST(req: NextRequest) {
         });
 
         const paidSession = sessions.data.find(s =>
-            s.payment_status === 'paid' &&
+            ['paid', 'no_payment_required'].includes(s.payment_status) &&
             s.metadata?.plan_id === planId &&
             s.subscription
         );
