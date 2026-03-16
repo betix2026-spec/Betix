@@ -647,29 +647,14 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                                         );
                                     }
 
-                                    // Déterminer qui est A et B par rapport à Home/Away
-                                    const isTennis = match.sport === 'tennis';
+                                    // Football uniquement dans ce bloc
+                                    const homeId = match.homeTeam.id ?? h2h.home_team_id;
+                                    const isHomeA = homeId != null && h2h.team_a_id === homeId;
 
-                                    // Source 1: IDs depuis le match (public.matches → home_team.id)
-                                    // Source 2: IDs injectés dans h2h par data_aggregation (fallback pour anciens audits)
-                                    const homeId = match.homeTeam.id
-                                        ?? (isTennis ? h2h.home_player_id : h2h.home_team_id);
-
-                                    const tennisH2h = isTennis ? (h2h.summary || {}) : null;
-                                    const h2hTeamAId = isTennis ? tennisH2h?.player_a_id : h2h.team_a_id;
-                                    const isHomeA = homeId != null && h2hTeamAId === homeId;
-
-                                    const homeWins = Number(isTennis
-                                        ? (isHomeA ? tennisH2h?.total_wins_a : tennisH2h?.total_wins_b)
-                                        : (isHomeA ? h2h.team_a_wins : h2h.team_b_wins)) || 0;
-
-                                    const awayWins = Number(isTennis
-                                        ? (!isHomeA ? tennisH2h?.total_wins_a : tennisH2h?.total_wins_b)
-                                        : (!isHomeA ? h2h.team_a_wins : h2h.team_b_wins)) || 0;
-
-                                    const draws = Number(isTennis ? 0 : h2h.draws) || 0;
-                                    const rawTotal = isTennis ? (homeWins + awayWins) : (h2h.total_matches || (homeWins + awayWins + draws));
-                                    const totalMatches = Number(rawTotal) || (homeWins + awayWins + draws) || 1;
+                                    const homeWins = Number(isHomeA ? h2h.team_a_wins : h2h.team_b_wins) || 0;
+                                    const awayWins = Number(!isHomeA ? h2h.team_a_wins : h2h.team_b_wins) || 0;
+                                    const draws = Number(h2h.draws) || 0;
+                                    const totalMatches = Number(h2h.total_matches || (homeWins + awayWins + draws)) || 1;
 
                                     if (totalMatches === 0) {
                                         return (
@@ -723,25 +708,15 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                                                 </div>
                                             </div>
 
-                                            {/* Moyennes de Buts (Foot/Basket) */}
-                                            {!isTennis && h2h.avg_goals_a !== undefined && (
+                                            {/* Moyennes de Buts */}
+                                            {h2h.avg_goals_a !== undefined && (
                                                 <div className="space-y-2 pt-6 border-t border-white/5">
                                                     <h4 className="text-xs font-bold uppercase tracking-[0.2em] text-white/30 mb-8 text-center">Confrontations Moyennes</h4>
                                                     <StatBattle
-                                                        label={match.sport === 'basketball' ? "Points Moyens" : "Buts Moyens"}
+                                                        label="Buts Moyens"
                                                         homeValue={Number(isHomeA ? h2h.avg_goals_a : h2h.avg_goals_b) || 0}
                                                         awayValue={Number(isHomeA ? h2h.avg_goals_b : h2h.avg_goals_a) || 0}
                                                     />
-                                                </div>
-                                            )}
-
-                                            {/* Plus de détails en texte si tennis */}
-                                            {isTennis && tennisH2h?.last_score && (
-                                                <div className="text-center p-6 bg-gradient-to-br from-white/[0.03] to-transparent rounded-2xl border border-white/10 mt-6 overflow-hidden relative">
-                                                    <div className="absolute -top-10 -right-10 size-32 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
-                                                    <span className="block text-[10px] uppercase tracking-widest text-white/40 mb-2 font-bold">Dernière Confrontation</span>
-                                                    <span className="text-2xl font-black text-white tracking-tight">{tennisH2h.last_score}</span>
-                                                    <span className="block text-xs text-muted-foreground mt-2 uppercase tracking-wide">Gagné par {tennisH2h.last_winner_id === homeId ? "Domicile" : "Extérieur"} ({tennisH2h.last_meeting_date})</span>
                                                 </div>
                                             )}
                                         </div>
