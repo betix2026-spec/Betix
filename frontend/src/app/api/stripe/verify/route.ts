@@ -9,7 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
-import { stripe } from '@/lib/stripe';
+import { stripe, getSubscriptionPeriodEnd } from '@/lib/stripe';
 
 export async function POST(req: NextRequest) {
     try {
@@ -52,8 +52,8 @@ export async function POST(req: NextRequest) {
             const session = await stripe.checkout.sessions.retrieve(sessionId);
 
             if (session.payment_status === 'paid' && session.subscription) {
-                const subscription = await stripe.subscriptions.retrieve(session.subscription as string) as any;
-                const currentPeriodEnd = new Date(subscription.current_period_end * 1000);
+                const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
+                const currentPeriodEnd = getSubscriptionPeriodEnd(subscription);
                 const status = subscription.status === 'trialing' ? 'trialing' : 'active';
 
                 await supabaseAdmin
@@ -122,8 +122,8 @@ export async function POST(req: NextRequest) {
         }
 
         // 7. Récupérer les détails de l'abonnement et sauvegarder
-        const subscription = await stripe.subscriptions.retrieve(paidSession.subscription as string) as any;
-        const currentPeriodEnd = new Date(subscription.current_period_end * 1000);
+        const subscription = await stripe.subscriptions.retrieve(paidSession.subscription as string);
+        const currentPeriodEnd = getSubscriptionPeriodEnd(subscription);
         const status = subscription.status === 'trialing' ? 'trialing' : 'active';
 
         await supabaseAdmin

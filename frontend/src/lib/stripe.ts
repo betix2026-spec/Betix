@@ -27,6 +27,29 @@ export function toStripeInterval(frequency: string): { interval: Stripe.Price.Re
 }
 
 /**
+ * Extrait current_period_end depuis un objet Subscription Stripe.
+ *
+ * Stripe SDK v20+ (API 2026-02-25.clover) a supprimé current_period_end
+ * du niveau racine de Subscription et l'a déplacé vers chaque SubscriptionItem.
+ * Cette fonction gère les deux formats pour assurer la rétro-compatibilité.
+ */
+export function getSubscriptionPeriodEnd(subscription: any): Date {
+    // SDK v20+ : current_period_end est sur les items
+    const periodEnd =
+        subscription.items?.data?.[0]?.current_period_end
+        ?? subscription.current_period_end; // fallback anciennes versions
+
+    if (periodEnd == null) {
+        throw new Error(
+            `[Stripe] current_period_end introuvable sur la subscription ${subscription.id}. ` +
+            `Vérifiez la version du SDK Stripe.`
+        );
+    }
+
+    return new Date(periodEnd * 1000);
+}
+
+/**
  * Calcule la prochaine date d'échéance à partir de la fréquence du plan.
  */
 export function calculateNextPeriodEnd(frequency: string): Date {

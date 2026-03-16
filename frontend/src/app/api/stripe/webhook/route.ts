@@ -14,7 +14,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
-import { stripe, calculateNextPeriodEnd } from '@/lib/stripe';
+import { stripe, getSubscriptionPeriodEnd } from '@/lib/stripe';
 import Stripe from 'stripe';
 
 // Stripe envoie du raw body, pas du JSON parsé
@@ -99,8 +99,8 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     console.log(`[Stripe/Webhook] Checkout completed for user ${userId}, plan ${planId}`);
 
     // Récupérer les détails de l'abonnement Stripe pour la période
-    const subscription = await stripe.subscriptions.retrieve(stripeSubscriptionId) as any;
-    const currentPeriodEnd = new Date(subscription.current_period_end * 1000);
+    const subscription = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+    const currentPeriodEnd = getSubscriptionPeriodEnd(subscription);
     const status = subscription.status === 'trialing' ? 'trialing' : 'active';
 
     await supabaseAdmin
@@ -137,8 +137,8 @@ async function handleInvoicePaid(invoice: any) {
     }
 
     // Récupérer la période depuis l'abonnement Stripe
-    const subscription = await stripe.subscriptions.retrieve(stripeSubscriptionId) as any;
-    const currentPeriodEnd = new Date(subscription.current_period_end * 1000);
+    const subscription = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+    const currentPeriodEnd = getSubscriptionPeriodEnd(subscription);
 
     await supabaseAdmin
         .from('subscriptions')
@@ -216,7 +216,7 @@ async function handleSubscriptionUpdated(subscription: any) {
         default: status = 'active';
     }
 
-    const currentPeriodEnd = new Date(subscription.current_period_end * 1000);
+    const currentPeriodEnd = getSubscriptionPeriodEnd(subscription);
 
     await supabaseAdmin
         .from('subscriptions')
