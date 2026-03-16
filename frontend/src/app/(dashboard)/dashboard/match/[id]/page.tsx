@@ -621,7 +621,8 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
 
                     {/* RIGHT COLUMN (H2H & Stats) - Spans 5 cols */}
                     <div className="lg:col-span-4 xl:col-span-3 space-y-4 sm:space-y-5 animate-in slide-in-from-bottom-8 duration-700 delay-500 flex flex-col">
-                        {/* TOP: H2H */}
+                        {/* TOP: H2H (désactivé temporairement pour basketball et tennis) */}
+                        {match.sport === 'football' && (
                         <Card className="bg-black/20 border-white/5 backdrop-blur-sm overflow-hidden relative opacity-90 transition-opacity hover:opacity-100">
                             <div className="absolute inset-0 bg-gradient-to-br from-white/[0.02] to-transparent pointer-events-none" />
                             <CardHeader className="border-b border-white/5 bg-white/[0.01] p-4">
@@ -748,6 +749,7 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                                 })()}
                             </CardContent>
                         </Card>
+                        )}
 
                         {/* BOTTOM: Stats */}
                         <Card className="bg-black/20 border-white/5 backdrop-blur-sm overflow-hidden relative opacity-90 transition-opacity hover:opacity-100">
