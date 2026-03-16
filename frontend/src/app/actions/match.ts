@@ -90,6 +90,7 @@ export async function getAiAuditForMatch(apiId: string, sport: string) {
                 .from('ai_match_audits')
                 .select('*')
                 .eq('match_id', internalId)
+                .eq('sport', sport)
                 .order('snapshot_at', { ascending: false })
                 .limit(1)
                 .maybeSingle();
@@ -104,6 +105,7 @@ export async function getAiAuditForMatch(apiId: string, sport: string) {
                 .from('ai_match_audits')
                 .select('*')
                 .eq('match_id', parsedApiId)
+                .eq('sport', sport)
                 .order('snapshot_at', { ascending: false })
                 .limit(1)
                 .maybeSingle();
