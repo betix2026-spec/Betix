@@ -8,24 +8,23 @@ import { SwipeCarousel } from "@/components/pricing/SwipeCarousel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { CreditCard, History, ShieldCheck, Zap, Loader2, Clock, Ban } from "lucide-react";
+import { CreditCard, History, ShieldCheck, Zap, Loader2, Clock, Mail } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { Plan, FeatureDefinition } from "@/types/plans";
 import { getDisplayFeatures } from "@/lib/plans";
 import { cn } from "@/lib/utils";
-import { sendCancellationRequestAction } from "@/app/actions/notifications";
 
 export default function SubscriptionPage() {
-    const { subscription, currentPlanId, isLoading: authLoading } = useAuth();
+    const { user, profile, subscription, currentPlanId, isLoading: authLoading } = useAuth();
     const [plans, setPlans] = useState<Plan[]>([]);
     const [definitions, setDefinitions] = useState<FeatureDefinition[]>([]);
     const [loadingPlans, setLoadingPlans] = useState(true);
     const [verifying, setVerifying] = useState(false);
     const router = useRouter();
     const supabase = createClient();
-    const [isCancelling, setIsCancelling] = useState(false);
+    const [showCancelOption, setShowCancelOption] = useState(false);
 
     // Auto-vérification après redirection Stripe
     useEffect(() => {
@@ -99,21 +98,50 @@ export default function SubscriptionPage() {
         fetchData();
     }, [supabase]);
 
-    const handleCancelRequest = async () => {
-        setIsCancelling(true);
+    const handleCancelMail = async () => {
         try {
-            const result = await sendCancellationRequestAction();
+            const { data: subRow } = await supabase
+                .from('subscriptions')
+                .select('stripe_subscription_id')
+                .eq('user_id', user?.id ?? '')
+                .in('status', ['active', 'trialing', 'past_due'])
+                .maybeSingle();
 
-            if (result.success) {
-                toast.success('Votre demande de résiliation a été envoyée avec succès au support.');
-            } else {
-                toast.error(result.error || 'Erreur lors de la demande. Veuillez réessayer.');
-            }
+            const { data: profileRow } = await supabase
+                .from('profiles')
+                .select('stripe_customer_id')
+                .eq('id', user?.id ?? '')
+                .maybeSingle();
+
+            const userName = profile?.username || 'N/A';
+            const userEmail = user?.email || 'N/A';
+            const planName = subscription?.plan?.name || 'N/A';
+            const subStatus = subscription?.status || 'N/A';
+            const periodEnd = subscription?.current_period_end
+                ? formatDate(subscription.current_period_end)
+                : 'N/A';
+            const stripeSubId = subRow?.stripe_subscription_id || 'N/A';
+            const stripeCustId = profileRow?.stripe_customer_id || 'N/A';
+
+            const subject = encodeURIComponent('Résiliation');
+            const body = encodeURIComponent(
+                `Bonjour,\n\nJe souhaite résilier mon abonnement.\n\n` +
+                `--- Informations client ---\n` +
+                `Nom : ${userName}\n` +
+                `Email : ${userEmail}\n` +
+                `Plan : ${planName}\n` +
+                `Statut : ${subStatus}\n` +
+                `Fin de période : ${periodEnd}\n` +
+                `ID Abonnement Stripe : ${stripeSubId}\n` +
+                `ID Client Stripe : ${stripeCustId}\n` +
+                `ID Utilisateur : ${user?.id || 'N/A'}\n\n` +
+                `Cordialement.`
+            );
+
+            window.location.href = `mailto:bet-ix@outlook.fr?subject=${subject}&body=${body}`;
         } catch (error) {
-            console.error('[Subscription] Cancel Request error:', error);
-            toast.error('Erreur inattendue. Veuillez réessayer plus tard.');
-        } finally {
-            setIsCancelling(false);
+            console.error('[Subscription] Cancel mail error:', error);
+            toast.error('Impossible de préparer le mail. Veuillez réessayer.');
         }
     };
 
@@ -191,16 +219,23 @@ export default function SubscriptionPage() {
                         <div className="flex flex-col items-center md:items-end gap-2 w-full md:w-auto shrink-0 mt-4 md:mt-0">
                             {subscription && subscription.status !== "canceled" && (
                                 <div className="flex flex-col items-center md:items-end gap-1 w-full md:w-auto">
-                                    <Button
-                                        variant="destructive"
-                                        onClick={handleCancelRequest}
-                                        disabled={isCancelling}
-                                        className="bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500/20 w-full md:w-auto h-12 lg:h-14 px-6 lg:px-8 font-bold backdrop-blur-md transition-all duration-300 transform hover:scale-105"
-                                    >
-                                        {isCancelling ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Ban className="w-4 h-4 mr-2" />}
-                                        Demander la résiliation
-                                    </Button>
-                                    <span className="text-[10px] text-neutral-500">Via demande au support</span>
+                                    {!showCancelOption ? (
+                                        <button
+                                            onClick={() => setShowCancelOption(true)}
+                                            className="text-xs text-neutral-500 hover:text-neutral-400 underline underline-offset-2 transition-colors"
+                                        >
+                                            Vous souhaitez résilier ?
+                                        </button>
+                                    ) : (
+                                        <Button
+                                            variant="ghost"
+                                            onClick={handleCancelMail}
+                                            className="text-red-400/70 hover:text-red-400 hover:bg-red-500/10 text-xs h-9 px-4 gap-2 transition-all"
+                                        >
+                                            <Mail className="w-3.5 h-3.5" />
+                                            Envoyer une demande par mail
+                                        </Button>
+                                    )}
                                 </div>
                             )}
                         </div>
