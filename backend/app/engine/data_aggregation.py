@@ -11,13 +11,16 @@ from app.services.ingestion.base_client import SupabaseREST
 # Configure logging
 logger = logging.getLogger(__name__)
 
+NEUTRAL_VENUE_LEAGUE_IDS = {87, 93, 97, 98, 101, 104, 109, 118}
+
+
 class DataAggregator:
     def __init__(self):
         self.settings = get_settings()
         # Initialize SupabaseREST for 'analytics' schema
         self.db = SupabaseREST(
-            self.settings.SUPABASE_URL, 
-            self.settings.SUPABASE_SERVICE_ROLE_KEY, 
+            self.settings.SUPABASE_URL,
+            self.settings.SUPABASE_SERVICE_ROLE_KEY,
             schema="analytics"
         )
 
@@ -113,9 +116,12 @@ class DataAggregator:
         home_name = home_info.get("name", "Unknown Home")
         away_name = away_info.get("name", "Unknown Away")
         home_id = home_info.get("id")
-        
+
+        league_id = match_raw.get("league_id")
+        is_neutral = league_id in NEUTRAL_VENUE_LEAGUE_IDS
+
         # 1. Match (with team names)
-        sections.append(self._format_match(sport, match_raw, home_name, away_name))
+        sections.append(self._format_match(sport, match_raw, home_name, away_name, is_neutral=is_neutral))
         
         # 1b. Data Legend (helps AI interpret abbreviations correctly)
         if sport == "football":
@@ -144,21 +150,31 @@ class DataAggregator:
                 "• Stk = Série en cours (ex: 3W = 3 victoires consécutives)"
             )
         
-        # 2. Teams & Form
+        # 2. Neutral venue context
+        if is_neutral:
+            sections.append(
+                "[CONTEXTE TERRAIN NEUTRE]\n"
+                "Ce match se joue sur terrain neutre (compétition internationale type Coupe du Monde, Euro, Copa America, etc.). "
+                "Les labels 'Home' et 'Away' sont des désignations ADMINISTRATIVES, pas un avantage de terrain. "
+                "Les statistiques 'Home' et 'Away' dans les sections suivantes reflètent les performances de l'équipe dans CE rôle lors de matchs PRÉCÉDENTS "
+                "(certains à domicile, d'autres non). Privilégie les statistiques GLOBALES pour ton analyse."
+            )
+
+        # 3. Teams & Form
         sections.append(self._format_team_form(sport, home_name, form_raw.get("home", {}), injuries_raw.get("home", []), is_home=True))
         sections.append(self._format_team_form(sport, away_name, form_raw.get("away", {}), injuries_raw.get("away", []), is_home=False))
-        
-        # 3. H2H (with team identity for correct mapping)
+
+        # 4. H2H (with team identity for correct mapping)
         sections.append(self._format_h2h(sport, h2h_raw, home_name=home_name, away_name=away_name, home_team_id=home_id))
-        
-        # 4. Odds (with team names for label replacement)
+
+        # 5. Odds (with team names for label replacement)
         sections.append(self._format_odds(sport, odds_raw, home_name, away_name))
-        
-        # 5. Elo
+
+        # 6. Elo
         sections.append(self._format_elo(sport, elo_raw))
 
-        # 6. Cross-Analysis (pre-computed cross-team stats for key markets)
-        sections.append(self._format_cross_analysis(sport, form_raw, home_name, away_name))
+        # 7. Cross-Analysis (pre-computed cross-team stats for key markets)
+        sections.append(self._format_cross_analysis(sport, form_raw, home_name, away_name, is_neutral=is_neutral))
 
         context_text = "\n\n".join(sections)
 
@@ -233,30 +249,38 @@ class DataAggregator:
     # CROSS-ANALYSIS (Pre-computed cross-team stats for key markets)
     # ─────────────────────────────────────────────────────────────────────────
 
-    def _format_cross_analysis(self, sport: str, form_raw: Dict[str, Any], home_name: str, away_name: str) -> str:
+    def _format_cross_analysis(self, sport: str, form_raw: Dict[str, Any], home_name: str, away_name: str, is_neutral: bool = False) -> str:
         """Pre-computes cross-team comparisons for key betting markets.
 
         This section helps the AI by presenting both teams' stats side-by-side
         for specific markets, eliminating the need to cross-reference manually
         across separate text blocks.
         """
-        lines = ["[CROSS-ANALYSIS: Key Markets — Both Teams Combined]"]
+        if is_neutral:
+            lines = ["[CROSS-ANALYSIS: Key Markets — Both Teams Combined (TERRAIN NEUTRE: stats GLOBALES utilisées)]"]
+        else:
+            lines = ["[CROSS-ANALYSIS: Key Markets — Both Teams Combined]"]
 
-        # Determine the relevant venue pools for each team
-        # Home team → "home" pool, Away team → "away" pool
         home_form = form_raw.get("home", {})
         away_form = form_raw.get("away", {})
 
-        # Get the latest snapshot for each relevant pool
-        home_venue = home_form.get("home", [])
-        away_venue = away_form.get("away", [])
         home_global = home_form.get("global", [])
         away_global = away_form.get("global", [])
 
-        h_venue = home_venue[0] if home_venue else {}
-        a_venue = away_venue[0] if away_venue else {}
+        if is_neutral:
+            h_venue = home_global[0] if home_global else {}
+            a_venue = away_global[0] if away_global else {}
+        else:
+            home_venue = home_form.get("home", [])
+            away_venue = away_form.get("away", [])
+            h_venue = home_venue[0] if home_venue else {}
+            a_venue = away_venue[0] if away_venue else {}
+
         h_global = home_global[0] if home_global else {}
         a_global = away_global[0] if away_global else {}
+
+        vl = "GLOBAL" if is_neutral else "HOME"
+        al = "GLOBAL" if is_neutral else "AWAY"
 
         if sport == "football":
             # --- BTTS ---
@@ -266,16 +290,22 @@ class DataAggregator:
             a_btts_global = a_global.get("l5_btts_rate", "?")
             h_cs_home = h_venue.get("l5_clean_sheets", "?")
             a_cs_away = a_venue.get("l5_clean_sheets", "?")
-            lines.append(
-                f"BTTS: {home_name} HOME BTTS {h_btts_home}% (Global {h_btts_global}%, CS home: {h_cs_home}/5) | "
-                f"{away_name} AWAY BTTS {a_btts_away}% (Global {a_btts_global}%, CS away: {a_cs_away}/5)"
-            )
+            if is_neutral:
+                lines.append(
+                    f"BTTS: {home_name} GLOBAL BTTS {h_btts_home}% (CS: {h_cs_home}/5) | "
+                    f"{away_name} GLOBAL BTTS {a_btts_away}% (CS: {a_cs_away}/5)"
+                )
+            else:
+                lines.append(
+                    f"BTTS: {home_name} HOME BTTS {h_btts_home}% (Global {h_btts_global}%, CS home: {h_cs_home}/5) | "
+                    f"{away_name} AWAY BTTS {a_btts_away}% (Global {a_btts_global}%, CS away: {a_cs_away}/5)"
+                )
 
             # --- Over/Under 2.5 ---
             h_o25_home = h_venue.get("l5_over25_rate", "?")
             a_o25_away = a_venue.get("l5_over25_rate", "?")
             lines.append(
-                f"O2.5: {home_name} HOME O2.5 {h_o25_home}% | {away_name} AWAY O2.5 {a_o25_away}%"
+                f"O2.5: {home_name} {vl} O2.5 {h_o25_home}% | {away_name} {al} O2.5 {a_o25_away}%"
             )
 
             # --- Total goals average ---
@@ -286,8 +316,8 @@ class DataAggregator:
             h_total = round(h_gf_home + h_ga_home, 1) if isinstance(h_gf_home, (int, float)) and isinstance(h_ga_home, (int, float)) else "?"
             a_total = round(a_gf_away + a_ga_away, 1) if isinstance(a_gf_away, (int, float)) and isinstance(a_ga_away, (int, float)) else "?"
             lines.append(
-                f"Avg Total Goals: {home_name} HOME {h_total}/match (F:{h_gf_home} A:{h_ga_home}) | "
-                f"{away_name} AWAY {a_total}/match (F:{a_gf_away} A:{a_ga_away})"
+                f"Avg Total Goals: {home_name} {vl} {h_total}/match (F:{h_gf_home} A:{h_ga_home}) | "
+                f"{away_name} {al} {a_total}/match (F:{a_gf_away} A:{a_ga_away})"
             )
 
             # --- xG comparison ---
@@ -296,7 +326,7 @@ class DataAggregator:
             a_xgf = a_venue.get("l5_xg_for", "?")
             a_xga = a_venue.get("l5_xg_against", "?")
             lines.append(
-                f"xG: {home_name} HOME xG(F:{h_xgf} A:{h_xga}) | {away_name} AWAY xG(F:{a_xgf} A:{a_xga})"
+                f"xG: {home_name} {vl} xG(F:{h_xgf} A:{h_xga}) | {away_name} {al} xG(F:{a_xgf} A:{a_xga})"
             )
 
         elif sport == "basketball":
@@ -306,13 +336,13 @@ class DataAggregator:
             a_ortg = a_venue.get("l5_ortg", "?")
             a_drtg = a_venue.get("l5_drtg", "?")
             lines.append(
-                f"Ratings: {home_name} HOME RTG(O:{h_ortg} D:{h_drtg}) | {away_name} AWAY RTG(O:{a_ortg} D:{a_drtg})"
+                f"Ratings: {home_name} {vl} RTG(O:{h_ortg} D:{h_drtg}) | {away_name} {al} RTG(O:{a_ortg} D:{a_drtg})"
             )
 
             # --- Pace (tempo) ---
             h_pace = h_venue.get("l5_pace", "?")
             a_pace = a_venue.get("l5_pace", "?")
-            lines.append(f"Pace: {home_name} HOME {h_pace} | {away_name} AWAY {a_pace}")
+            lines.append(f"Pace: {home_name} {vl} {h_pace} | {away_name} {al} {a_pace}")
 
             # --- Win rate & margin ---
             h_wr = h_venue.get("l5_win_rate", "?")
@@ -338,7 +368,7 @@ class DataAggregator:
     # TEXTUAL FORMATTERS (The CAR Optimizers)
     # ─────────────────────────────────────────────────────────────────────────
 
-    def _format_match(self, sport: str, data: Dict[str, Any], home_name: str = "?", away_name: str = "?") -> str:
+    def _format_match(self, sport: str, data: Dict[str, Any], home_name: str = "?", away_name: str = "?", is_neutral: bool = False) -> str:
         dt = data.get("date_time", "Unknown Date")
         venue = data.get("venue") or "Unknown Venue"
         if sport == "tennis":
@@ -347,8 +377,12 @@ class DataAggregator:
         elif sport == "football":
             rnd = data.get("round", "Unknown Round")
             ref = data.get("referee_name", "N/A")
+            if is_neutral:
+                return f"[MATCH: {home_name} vs {away_name}] {dt} | {venue} (TERRAIN NEUTRE) | {rnd} | Ref: {ref}"
             return f"[MATCH: {home_name} (DOM) vs {away_name} (EXT)] {dt} | {venue} | {rnd} | Ref: {ref}"
         else:
+            if is_neutral:
+                return f"[MATCH: {home_name} vs {away_name}] {dt} | {venue} (TERRAIN NEUTRE) | {data.get('status', 'scheduled')}"
             return f"[MATCH: {home_name} (DOM) vs {away_name} (EXT)] {dt} | {venue} | {data.get('status', 'scheduled')}"
 
     def _format_team_form(self, sport: str, team_name: str, form_data: Dict[str, Any], injuries: List[Any], is_home: bool) -> str:
@@ -547,7 +581,7 @@ class DataAggregator:
 
     async def fetch_match_details(self, sport: str, match_id: int) -> Dict[str, Any]:
         table = f"{sport}_matches"
-        columns = "date_time,venue,status"
+        columns = "date_time,venue,status,league_id"
         if sport == 'football':
             columns += ",round,referee_name,weather"
         

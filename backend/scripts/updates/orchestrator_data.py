@@ -12,7 +12,7 @@ import asyncio
 import logging
 import sys
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Add backend to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
@@ -21,6 +21,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 from scripts.updates.process_daily_matches import DailyMatchOrchestrator
 from scripts.updates.upsert_odds import OddsIngester
 from scripts.updates.discover_matches import MatchDiscoverer
+from scripts.updates.update_tennis_rankings import TennisRankingsUpdater
 from app.services.config_reader import ConfigReader
 
 logging.basicConfig(
@@ -67,6 +68,7 @@ async def run_forever():
     logger.info("BETIX Data Orchestrator Starting...")
 
     iteration = 0
+    last_rankings_date = None
 
     # INITIAL RUN (Startup Task)
     logger.info("[STARTUP] Running Daily Cleanup & Stats (process_daily_matches)...")
@@ -113,6 +115,20 @@ async def run_forever():
                     await processor.run()
                 except Exception as e:
                     logger.error(f"Error in DailyMatchOrchestrator: {e}")
+
+            # TENNIS RANKINGS (hebdomadaire, le lundi)
+            today = datetime.now(timezone.utc)
+            today_str = today.strftime("%Y-%m-%d")
+            is_monday = today.weekday() == 0
+            if is_monday and last_rankings_date != today_str:
+                logger.info("Running Tennis Rankings Update (weekly)...")
+                try:
+                    rankings_updater = TennisRankingsUpdater(top=100)
+                    await rankings_updater.run()
+                    last_rankings_date = today_str
+                    logger.info("Tennis Rankings Update complete.")
+                except Exception as e:
+                    logger.error(f"Error in TennisRankingsUpdater: {e}")
 
             iteration += 1
             if iteration > 14400: iteration = 0

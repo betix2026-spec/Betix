@@ -36,11 +36,16 @@ def run_fb_pipeline(targets: list):
         # 3. Rolling (Prend --match-id et --sport)
         logger.info(f"      -> Exécution de : update_match_rolling.py")
         cmd_rolling = [sys.executable, os.path.join(scripts_dir, "update_match_rolling.py"), "--sport", sport, "--match-id", str(api_id)]
-        
+
+        # 4. ELO (Prend --match-id et --sport)
+        logger.info(f"      -> Exécution de : update_match_elo.py")
+        cmd_elo = [sys.executable, os.path.join(scripts_dir, "update_match_elo.py"), "--sport", sport, "--match-id", str(api_id)]
+
         commands = [
             ("STATS", cmd_stats),
             ("H2H", cmd_h2h),
-            ("ROLLING", cmd_rolling)
+            ("ROLLING", cmd_rolling),
+            ("ELO", cmd_elo),
         ]
 
         for name, cmd in commands:

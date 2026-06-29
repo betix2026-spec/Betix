@@ -235,6 +235,12 @@ def compute_football_rolling(db, dry_run=False):
                 }
                 rows_to_insert.append(row)
 
+    seen = {}
+    for row in rows_to_insert:
+        key = (row["team_id"], row["date"], row["venue"])
+        seen[key] = row
+    rows_to_insert = list(seen.values())
+
     logger.info(f"  📝 {len(rows_to_insert)} lignes rolling à insérer")
 
     if not dry_run and rows_to_insert:
