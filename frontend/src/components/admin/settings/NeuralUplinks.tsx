@@ -19,13 +19,13 @@ interface APIKeyConfig {
 
 const initialKeys: APIKeyConfig[] = [
     { id: "api-sports", name: "API-Sports (Data Feed)", value: "Configured in server environment", status: "untested", type: "core" },
-    { id: "gemini", name: "Google Gemini (Neural Engine)", value: "Configured in server environment", status: "untested", type: "core" },
+    { id: "gemini", name: "Google Gemini (AI Engine)", value: "Configured in server environment", status: "untested", type: "core" },
     { id: "stripe", name: "Stripe (Payment Gateway)", value: "Configured in server environment", status: "untested", type: "financial" },
-    { id: "supabase", name: "Supabase (Data Core)", value: "Configured in server environment", status: "untested", type: "external" },
+    { id: "supabase", name: "Supabase (Database)", value: "Configured in server environment", status: "untested", type: "external" },
 ];
 
 export function NeuralUplinks() {
-    const { copy } = useI18n();
+    const { t } = useI18n();
     const [keys, setKeys] = useState(initialKeys);
     const [testing, setTesting] = useState<string | null>(null);
 
@@ -91,7 +91,7 @@ export function NeuralUplinks() {
                             <div className="flex items-center gap-2 md:w-48 justify-end">
                                 {testing === key.id ? (
                                     <Button disabled variant="outline" size="sm" className="w-full bg-white/5 border-white/10 text-neutral-400 gap-2 font-mono text-xs">
-                                        <RefreshCw className="size-3 animate-spin" /> {copy("PINGING...")}
+                                        <RefreshCw className="size-3 animate-spin" /> {t("settingsTestingLabel")}
                                     </Button>
                                 ) : (
                                     <Button
@@ -105,7 +105,7 @@ export function NeuralUplinks() {
                                                     "text-neutral-400 hover:text-white"
                                         )}
                                     >
-                                        <Zap className="size-3" /> {copy("TEST_LINK")}
+                                        <Zap className="size-3" /> {t("settingsTestConnection")}
                                     </Button>
                                 )}
                             </div>
@@ -125,7 +125,7 @@ export function NeuralUplinks() {
             </div>
 
             <Button variant="outline" className="w-full border-dashed border-white/10 text-neutral-500 hover:text-white hover:bg-white/5 h-12 uppercase tracking-widest text-xs font-bold">
-                + Add New Uplink
+                {t("settingsAddIntegration")}
             </Button>
         </div>
     );

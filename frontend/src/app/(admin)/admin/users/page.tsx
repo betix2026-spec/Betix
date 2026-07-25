@@ -42,7 +42,7 @@ export default function AdminUsersPage() {
             // Map DB names to UI names if necessary
             const mappedUsers = (data || []).map((u: any) => ({
                 ...u,
-                name: u.username || copy("Agent Inconnu"),
+                name: u.username || copy("Utilisateur inconnu"),
                 avatar: u.avatar_url,
                 joinDate: u.created_at ? new Date(u.created_at).toLocaleDateString(locale) : "N/A",
                 lastActive: u.last_active ? new Date(u.last_active).toLocaleString(locale) : copy("Jamais"),
@@ -99,19 +99,19 @@ export default function AdminUsersPage() {
             {/* Command Header */}
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-black uppercase tracking-tight text-white">{copy("The Agency")}</h1>
-                    <p className="text-sm font-mono text-neutral-500 mt-1">{copy(":: PERSONNEL DATABASE: ACCESS GRANTED ::")}</p>
+                    <h1 className="text-3xl font-black uppercase tracking-tight text-white">{copy("Utilisateurs (Admin)")}</h1>
+                    <p className="text-sm font-mono text-neutral-500 mt-1">{copy("Gérez les comptes utilisateurs")}</p>
                 </div>
                 <div className="flex items-center gap-2">
                     <Button variant="outline" size="sm" className="bg-black border-white/10 hover:bg-white/5 text-neutral-400 gap-2 font-mono text-xs h-9">
-                        <Download className="size-3.5" /> {copy("EXPORT_DATA")}
+                        <Download className="size-3.5" /> {copy("Exporter")}
                     </Button>
                     <Button
                         size="sm"
                         className="bg-white text-black hover:bg-neutral-200 gap-2 font-bold font-mono text-xs h-9"
                         onClick={() => setIsCreateOpen(true)}
                     >
-                        <UserPlus className="size-3.5" /> {copy("RECRUIT_AGENT")}
+                        <UserPlus className="size-3.5" /> {copy("Ajouter un utilisateur")}
                     </Button>
                 </div>
             </div>
@@ -121,7 +121,7 @@ export default function AdminUsersPage() {
                 <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-neutral-500" />
                     <Input
-                        placeholder={copy("_Rechercher un agent par nom ou matricule...")}
+                        placeholder={copy("Rechercher un utilisateur par nom ou e-mail...")}
                         className="pl-9 bg-transparent border-none text-white placeholder:text-neutral-600 focus-visible:ring-0 font-mono text-sm h-10"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
@@ -129,7 +129,7 @@ export default function AdminUsersPage() {
                 </div>
                 <div className="w-[1px] h-6 bg-white/10" />
                 <Button variant="ghost" size="sm" className="text-neutral-400 hover:text-white gap-2 font-mono text-xs">
-                    <Filter className="size-3.5" /> {copy("FILTERS")}
+                    <Filter className="size-3.5" /> {copy("Filtres")}
                 </Button>
             </div>
 

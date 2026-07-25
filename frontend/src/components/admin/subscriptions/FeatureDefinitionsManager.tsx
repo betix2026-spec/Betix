@@ -127,7 +127,7 @@ export function FeatureDefinitionsManager({ definitions, onUpdate }: FeatureDefi
                 <div className="flex items-center gap-3">
                     <Database className="size-4 text-neutral-500" />
                     <span className="text-xs font-bold uppercase tracking-widest text-neutral-400">
-                        {copy("Feature Registry")}
+                        {copy("Fonctionnalités")}
                     </span>
                     <Badge variant="secondary" className="text-[10px] font-mono">
                         {definitions.length}
@@ -310,7 +310,7 @@ export function FeatureDefinitionsManager({ definitions, onUpdate }: FeatureDefi
                         {definitions.length === 0 && (
                             <tr>
                                 <td colSpan={5} className="px-5 py-8 text-center text-neutral-600 font-mono text-xs">
-                                    {copy(":: AUCUNE FEATURE DÉFINIE ::")}
+                                    {copy("Aucune fonctionnalité définie")}
                                 </td>
                             </tr>
                         )}

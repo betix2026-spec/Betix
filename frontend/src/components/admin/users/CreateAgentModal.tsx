@@ -19,7 +19,7 @@ interface CreateAgentModalProps {
 }
 
 export function CreateAgentModal({ open, onClose, onSuccess }: CreateAgentModalProps) {
-    const { copy } = useI18n();
+    const { copy, t } = useI18n();
     const [isLoading, setIsLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [plans, setPlans] = useState<any[]>([]);
@@ -52,7 +52,7 @@ export function CreateAgentModal({ open, onClose, onSuccess }: CreateAgentModalP
     const handleSubmit = async () => {
         // Basic validation
         if (!formData.username || !formData.email || !formData.password) {
-            toast.error(copy("Please fill in all required fields"));
+            toast.error(t("adminFormRequiredFields"));
             return;
         }
 
@@ -62,7 +62,7 @@ export function CreateAgentModal({ open, onClose, onSuccess }: CreateAgentModalP
             const result = await createAgentAction(formData);
 
             if (result.success) {
-                toast.success(copy("Agent recruited successfully"));
+                toast.success(t("adminUserCreated"));
                 // Reset form
                 setFormData({
                     username: "",
@@ -77,7 +77,7 @@ export function CreateAgentModal({ open, onClose, onSuccess }: CreateAgentModalP
                 toast.error(`${copy("Erreur")}: ${result.error}`);
             }
         } catch (error) {
-            toast.error(copy("An unexpected error occurred"));
+            toast.error(t("adminUnexpectedError"));
             console.error(error);
         } finally {
             setIsLoading(false);
@@ -88,8 +88,8 @@ export function CreateAgentModal({ open, onClose, onSuccess }: CreateAgentModalP
         <Sheet open={open} onOpenChange={onClose}>
             <SheetContent className="w-full sm:max-w-lg border-l border-white/10 bg-black/95 backdrop-blur-xl p-0 shadow-2xl">
                 <SheetHeader className="sr-only">
-                    <SheetTitle>{copy("Recruit Agent")}</SheetTitle>
-                    <SheetDescription>{copy("Création d'un nouvel agent")}</SheetDescription>
+                    <SheetTitle>{t("adminCreateUserTitle")}</SheetTitle>
+                    <SheetDescription>{t("adminCreateUserDescription")}</SheetDescription>
                 </SheetHeader>
 
                 {/* Header */}
@@ -101,8 +101,8 @@ export function CreateAgentModal({ open, onClose, onSuccess }: CreateAgentModalP
                                 <UserPlus className="size-5 text-green-400" />
                             </div>
                             <div>
-                                <h2 className="text-lg font-black text-white uppercase tracking-widest">{copy("Recruit Agent")}</h2>
-                                <p className="text-[10px] font-mono text-neutral-500">{copy("NEW ENTRY PROTOCOL")}</p>
+                                <h2 className="text-lg font-black text-white uppercase tracking-widest">{t("adminCreateUserTitle")}</h2>
+                                <p className="text-[10px] font-mono text-neutral-500">{t("adminNewUserLabel")}</p>
                             </div>
                         </div>
                     </div>
@@ -113,20 +113,20 @@ export function CreateAgentModal({ open, onClose, onSuccess }: CreateAgentModalP
                     {/* Identity Section */}
                     <div className="space-y-4">
                         <h3 className="text-xs font-bold text-neutral-500 uppercase flex items-center gap-2">
-                            <User className="size-3.5" /> {copy("Identity Matrix")}
+                            <User className="size-3.5" /> {t("adminIdentitySection")}
                         </h3>
                         <div className="grid gap-4">
                             <div className="space-y-2">
-                                <Label className="text-xs font-mono text-neutral-400">{copy("CODENAME (USERNAME)")} *</Label>
+                                <Label className="text-xs font-mono text-neutral-400">{t("adminUsernameLabel")} *</Label>
                                 <Input
                                     value={formData.username}
                                     onChange={(e) => handleChange("username", e.target.value)}
                                     className="bg-white/5 border-white/10 text-white"
-                                    placeholder={copy("ex: Agent Smith")}
+                                    placeholder={t("adminUsernamePlaceholder")}
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label className="text-xs font-mono text-neutral-400">{copy("CONTACT (EMAIL)")} *</Label>
+                                <Label className="text-xs font-mono text-neutral-400">{t("adminEmailLabel")} *</Label>
                                 <Input
                                     value={formData.email}
                                     onChange={(e) => handleChange("email", e.target.value)}
@@ -142,14 +142,14 @@ export function CreateAgentModal({ open, onClose, onSuccess }: CreateAgentModalP
                     {/* Security Section */}
                     <div className="space-y-4">
                         <h3 className="text-xs font-bold text-neutral-500 uppercase flex items-center gap-2">
-                            <Key className="size-3.5" /> {copy("Security Clearance")}
+                            <Key className="size-3.5" /> {t("adminAccessSection")}
                         </h3>
                         <div className="space-y-2">
-                            <Label className="text-xs font-mono text-neutral-400">{copy("ACCESS_CODE (PASSWORD)")} *</Label>
+                            <Label className="text-xs font-mono text-neutral-400">{t("adminPasswordLabel")} *</Label>
                             <div className="relative">
                                 <Input
                                     type={showPassword ? "text" : "password"}
-                                    placeholder={copy("Minimum 6 characters")}
+                                    placeholder={t("adminPasswordHintMin")}
                                     value={formData.password}
                                     onChange={(e) => handleChange("password", e.target.value)}
                                     className="bg-white/5 border-white/10 text-white placeholder:text-neutral-600 pr-10"
@@ -164,15 +164,15 @@ export function CreateAgentModal({ open, onClose, onSuccess }: CreateAgentModalP
                             </div>
                         </div>
                         <div className="space-y-2">
-                            <Label className="text-xs font-mono text-neutral-400">{copy("ACCESS_LEVEL (ROLE)")}</Label>
+                            <Label className="text-xs font-mono text-neutral-400">{t("adminRoleLabel")}</Label>
                             <Select value={formData.role} onValueChange={(v) => handleChange("role", v)}>
                                 <SelectTrigger className="bg-white/5 border-white/10 text-white">
-                                    <SelectValue placeholder={copy("Select role")} />
+                                    <SelectValue placeholder={t("adminSelectRole")} />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="user">{copy("Agent (User)")}</SelectItem>
-                                    <SelectItem value="admin">{copy("Handler (Admin)")}</SelectItem>
-                                    <SelectItem value="super_admin">{copy("Director (Super Admin)")}</SelectItem>
+                                    <SelectItem value="user">{t("adminRoleUser")}</SelectItem>
+                                    <SelectItem value="admin">{t("adminRoleAdmin")}</SelectItem>
+                                    <SelectItem value="super_admin">{t("adminRoleSuperAdmin")}</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -183,16 +183,16 @@ export function CreateAgentModal({ open, onClose, onSuccess }: CreateAgentModalP
                     {/* Subscription Section */}
                     <div className="space-y-4">
                         <h3 className="text-xs font-bold text-neutral-500 uppercase flex items-center gap-2">
-                            <CreditCard className="size-3.5" /> {copy("Resource Allocation")}
+                            <CreditCard className="size-3.5" /> {t("adminSubscriptionSection")}
                         </h3>
                         <div className="space-y-2">
-                            <Label className="text-xs font-mono text-neutral-400">{copy("INITIAL PLAN")}</Label>
+                            <Label className="text-xs font-mono text-neutral-400">{t("adminInitialPlanLabel")}</Label>
                             <Select value={formData.plan_id} onValueChange={(v) => handleChange("plan_id", v)}>
                                 <SelectTrigger className="bg-white/5 border-white/10 text-white">
-                                    <SelectValue placeholder={copy("Select plan")} />
+                                    <SelectValue placeholder={t("adminSelectPlan")} />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="free">{copy("Rookie (Free)")}</SelectItem>
+                                    <SelectItem value="free">{t("adminPlanFree")}</SelectItem>
                                     {plans.filter(p => p.id !== 'free').map((plan) => (
                                         <SelectItem key={plan.id} value={plan.id}>
                                             {plan.name} ({plan.price}€)
@@ -208,7 +208,7 @@ export function CreateAgentModal({ open, onClose, onSuccess }: CreateAgentModalP
                 {/* Footer Actions */}
                 <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/10 bg-black/90 backdrop-blur-md flex gap-3">
                     <Button variant="ghost" className="flex-1 text-neutral-400 hover:text-white hover:bg-white/5" onClick={onClose}>
-                        {copy("CANCEL")}
+                        {t("adminCancelButton")}
                     </Button>
                     <Button
                         className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold"
@@ -216,10 +216,10 @@ export function CreateAgentModal({ open, onClose, onSuccess }: CreateAgentModalP
                         disabled={isLoading}
                     >
                         {isLoading ? (
-                            copy("RECRUITING...")
+                            t("adminCreatingButton")
                         ) : (
                             <>
-                                <Save className="size-4 mr-2" /> {copy("CONFIRM RECRUITMENT")}
+                                <Save className="size-4 mr-2" /> {t("adminConfirmCreateButton")}
                             </>
                         )}
                     </Button>

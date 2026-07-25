@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { useI18n } from "@/lib/use-i18n";
 
 export default function MFAPage() {
-    const { locale, t, copy } = useI18n();
+    const { locale, t } = useI18n();
     const [isLoading, setIsLoading] = useState(false);
     const [code, setCode] = useState("");
     const [error, setError] = useState<string | null>(null);
@@ -59,15 +59,15 @@ export default function MFAPage() {
                 <div className="inline-flex items-center justify-center p-3 rounded-full bg-blue-500/10 border border-blue-500/20 mb-4">
                     <ShieldCheck className="size-8 text-blue-400" />
                 </div>
-                <h2 className="text-xl font-bold text-white tracking-tight uppercase">{copy("MFA Required")}</h2>
+                <h2 className="text-xl font-bold text-white tracking-tight uppercase">{t("mfaTitle")}</h2>
                 <p className="text-sm text-neutral-500 mt-2">
-                    {copy("Enter the code from your authenticator app to authorize session.")}
+                    {t("mfaDescription")}
                 </p>
             </div>
 
             <form onSubmit={handleVerify} className="space-y-6">
                 <BiometricInput
-                    label={copy("Verification Code")}
+                    label={t("mfaCodeLabel")}
                     type="text"
                     icon={MessageSquare}
                     placeholder="000000"
@@ -87,7 +87,7 @@ export default function MFAPage() {
                 <SecurityScanner
                     type="submit"
                     isLoading={isLoading}
-                    label={copy("VERIFY CLEARANCE")}
+                    label={t("mfaVerifyButton")}
                 />
             </form>
 

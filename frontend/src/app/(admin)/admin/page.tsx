@@ -28,8 +28,8 @@ export default function AdminDashboardPage() {
         <div className="space-y-8 animate-fade-in pb-12">
             {/* Header */}
             <div>
-                <h1 className="text-3xl font-black uppercase tracking-tight text-white">{copy("Mission Control")}</h1>
-                <p className="text-sm font-mono text-neutral-500 mt-1">{copy(":: SYSTEM STATUS: ONLINE ::")}</p>
+                <h1 className="text-3xl font-black uppercase tracking-tight text-white">{copy("Vue d'ensemble")}</h1>
+                <p className="text-sm font-mono text-neutral-500 mt-1">{copy("System status: online")}</p>
                 <p className="text-xs text-neutral-600 mt-2">{copy("Mode Sans Échec: Données de démonstration désactivées.")}</p>
             </div>
 

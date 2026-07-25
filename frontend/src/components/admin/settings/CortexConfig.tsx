@@ -9,7 +9,7 @@ import { Brain, Cpu, Zap, Thermometer } from "lucide-react";
 import { useI18n } from "@/lib/use-i18n";
 
 export function CortexConfig() {
-    const { copy } = useI18n();
+    const { copy, t } = useI18n();
     const [temperature, setTemperature] = useState([0.7]);
     const [tokens, setTokens] = useState([2048]);
 
@@ -29,10 +29,10 @@ export function CortexConfig() {
                         <Brain className="size-6" />
                     </div>
                     <div>
-                        <h2 className="text-xl font-black text-white uppercase tracking-tight">{copy("Cortex Configuration")}</h2>
+                        <h2 className="text-xl font-black text-white uppercase tracking-tight">{t("settingsAiModelTitle")}</h2>
                         <div className="flex items-center gap-2 text-[10px] font-mono text-neutral-500">
-                            <span>{copy("NEURAL_ENGINE_V2.5")}</span>
-                            {isOverclocked && <span className="text-red-500 font-bold animate-pulse">{copy(":: OVERCLOCK ACTIVE ::")}</span>}
+                            <span>{t("settingsAiEngineLabel")}</span>
+                            {isOverclocked && <span className="text-red-500 font-bold animate-pulse">{t("settingsHighCreativityBadge")}</span>}
                         </div>
                     </div>
                 </div>
@@ -60,7 +60,7 @@ export function CortexConfig() {
                 <div className="space-y-4">
                     <div className="flex items-center justify-between">
                         <Label className="text-xs font-bold uppercase tracking-widest text-neutral-400 flex items-center gap-2">
-                            <Thermometer className="size-3.5" /> {copy("Creativity Temp")}
+                            <Thermometer className="size-3.5" /> {t("settingsCreativityLabel")}
                         </Label>
                         <span className={cn("font-mono font-bold text-sm",
                             temperature[0] > 0.8 ? "text-red-500" : "text-blue-400"

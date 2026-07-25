@@ -11,7 +11,7 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { useI18n } from "@/lib/use-i18n";
 
 export default function ProfilePage() {
-    const { copy, locale } = useI18n();
+    const { copy, t, locale } = useI18n();
     const { isAdmin, isLoading, profile: authProfile } = useAuth();
     const router = useRouter();
 
@@ -97,13 +97,13 @@ export default function ProfilePage() {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     {/* 2. Season Pass (Left Col) */}
                     <section className="lg:col-span-2 space-y-4">
-                        <h2 className="text-lg font-black uppercase tracking-widest text-white/50 px-2">{copy("Season Pass")}</h2>
+                        <h2 className="text-lg font-black uppercase tracking-widest text-white/50 px-2">{t("profilePlanHeading")}</h2>
                         <SeasonPass subscription={profile.subscription} />
                     </section>
 
                     {/* 3. Control Deck (Right Col + Full Width below) */}
                     <section className="lg:col-span-3 space-y-4 pt-4">
-                        <h2 className="text-lg font-black uppercase tracking-widest text-white/50 px-2">{copy("Control Deck")}</h2>
+                        <h2 className="text-lg font-black uppercase tracking-widest text-white/50 px-2">{t("profileSettingsHeading")}</h2>
                         <ControlDeck profile={profile} />
                     </section>
                 </div>

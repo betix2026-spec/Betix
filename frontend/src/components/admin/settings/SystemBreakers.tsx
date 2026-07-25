@@ -11,7 +11,7 @@ import { FootballIcon, BasketballIcon, TennisIcon } from "@/components/icons/Spo
 import { useI18n } from "@/lib/use-i18n";
 
 export function SystemBreakers() {
-    const { copy } = useI18n();
+    const { copy, t } = useI18n();
     const [maintenance, setMaintenance] = useState(false);
 
     return (
@@ -20,14 +20,14 @@ export function SystemBreakers() {
             {/* Operational Sectors (Sports) */}
             <div className="rounded-2xl bg-black/40 border border-white/10 backdrop-blur-xl p-6">
                 <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-500 mb-6 flex items-center gap-2">
-                    <Power className="size-3.5" /> {copy("Operational Sectors")}
+                    <Power className="size-3.5" /> {t("settingsSportsSection")}
                 </h2>
 
                 <div className="space-y-4">
                     {[
-                        { label: copy("Football Operations"), icon: FootballIcon, active: true },
-                        { label: copy("Basketball Operations"), icon: BasketballIcon, active: true },
-                        { label: copy("Tennis Operations"), icon: TennisIcon, active: true },
+                        { label: t("settingsFootball"), icon: FootballIcon, active: true },
+                        { label: t("settingsBasketball"), icon: BasketballIcon, active: true },
+                        { label: t("settingsTennis"), icon: TennisIcon, active: true },
                     ].map((sector, i) => (
                         <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 group hover:border-white/10 transition-colors">
                             <div className="flex items-center gap-3">
@@ -49,9 +49,9 @@ export function SystemBreakers() {
             )}>
                 <div className="flex items-center justify-between mb-6">
                     <h2 className={cn("text-xs font-bold uppercase tracking-widest flex items-center gap-2", maintenance ? "text-red-500 animate-pulse" : "text-neutral-500")}>
-                        <AlertTriangle className="size-3.5" /> {copy("Emergency Protocols")}
+                        <AlertTriangle className="size-3.5" /> {t("settingsMaintenanceSection")}
                     </h2>
-                    {maintenance && <span className="text-[10px] font-mono font-bold text-red-500 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">{copy("SYSTEM LOCKDOWN")}</span>}
+                    {maintenance && <span className="text-[10px] font-mono font-bold text-red-500 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">{t("settingsMaintenanceActiveBadge")}</span>}
                 </div>
 
                 <div className="space-y-6">
@@ -59,7 +59,7 @@ export function SystemBreakers() {
                     {/* The Big Switch */}
                     <div className="flex items-center justify-between">
                         <div>
-                            <Label className={cn("text-sm font-bold", maintenance ? "text-red-400" : "text-white")}>{copy("Maintenance Mode")}</Label>
+                            <Label className={cn("text-sm font-bold", maintenance ? "text-red-400" : "text-white")}>{t("settingsMaintenanceModeLabel")}</Label>
                             <p className="text-xs text-neutral-500 mt-1">{copy("Restrict access to admin personnel only.")}</p>
                         </div>
                         <Switch
@@ -74,13 +74,13 @@ export function SystemBreakers() {
                     {/* System Actions */}
                     <div className="grid grid-cols-2 gap-3">
                         <Button variant="outline" className="h-10 border-white/10 hover:bg-white/5 bg-transparent text-xs hover:text-white text-neutral-400">
-                            <RefreshCw className="size-3.5 mr-2" /> {copy("FLUSH_CACHE")}
+                            <RefreshCw className="size-3.5 mr-2" /> {t("settingsClearCache")}
                         </Button>
                         <Button variant="outline" className="h-10 border-white/10 hover:bg-white/5 bg-transparent text-xs hover:text-white text-neutral-400">
-                            <Database className="size-3.5 mr-2" /> {copy("REBUILD_INDEX")}
+                            <Database className="size-3.5 mr-2" /> {t("settingsRebuildIndex")}
                         </Button>
                         <Button variant="outline" className="col-span-2 h-10 border-white/10 hover:bg-white/5 bg-transparent text-xs hover:text-white text-neutral-400">
-                            <Download className="size-3.5 mr-2" /> {copy("EXPORT_SYSTEM_LOGS")}
+                            <Download className="size-3.5 mr-2" /> {t("settingsExportLogs")}
                         </Button>
                     </div>
 

@@ -24,7 +24,7 @@ interface HolographicStreamProps {
 }
 
 export function HolographicStream({ notifications, onMarkRead }: HolographicStreamProps) {
-    const { copy } = useI18n();
+    const { copy, t } = useI18n();
 
     if (notifications.length === 0) {
         return (
@@ -32,8 +32,8 @@ export function HolographicStream({ notifications, onMarkRead }: HolographicStre
                 <div className="size-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
                     <Check className="size-8 text-neutral-500" />
                 </div>
-                <h3 className="text-lg font-bold text-white mb-1">{copy("ALL_CLEAR")}</h3>
-                <p className="text-sm font-mono text-neutral-500">{copy("No incoming transmissions.")}</p>
+                <h3 className="text-lg font-bold text-white mb-1">{t("notifAllClearTitle")}</h3>
+                <p className="text-sm font-mono text-neutral-500">{t("notifNoneDescription")}</p>
             </div>
         );
     }
@@ -89,7 +89,7 @@ export function HolographicStream({ notifications, onMarkRead }: HolographicStre
                                     <div className="flex items-center gap-2">
                                         {isCritical && (
                                             <Badge variant="destructive" className="animate-pulse bg-red-500/20 text-red-500 border-red-500/50 uppercase tracking-wider text-[9px] h-5">
-                                                {copy("CRITICAL_ALERT")}
+                                                {t("notifCriticalBadge")}
                                             </Badge>
                                         )}
                                         <h3 className={cn("text-base font-bold truncate", isCritical ? "text-red-400" : "text-white")}>
@@ -127,7 +127,7 @@ export function HolographicStream({ notifications, onMarkRead }: HolographicStre
                                             onClick={() => onMarkRead(notif.id)}
                                             className="h-7 text-[10px] text-neutral-500 hover:text-white uppercase tracking-wider"
                                         >
-                                            {copy("Ack_Receipt")}
+                                            {t("notifAcknowledgeButton")}
                                         </Button>
                                     )}
                                 </div>

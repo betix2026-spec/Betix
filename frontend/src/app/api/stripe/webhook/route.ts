@@ -132,6 +132,13 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
             estimated_refund_amount: null,
         });
 
+    if (status === 'trialing') {
+        await supabaseAdmin
+            .from('profiles')
+            .update({ has_used_trial: true })
+            .eq('id', userId);
+    }
+
     console.log(`[Stripe/Webhook] Subscription saved for user ${userId}, status: ${status}`);
 }
 

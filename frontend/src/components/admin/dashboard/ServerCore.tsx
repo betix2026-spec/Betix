@@ -10,14 +10,14 @@ interface ServerCoreProps {
 }
 
 export function ServerCore({ services }: ServerCoreProps) {
-    const { copy } = useI18n();
+    const { copy, t } = useI18n();
     return (
         <div className="rounded-3xl bg-black/40 border border-white/10 backdrop-blur-xl p-6 h-full flex flex-col">
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-2">
                     <Activity className="size-5 text-neutral-500 animate-pulse" />
-                    <h3 className="text-sm font-bold uppercase tracking-widest text-neutral-500">{copy("System Cores")}</h3>
+                    <h3 className="text-sm font-bold uppercase tracking-widest text-neutral-500">{t("dashboardSystemStatus")}</h3>
                 </div>
                 <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 text-[10px] font-mono text-neutral-400">
                     <div className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />

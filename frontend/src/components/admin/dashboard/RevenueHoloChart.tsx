@@ -10,7 +10,7 @@ interface RevenueHoloChartProps {
 }
 
 export function RevenueHoloChart({ data }: RevenueHoloChartProps) {
-    const { copy } = useI18n();
+    const { copy, t } = useI18n();
     const maxRevenue = Math.max(...data.map(d => d.revenue));
 
     return (
@@ -31,7 +31,7 @@ export function RevenueHoloChart({ data }: RevenueHoloChartProps) {
                             <BarChart3 className="size-5 text-emerald-400" />
                             {copy("Revenus Mensuels")}
                         </h3>
-                        <p className="text-sm text-neutral-500 font-mono mt-1">{copy("Projection holographique temps réel")}</p>
+                        <p className="text-sm text-neutral-500 font-mono mt-1">{t("dashboardRevenueSubtitle")}</p>
                     </div>
                     <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold uppercase tracking-wider">
                         <TrendingUp className="size-3.5" />

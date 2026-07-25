@@ -12,12 +12,12 @@ interface SignalProcessorProps {
 }
 
 export function SignalProcessor({ filter, counts, onFilterChange }: SignalProcessorProps) {
-    const { copy } = useI18n();
+    const { t } = useI18n();
     const frequencies = [
-        { id: "all", label: copy("ALL_FREQUENCIES"), icon: RadioTower, color: "text-neutral-400" },
-        { id: "system", label: copy("SYSTEM_CORE"), icon: Settings, color: "text-blue-400" },
-        { id: "user", label: copy("AGENT_COMMS"), icon: MessageSquare, color: "text-emerald-400" },
-        { id: "critical", label: copy("CRITICAL_ALERTS"), icon: ShieldAlert, color: "text-red-500" },
+        { id: "all", label: t("commsFilterAll"), icon: RadioTower, color: "text-neutral-400" },
+        { id: "system", label: t("commsFilterSystem"), icon: Settings, color: "text-blue-400" },
+        { id: "user", label: t("commsFilterUsers"), icon: MessageSquare, color: "text-emerald-400" },
+        { id: "critical", label: t("commsCriticalLevel"), icon: ShieldAlert, color: "text-red-500" },
     ] as const;
 
     return (

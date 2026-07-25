@@ -19,6 +19,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { PremiumGate } from "@/components/dashboard/PremiumGate";
 import { BreathingGauge } from "@/components/ui/breathing-gauge";
 import { useI18n } from "@/lib/use-i18n";
+import { localizeAnalysisText } from "@/lib/i18n";
 
 function VerdictSection({ summary }: { summary: string }) {
     const { copy } = useI18n();
@@ -99,6 +100,7 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                 // Parse predictions from audit analysis if available
                 let aiPredictions: Prediction[] = [];
                 let parsedOdds: Record<string, any> = {};
+                let aiSummaryText: string | undefined;
 
                 if (auditData?.odds) {
                     parsedOdds = typeof auditData.odds === 'string' ? JSON.parse(auditData.odds) : auditData.odds;
@@ -180,7 +182,7 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                                 confidence: item.confidence_score || item.confidence || (level === "safe" ? 85 : level === "value" ? 65 : 45),
                                 level: level,
                                 rank: item.rank || 1,
-                                analysis: item.analysis || copy("Aucune analyse détaillée fournie."),
+                                analysis: item.analysis ? localizeAnalysisText(item.analysis, locale) : copy("Aucune analyse détaillée fournie."),
                                 keyFactors: []
                             });
                         });
@@ -189,6 +191,9 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                     processCategory(categories.high_confidence, "safe");
                     processCategory(categories.medium_confidence, "value");
                     processCategory(categories.risky, "risky");
+
+                    const rawSummary = analysis.match_summary || analysis.summary;
+                    aiSummaryText = rawSummary ? localizeAnalysisText(rawSummary, locale) : undefined;
                 }
 
                 const transformed: Match = {
@@ -220,7 +225,7 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                     scoreDetails: matchData.score?.details,
                     venue: matchData.venue || "Stadium",
                     predictions: aiPredictions,
-                    aiSummary: auditData?.ai_analysis?.match_summary || auditData?.ai_analysis?.summary || (aiPredictions.length > 0 ? copy("Le modèle d'intelligence artificielle a analysé l'historique de performances, les expected goals (xG), la dynamique de possession et le différentiel de classement (ELO) pour proposer des verdicts mesurés sur cette rencontre. Retrouvez le détail de l'analyse ci-dessous.") : undefined),
+                    aiSummary: aiSummaryText || (aiPredictions.length > 0 ? copy("Le modèle d'intelligence artificielle a analysé l'historique de performances, les expected goals (xG), la dynamique de possession et le différentiel de classement (ELO) pour proposer des verdicts mesurés sur cette rencontre. Retrouvez le détail de l'analyse ci-dessous.") : undefined),
                     aiAudit: auditData ? {
                         snapshot_at: auditData.snapshot_at,
                         odds: auditData.odds,

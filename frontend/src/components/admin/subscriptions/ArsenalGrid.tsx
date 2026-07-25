@@ -21,7 +21,7 @@ export function ArsenalGrid({ plans, definitions, onEditPlan }: ArsenalGridProps
         return (
             <div className="flex flex-col items-center justify-center p-12 border border-dashed border-white/10 rounded-3xl bg-white/5 text-neutral-400">
                 <AlertTriangle className="size-10 mb-4 text-amber-500" />
-                <h3 className="text-xl font-bold text-white">{copy("Aucun Plan Déployé")}</h3>
+                <h3 className="text-xl font-bold text-white">{copy("Aucun plan créé")}</h3>
                 <p>{copy("Initialisez la base de données ou vérifiez la connexion.")}</p>
             </div>
         );
@@ -162,7 +162,7 @@ export function ArsenalGrid({ plans, definitions, onEditPlan }: ArsenalGridProps
                                 onClick={() => onEditPlan(plan)}
                                 className={cn("w-full font-bold uppercase tracking-widest bg-white/5 hover:bg-white/10 border border-white/10 text-white")}
                             >
-                                <Settings className="size-4 mr-2" /> {copy("Configurer Loadout")}
+                                <Settings className="size-4 mr-2" /> {copy("Configurer")}
                             </Button>
                         </div>
 

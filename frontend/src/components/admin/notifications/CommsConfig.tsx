@@ -19,7 +19,7 @@ interface CommsConfigProps {
 }
 
 export function CommsConfig({ open, onClose }: CommsConfigProps) {
-    const { copy } = useI18n();
+    const { copy, t } = useI18n();
     const [isSending, setIsSending] = useState(false);
     const [sendForm, setSendForm] = useState({ title: "", message: "", targetUserId: "" });
 
@@ -37,10 +37,10 @@ export function CommsConfig({ open, onClose }: CommsConfigProps) {
             });
 
             if (result.success) {
-                toast.success(copy("Signal transmis avec succès."));
+                toast.success(copy("Message envoyé avec succès."));
                 setSendForm({ title: "", message: "", targetUserId: "" });
             } else {
-                toast.error(result.error || copy("Échec de transmission."));
+                toast.error(result.error || copy("Échec de l'envoi."));
             }
         } catch (error) {
             toast.error(copy("Erreur système."));
@@ -53,7 +53,7 @@ export function CommsConfig({ open, onClose }: CommsConfigProps) {
         <Sheet open={open} onOpenChange={onClose}>
             <SheetContent className="w-full sm:max-w-md border-l border-white/10 bg-black/95 backdrop-blur-xl p-0 shadow-2xl">
                 <SheetHeader className="sr-only">
-                    <SheetTitle>{copy("Comms Configuration")}</SheetTitle>
+                    <SheetTitle>{t("commsConfigTitle")}</SheetTitle>
                     <SheetDescription>{copy("Paramètres de réception des alertes")}</SheetDescription>
                 </SheetHeader>
 
@@ -65,8 +65,8 @@ export function CommsConfig({ open, onClose }: CommsConfigProps) {
                             <RadioTower className="size-5 text-white animate-pulse" />
                         </div>
                         <div>
-                            <h2 className="text-lg font-black text-white uppercase tracking-widest">{copy("Comms Config")}</h2>
-                            <p className="text-[10px] font-mono text-neutral-500">{copy("SIGNAL_ROUTING_PROTOCOLS")}</p>
+                            <h2 className="text-lg font-black text-white uppercase tracking-widest">{t("commsConfigTitle")}</h2>
+                            <p className="text-[10px] font-mono text-neutral-500">{t("commsRoutingLabel")}</p>
                         </div>
                     </div>
                 </div>
@@ -86,7 +86,7 @@ export function CommsConfig({ open, onClose }: CommsConfigProps) {
                                         <Mail className="size-4" />
                                     </div>
                                     <div>
-                                        <Label className="text-sm font-bold text-white">{copy("Email Uplink")}</Label>
+                                        <Label className="text-sm font-bold text-white">{t("commsEmailLabel")}</Label>
                                         <p className="text-[10px] text-neutral-500">{copy("Critical alerts only")}</p>
                                     </div>
                                 </div>
@@ -100,7 +100,7 @@ export function CommsConfig({ open, onClose }: CommsConfigProps) {
                                     </div>
                                     <div>
                                         <Label className="text-sm font-bold text-white">{copy("Push Notifications")}</Label>
-                                        <p className="text-[10px] text-neutral-500">{copy("Real-time signal feed")}</p>
+                                        <p className="text-[10px] text-neutral-500">{t("commsRealtimeAlertsDescription")}</p>
                                     </div>
                                 </div>
                                 <Switch defaultChecked />
@@ -113,24 +113,24 @@ export function CommsConfig({ open, onClose }: CommsConfigProps) {
                     {/* Alert Thresholds */}
                     <div className="space-y-4">
                         <h3 className="text-xs font-bold text-neutral-500 uppercase flex items-center gap-2">
-                            <Volume2 className="size-3.5" /> {copy("Signal Intensity")}
+                            <Volume2 className="size-3.5" /> {t("commsAlertLevelsSection")}
                         </h3>
                         <div className="p-3 rounded-lg border border-white/10 bg-white/5 space-y-3">
                             <div className="flex items-center justify-between">
-                                <span className="text-xs font-mono text-neutral-400">{copy("INFO_LEVEL_LOGS")}</span>
+                                <span className="text-xs font-mono text-neutral-400">{t("commsInfoLevel")}</span>
                                 <Switch />
                             </div>
                             <div className="flex items-center justify-between">
-                                <span className="text-xs font-mono text-neutral-400">{copy("WARNING_LEVEL_LOGS")}</span>
+                                <span className="text-xs font-mono text-neutral-400">{t("commsWarningLevel")}</span>
                                 <Switch defaultChecked />
                             </div>
                             <div className="flex items-center justify-between">
-                                <span className="text-xs font-mono text-red-400 font-bold">{copy("CRITICAL_ALERTS")}</span>
+                                <span className="text-xs font-mono text-red-400 font-bold">{t("commsCriticalLevel")}</span>
                                 <Switch defaultChecked disabled className="opacity-50 cursor-not-allowed data-[state=checked]:bg-red-500" />
                             </div>
                         </div>
                         <p className="text-[10px] text-neutral-600 italic">
-                            {copy("*Critical alerts cannot be disabled via this terminal. Contact SysAdmin for override.")}
+                            {t("commsCriticalAlertsNote")}
                         </p>
                     </div>
 
@@ -139,7 +139,7 @@ export function CommsConfig({ open, onClose }: CommsConfigProps) {
 
                     <div className="space-y-4">
                         <h3 className="text-xs font-bold text-neutral-500 uppercase flex items-center gap-2">
-                            <RadioTower className="size-3.5" /> {copy("Broadcast Channel")}
+                            <RadioTower className="size-3.5" /> {t("commsBroadcastSection")}
                         </h3>
 
                         <form onSubmit={handleSendMessage} className="space-y-3 p-4 rounded-xl border border-white/10 bg-white/5">
@@ -180,7 +180,7 @@ export function CommsConfig({ open, onClose }: CommsConfigProps) {
                                 disabled={isSending}
                                 className="w-full h-8 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white mt-2"
                             >
-                                {isSending ? copy("Transmission...") : copy("Envoyer Signal")}
+                                {isSending ? t("commsSendingLabel") : t("commsSendButton")}
                             </Button>
                         </form>
                     </div>
@@ -190,7 +190,7 @@ export function CommsConfig({ open, onClose }: CommsConfigProps) {
                 {/* Footer Actions */}
                 <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/10 bg-black/90 backdrop-blur-md">
                     <Button onClick={onClose} className="w-full bg-white text-black font-bold hover:bg-neutral-200">
-                        <Save className="size-4 mr-2" /> {copy("UPDATE PROTOCOLS")}
+                        <Save className="size-4 mr-2" /> {t("adminSaveButton")}
                     </Button>
                 </div>
 
