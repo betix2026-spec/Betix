@@ -22,7 +22,7 @@ export default async function AdminLayout({
     if (!user) {
         // If no user at all, technical redirect to login is usually safe enough 
         // because we don't need to save a session cookie.
-        redirect("/login");
+        redirect("/login?redirect=/admin");
     }
 
     // 3. Check Admin Role
