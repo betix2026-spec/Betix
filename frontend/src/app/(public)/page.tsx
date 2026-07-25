@@ -30,7 +30,7 @@ import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/server";
 import { getDisplayFeatures } from "@/lib/plans";
 import { getServerLocale } from "@/lib/i18n-server";
-import { copy, t } from "@/lib/i18n";
+import { copy, t, pickLocalized } from "@/lib/i18n";
 import type { FeatureDefinition, Plan } from "@/types/plans";
 
 /* ================================================================
@@ -561,7 +561,7 @@ export default async function LandingPage() {
                                 const isPremium = plan.frequency !== 'free';
 
                                 // Use standard utility to get formatted features, just like /pricing page
-                                const allDisplayFeatures = getDisplayFeatures(plan, (definitions || []) as FeatureDefinition[]);
+                                const allDisplayFeatures = getDisplayFeatures(plan, (definitions || []) as FeatureDefinition[], locale);
                                 // Take the first 2 included features
                                 const planFeatures = allDisplayFeatures.filter((f: { text: string, included: boolean }) => f.included).slice(0, 2);
 
@@ -589,7 +589,7 @@ export default async function LandingPage() {
                                             {/* Top Section (Title, Badge, Price, Description) */}
                                             <div className="flex-1 flex flex-col justify-start">
                                                 <div className="mb-4 text-muted-foreground font-mono text-sm uppercase tracking-wider flex justify-between items-center">
-                                                    <span>{plan.name}</span>
+                                                    <span>{pickLocalized(locale, plan.name, { en: plan.name_en, es: plan.name_es, de: plan.name_de })}</span>
                                                 </div>
 
                                                 <div className="min-h-[28px] mb-4">
@@ -617,7 +617,9 @@ export default async function LandingPage() {
                                                 </div>
 
                                                 <p className={cn("text-sm mt-2", isPremium ? "text-blue-200/60" : "text-muted-foreground")}>
-                                                    {plan.description || (isPremium ? t(locale, "premiumPlanDescription") : t(locale, "freePlanDescription"))}
+                                                    {plan.description
+                                                        ? pickLocalized(locale, plan.description, { en: plan.description_en, es: plan.description_es, de: plan.description_de })
+                                                        : (isPremium ? t(locale, "premiumPlanDescription") : t(locale, "freePlanDescription"))}
                                                 </p>
                                             </div>
 

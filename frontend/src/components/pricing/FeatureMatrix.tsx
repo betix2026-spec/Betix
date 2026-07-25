@@ -3,6 +3,8 @@
 import { cn } from "@/lib/utils";
 import { Check, Minus, Zap, Shield, Crown, Lock } from "lucide-react";
 import { Plan, FeatureDefinition, PlanFeatures } from "@/types/plans";
+import { useI18n } from "@/lib/use-i18n";
+import { pickLocalized } from "@/lib/i18n";
 
 interface FeatureMatrixProps {
     plans: Plan[];
@@ -10,6 +12,7 @@ interface FeatureMatrixProps {
 }
 
 export function FeatureMatrix({ plans, definitions }: FeatureMatrixProps) {
+    const { t, locale } = useI18n();
     const planCount = plans.length;
     // Dynamic grid setup
     const gridStyle = {
@@ -17,9 +20,9 @@ export function FeatureMatrix({ plans, definitions }: FeatureMatrixProps) {
     };
 
     const categories: { key: keyof PlanFeatures; label: string }[] = [
-        { key: "core", label: "Core Features" },
-        { key: "advanced", label: "Advanced Intelligence" },
-        { key: "vip", label: "VIP Service" }
+        { key: "core", label: t("coreFeaturesCategory") },
+        { key: "advanced", label: t("advancedFeaturesCategory") },
+        { key: "vip", label: t("vipFeaturesCategory") }
     ];
 
     // Helper to get visual flavor for a plan
@@ -47,7 +50,7 @@ export function FeatureMatrix({ plans, definitions }: FeatureMatrixProps) {
             <div className="grid min-w-[800px]" style={gridStyle}>
                 {/* Header labels */}
                 <div className="col-span-1 p-6 border-b border-white/10 bg-white/5 text-sm font-bold uppercase text-neutral-500 tracking-widest flex items-center">
-                    Comparison Matrix
+                    {t("comparisonMatrixHeader")}
                 </div>
                 {plans.map((plan) => {
                     const flavor = getPlanFlavor(plan);
@@ -55,7 +58,7 @@ export function FeatureMatrix({ plans, definitions }: FeatureMatrixProps) {
                         <div key={plan.id} className="p-6 border-b border-white/10 bg-white/5 flex flex-col items-center justify-center gap-1 border-l border-white/5">
                             <div className={cn("font-black flex items-center gap-2 text-center", flavor.color)}>
                                 {flavor.icon}
-                                {plan.name}
+                                {pickLocalized(locale, plan.name, { en: plan.name_en, es: plan.name_es, de: plan.name_de })}
                             </div>
                         </div>
                     );
@@ -81,7 +84,9 @@ export function FeatureMatrix({ plans, definitions }: FeatureMatrixProps) {
                                 {/* Rows */}
                                 {featIds.map((featId) => {
                                     const def = definitions.find(d => d.id === featId);
-                                    const label = def?.label || featId;
+                                    const label = def
+                                        ? pickLocalized(locale, def.label, { en: def.label_en, es: def.label_es, de: def.label_de })
+                                        : featId;
 
                                     return (
                                         <div key={featId} className="grid hover:bg-white/5 transition-colors group" style={gridStyle}>

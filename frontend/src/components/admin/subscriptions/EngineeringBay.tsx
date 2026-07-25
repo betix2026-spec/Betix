@@ -10,7 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, Save, Archive, DollarSign, Package, Star, X, Check, Plus, Loader2, Percent, Info, Rocket } from "lucide-react";
+import { Settings, Save, Archive, DollarSign, Package, Star, X, Check, Plus, Loader2, Percent, Info, Rocket, Globe2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { updatePlanAction, createPlanAction, UpdatePlanData } from "@/app/(admin)/admin/subscriptions/actions";
 import { useRouter } from "next/navigation";
@@ -43,7 +43,13 @@ export function EngineeringBay({ plan, definitions, open, onClose, onSuccess }: 
                 console.log("[EngineeringBay] Resetting form with fresh plan data:", plan.name, plan.price);
                 setFormData({
                     name: plan.name,
+                    name_en: plan.name_en || "",
+                    name_es: plan.name_es || "",
+                    name_de: plan.name_de || "",
                     description: plan.description || "",
+                    description_en: plan.description_en || "",
+                    description_es: plan.description_es || "",
+                    description_de: plan.description_de || "",
                     price: plan.price,
                     frequency: plan.frequency,
                     features: JSON.parse(JSON.stringify(plan.features)), // Deep copy
@@ -61,7 +67,13 @@ export function EngineeringBay({ plan, definitions, open, onClose, onSuccess }: 
                 console.log("[EngineeringBay] Resetting form for creation mode");
                 setFormData({
                     name: "",
+                    name_en: "",
+                    name_es: "",
+                    name_de: "",
                     description: "",
+                    description_en: "",
+                    description_es: "",
+                    description_de: "",
                     price: 0,
                     frequency: 'monthly', // Default
                     features: { core: {}, advanced: {}, vip: {} },
@@ -216,6 +228,72 @@ export function EngineeringBay({ plan, definitions, open, onClose, onSuccess }: 
                                         placeholder="ex: bg-amber-500 text-black"
                                     />
                                     <p className="text-[9px] text-neutral-600">{copy("Classes Tailwind pour le style du badge")}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <Separator className="bg-white/5" />
+
+                    {/* Translations */}
+                    <div className="space-y-4">
+                        <h3 className="text-xs font-bold text-neutral-500 uppercase flex items-center gap-2">
+                            <Globe2 className="size-3.5" /> {t("planEditorTranslationsSection")}
+                        </h3>
+                        <p className="text-[10px] text-neutral-600">{t("planEditorTranslationsHint")}</p>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="space-y-3">
+                                <div className="space-y-2">
+                                    <Label className="text-xs font-mono text-neutral-400">{t("planEditorNameEnglishLabel")}</Label>
+                                    <Input
+                                        value={formData.name_en || ''}
+                                        onChange={(e) => setFormData({ ...formData, name_en: e.target.value || null })}
+                                        className="bg-white/5 border-white/10 text-white text-xs"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-xs font-mono text-neutral-400">{t("planEditorTaglineEnglishLabel")}</Label>
+                                    <Input
+                                        value={formData.description_en || ''}
+                                        onChange={(e) => setFormData({ ...formData, description_en: e.target.value || null })}
+                                        className="bg-white/5 border-white/10 text-white text-xs"
+                                    />
+                                </div>
+                            </div>
+                            <div className="space-y-3">
+                                <div className="space-y-2">
+                                    <Label className="text-xs font-mono text-neutral-400">{t("planEditorNameSpanishLabel")}</Label>
+                                    <Input
+                                        value={formData.name_es || ''}
+                                        onChange={(e) => setFormData({ ...formData, name_es: e.target.value || null })}
+                                        className="bg-white/5 border-white/10 text-white text-xs"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-xs font-mono text-neutral-400">{t("planEditorTaglineSpanishLabel")}</Label>
+                                    <Input
+                                        value={formData.description_es || ''}
+                                        onChange={(e) => setFormData({ ...formData, description_es: e.target.value || null })}
+                                        className="bg-white/5 border-white/10 text-white text-xs"
+                                    />
+                                </div>
+                            </div>
+                            <div className="space-y-3">
+                                <div className="space-y-2">
+                                    <Label className="text-xs font-mono text-neutral-400">{t("planEditorNameGermanLabel")}</Label>
+                                    <Input
+                                        value={formData.name_de || ''}
+                                        onChange={(e) => setFormData({ ...formData, name_de: e.target.value || null })}
+                                        className="bg-white/5 border-white/10 text-white text-xs"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-xs font-mono text-neutral-400">{t("planEditorTaglineGermanLabel")}</Label>
+                                    <Input
+                                        value={formData.description_de || ''}
+                                        onChange={(e) => setFormData({ ...formData, description_de: e.target.value || null })}
+                                        className="bg-white/5 border-white/10 text-white text-xs"
+                                    />
                                 </div>
                             </div>
                         </div>

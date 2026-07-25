@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Check, Star, Settings, Package, Shield, Zap, X, AlertTriangle } from "lucide-react";
 import { getDisplayFeatures, getMonthlyEquivalent } from "@/lib/plans";
 import { useI18n } from "@/lib/use-i18n";
+import { pickLocalized } from "@/lib/i18n";
 
 interface ArsenalGridProps {
     plans: Plan[];
@@ -15,7 +16,7 @@ interface ArsenalGridProps {
 }
 
 export function ArsenalGrid({ plans, definitions, onEditPlan }: ArsenalGridProps) {
-    const { copy } = useI18n();
+    const { copy, locale } = useI18n();
 
     if (plans.length === 0) {
         return (
@@ -40,7 +41,7 @@ export function ArsenalGrid({ plans, definitions, onEditPlan }: ArsenalGridProps
                         ? { border: "border-blue-500/50", bg: "bg-blue-500/5", glow: "shadow-[0_0_30px_-10px_rgba(59,130,246,0.3)]", icon: Zap, iconColor: "text-blue-400" }
                         : { border: "border-white/10", bg: "bg-white/5", glow: "", icon: Package, iconColor: "text-neutral-400" };
 
-                const displayFeatures = getDisplayFeatures(plan, definitions);
+                const displayFeatures = getDisplayFeatures(plan, definitions, locale);
 
                 return (
                     <div
@@ -70,7 +71,7 @@ export function ArsenalGrid({ plans, definitions, onEditPlan }: ArsenalGridProps
                                         )}
                                     </div>
                                     <h3 className="text-2xl font-black text-white italic tracking-tighter uppercase">
-                                        {plan.name}
+                                        {pickLocalized(locale, plan.name, { en: plan.name_en, es: plan.name_es, de: plan.name_de })}
                                     </h3>
                                 </div>
                                 <div className={cn("size-12 rounded-xl border-2 flex items-center justify-center bg-black", theme.border, theme.iconColor)}>

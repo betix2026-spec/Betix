@@ -16,9 +16,10 @@ import { cn } from "@/lib/utils";
 import { Plan, FeatureDefinition } from "@/types/plans";
 import { getDisplayFeatures, getMonthlyEquivalent } from "@/lib/plans";
 import { useI18n } from "@/lib/use-i18n";
+import { pickLocalized } from "@/lib/i18n";
 
 export default function PricingPage() {
-    const { t } = useI18n();
+    const { t, locale } = useI18n();
     const [isAnnual, setIsAnnual] = useState(false);
     const [plans, setPlans] = useState<Plan[]>([]);
     const [definitions, setDefinitions] = useState<FeatureDefinition[]>([]);
@@ -69,7 +70,7 @@ export default function PricingPage() {
 
     const displayPlans = plans.map(dbPlan => {
         // Prepare features flattened list
-        const featuresList = getDisplayFeatures(dbPlan, definitions);
+        const featuresList = getDisplayFeatures(dbPlan, definitions, locale);
 
         // Visual Logic & Period Mapping
         let period = t("periodMonth");
@@ -123,10 +124,12 @@ export default function PricingPage() {
 
         return {
             id: dbPlan.id,
-            name: dbPlan.name,
+            name: pickLocalized(locale, dbPlan.name, { en: dbPlan.name_en, es: dbPlan.name_es, de: dbPlan.name_de }),
             price: priceDisplay,
             period,
-            desc: dbPlan.description || t("fullAccess"),
+            desc: dbPlan.description
+                ? pickLocalized(locale, dbPlan.description, { en: dbPlan.description_en, es: dbPlan.description_es, de: dbPlan.description_de })
+                : t("fullAccess"),
             badge,
             badgeColor,
             features: featuresList,

@@ -56,7 +56,13 @@ export async function getAdminPlansAction(): Promise<{ success: boolean; data?: 
 
 export interface UpdatePlanData {
     name?: string;
+    name_en?: string | null;
+    name_es?: string | null;
+    name_de?: string | null;
     description?: string;
+    description_en?: string | null;
+    description_es?: string | null;
+    description_de?: string | null;
     price?: number;
     frequency?: string;
     features?: PlanFeatures; // Full JSONB structure
@@ -76,7 +82,13 @@ export async function updatePlanAction(planId: string, data: UpdatePlanData) {
         // Clean undefined values
         const updates: any = {};
         if (data.name !== undefined) updates.name = data.name;
+        if (data.name_en !== undefined) updates.name_en = data.name_en;
+        if (data.name_es !== undefined) updates.name_es = data.name_es;
+        if (data.name_de !== undefined) updates.name_de = data.name_de;
         if (data.description !== undefined) updates.description = data.description;
+        if (data.description_en !== undefined) updates.description_en = data.description_en;
+        if (data.description_es !== undefined) updates.description_es = data.description_es;
+        if (data.description_de !== undefined) updates.description_de = data.description_de;
         if (data.price !== undefined) updates.price = data.price;
         if (data.frequency !== undefined) updates.frequency = data.frequency;
         if (data.features !== undefined) updates.features = data.features;
@@ -129,7 +141,13 @@ export async function createPlanAction(data: UpdatePlanData) {
             .from('plans')
             .insert({
                 name: data.name,
+                name_en: data.name_en ?? null,
+                name_es: data.name_es ?? null,
+                name_de: data.name_de ?? null,
                 description: data.description,
+                description_en: data.description_en ?? null,
+                description_es: data.description_es ?? null,
+                description_de: data.description_de ?? null,
                 price: data.price,
                 frequency: data.frequency,
                 features: data.features || { core: {}, advanced: {}, vip: {} }, // Default empty structure
@@ -165,7 +183,13 @@ export async function createPlanAction(data: UpdatePlanData) {
 export async function createFeatureDefinitionAction(data: {
     id: string;
     label: string;
+    label_en?: string | null;
+    label_es?: string | null;
+    label_de?: string | null;
     description?: string;
+    description_en?: string | null;
+    description_es?: string | null;
+    description_de?: string | null;
     type: 'text' | 'boolean' | 'number';
 }) {
     console.log("[Admin Action] Creating feature definition:", data.id);
@@ -182,7 +206,13 @@ export async function createFeatureDefinitionAction(data: {
             .insert({
                 id: cleanId,
                 label: data.label,
+                label_en: data.label_en ?? null,
+                label_es: data.label_es ?? null,
+                label_de: data.label_de ?? null,
                 description: data.description || null,
+                description_en: data.description_en ?? null,
+                description_es: data.description_es ?? null,
+                description_de: data.description_de ?? null,
                 type: data.type,
             });
 
@@ -198,13 +228,29 @@ export async function createFeatureDefinitionAction(data: {
 
 export async function updateFeatureDefinitionAction(
     id: string,
-    data: { label?: string; description?: string; type?: 'text' | 'boolean' | 'number' }
+    data: {
+        label?: string;
+        label_en?: string | null;
+        label_es?: string | null;
+        label_de?: string | null;
+        description?: string;
+        description_en?: string | null;
+        description_es?: string | null;
+        description_de?: string | null;
+        type?: 'text' | 'boolean' | 'number';
+    }
 ) {
     console.log(`[Admin Action] Updating feature definition: ${id}`, data);
     try {
         const updates: any = {};
         if (data.label !== undefined) updates.label = data.label;
+        if (data.label_en !== undefined) updates.label_en = data.label_en;
+        if (data.label_es !== undefined) updates.label_es = data.label_es;
+        if (data.label_de !== undefined) updates.label_de = data.label_de;
         if (data.description !== undefined) updates.description = data.description;
+        if (data.description_en !== undefined) updates.description_en = data.description_en;
+        if (data.description_es !== undefined) updates.description_es = data.description_es;
+        if (data.description_de !== undefined) updates.description_de = data.description_de;
         if (data.type !== undefined) updates.type = data.type;
 
         const { error } = await supabaseAdmin

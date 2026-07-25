@@ -23,7 +23,13 @@ export interface PlanPromo {
 export interface Plan {
     id: string;
     name: string;
+    name_en?: string | null;
+    name_es?: string | null;
+    name_de?: string | null;
     description: string | null;
+    description_en?: string | null;
+    description_es?: string | null;
+    description_de?: string | null;
     price: number;
     frequency: PlanFrequency;
     features: PlanFeatures;
@@ -43,6 +49,12 @@ export interface Plan {
 export interface FeatureDefinition {
     id: string;
     label: string;
+    label_en?: string | null;
+    label_es?: string | null;
+    label_de?: string | null;
     description: string | null;
+    description_en?: string | null;
+    description_es?: string | null;
+    description_de?: string | null;
     type: 'text' | 'boolean' | 'number';
 }
