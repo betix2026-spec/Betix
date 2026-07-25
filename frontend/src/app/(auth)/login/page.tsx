@@ -21,7 +21,10 @@ function LoginForm() {
     const [formData, setFormData] = useState({ email: "", password: "" });
     const { signIn, signInWithGoogle, signInWithMagicLink, user } = useAuth();
     const searchParams = useSearchParams();
-    const redirectTo = searchParams.get("redirect") || `/${locale}/dashboard`;
+    const redirectParam = searchParams.get("redirect");
+    const redirectTo = redirectParam?.startsWith("/") && !redirectParam.startsWith("//")
+        ? redirectParam
+        : `/${locale}/dashboard`;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -76,7 +79,7 @@ function LoginForm() {
                     onClick={async () => {
                         setIsLoading(true);
                         toast.info(t("googleStarting"));
-                        const { error } = await signInWithGoogle();
+                        const { error } = await signInWithGoogle(redirectTo);
                         if (error) {
                             toast.error(t("googleFailed"), { description: error });
                             setIsLoading(false);
@@ -129,7 +132,7 @@ function LoginForm() {
                                     return;
                                 }
                                 setIsLoading(true);
-                                const { error } = await signInWithMagicLink(formData.email);
+                                const { error } = await signInWithMagicLink(formData.email, redirectTo);
                                 if (error) {
                                     toast.error(t("magicLinkFailed"), { description: error });
                                 } else {
