@@ -9,12 +9,14 @@ import { Button } from "@/components/ui/button";
 
 import { ProfileEditDialog } from "./ProfileEditDialog";
 import { UserProfile, Badge as UserBadge } from "@/types/user";
+import { useI18n } from "@/lib/use-i18n";
 
 interface ProfileHeroProps {
     profile: UserProfile;
 }
 
 export function ProfileHero({ profile }: ProfileHeroProps) {
+    const { copy } = useI18n();
     // Rank Configuration
     const rankConfig = {
         Rookie: { color: "text-neutral-400", bg: "bg-neutral-500", border: "border-neutral-500", icon: Shield },
@@ -72,7 +74,7 @@ export function ProfileHero({ profile }: ProfileHeroProps) {
                                 profile={profile}
                                 trigger={
                                     <Button variant="outline" className="border-white/10 hover:border-white/20 hover:bg-white/5 text-xs uppercase tracking-widest font-bold rounded-full h-8 px-4">
-                                        <Settings className="size-3 mr-2" /> Éditer
+                                        <Settings className="size-3 mr-2" /> {copy("Éditer")}
                                     </Button>
                                 }
                             />
@@ -83,7 +85,7 @@ export function ProfileHero({ profile }: ProfileHeroProps) {
                         {false && (
                             <div className="space-y-2 max-w-md mx-auto sm:mx-0">
                                 <div className="flex justify-between text-xs font-bold uppercase tracking-widest">
-                                    <span className={cn(rankConfig.color)}>Niveau {profile.level}</span>
+                                    <span className={cn(rankConfig.color)}>{copy("Niveau")} {profile.level}</span>
                                     <span className="text-white/40">{profile.xp} / {profile.nextLevelXp} XP</span>
                                 </div>
                                 <Progress value={progressPercent} className="h-2 bg-white/5" indicatorClassName={cn(rankConfig.bg)} />

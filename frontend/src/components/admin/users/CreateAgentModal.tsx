@@ -10,6 +10,7 @@ import { UserPlus, Save, Key, CreditCard, User, Eye, EyeOff } from "lucide-react
 import { useState, useEffect } from "react";
 import { createAgentAction, getPlansAction } from "@/app/(admin)/admin/users/actions";
 import { toast } from "sonner";
+import { useI18n } from "@/lib/use-i18n";
 
 interface CreateAgentModalProps {
     open: boolean;
@@ -18,6 +19,7 @@ interface CreateAgentModalProps {
 }
 
 export function CreateAgentModal({ open, onClose, onSuccess }: CreateAgentModalProps) {
+    const { copy } = useI18n();
     const [isLoading, setIsLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [plans, setPlans] = useState<any[]>([]);
@@ -50,7 +52,7 @@ export function CreateAgentModal({ open, onClose, onSuccess }: CreateAgentModalP
     const handleSubmit = async () => {
         // Basic validation
         if (!formData.username || !formData.email || !formData.password) {
-            toast.error("Please fill in all required fields");
+            toast.error(copy("Please fill in all required fields"));
             return;
         }
 
@@ -60,7 +62,7 @@ export function CreateAgentModal({ open, onClose, onSuccess }: CreateAgentModalP
             const result = await createAgentAction(formData);
 
             if (result.success) {
-                toast.success("Agent recruited successfully");
+                toast.success(copy("Agent recruited successfully"));
                 // Reset form
                 setFormData({
                     username: "",
@@ -72,10 +74,10 @@ export function CreateAgentModal({ open, onClose, onSuccess }: CreateAgentModalP
                 if (onSuccess) onSuccess();
                 onClose();
             } else {
-                toast.error(`Error: ${result.error}`);
+                toast.error(`${copy("Erreur")}: ${result.error}`);
             }
         } catch (error) {
-            toast.error("An unexpected error occurred");
+            toast.error(copy("An unexpected error occurred"));
             console.error(error);
         } finally {
             setIsLoading(false);
@@ -86,8 +88,8 @@ export function CreateAgentModal({ open, onClose, onSuccess }: CreateAgentModalP
         <Sheet open={open} onOpenChange={onClose}>
             <SheetContent className="w-full sm:max-w-lg border-l border-white/10 bg-black/95 backdrop-blur-xl p-0 shadow-2xl">
                 <SheetHeader className="sr-only">
-                    <SheetTitle>Recruit Agent</SheetTitle>
-                    <SheetDescription>Création d'un nouvel agent</SheetDescription>
+                    <SheetTitle>{copy("Recruit Agent")}</SheetTitle>
+                    <SheetDescription>{copy("Création d'un nouvel agent")}</SheetDescription>
                 </SheetHeader>
 
                 {/* Header */}
@@ -99,8 +101,8 @@ export function CreateAgentModal({ open, onClose, onSuccess }: CreateAgentModalP
                                 <UserPlus className="size-5 text-green-400" />
                             </div>
                             <div>
-                                <h2 className="text-lg font-black text-white uppercase tracking-widest">Recruit Agent</h2>
-                                <p className="text-[10px] font-mono text-neutral-500">NEW ENTRY PROTOCOL</p>
+                                <h2 className="text-lg font-black text-white uppercase tracking-widest">{copy("Recruit Agent")}</h2>
+                                <p className="text-[10px] font-mono text-neutral-500">{copy("NEW ENTRY PROTOCOL")}</p>
                             </div>
                         </div>
                     </div>
@@ -111,20 +113,20 @@ export function CreateAgentModal({ open, onClose, onSuccess }: CreateAgentModalP
                     {/* Identity Section */}
                     <div className="space-y-4">
                         <h3 className="text-xs font-bold text-neutral-500 uppercase flex items-center gap-2">
-                            <User className="size-3.5" /> Identity Matrix
+                            <User className="size-3.5" /> {copy("Identity Matrix")}
                         </h3>
                         <div className="grid gap-4">
                             <div className="space-y-2">
-                                <Label className="text-xs font-mono text-neutral-400">CODENAME (USERNAME) *</Label>
+                                <Label className="text-xs font-mono text-neutral-400">{copy("CODENAME (USERNAME)")} *</Label>
                                 <Input
                                     value={formData.username}
                                     onChange={(e) => handleChange("username", e.target.value)}
                                     className="bg-white/5 border-white/10 text-white"
-                                    placeholder="ex: Agent Smith"
+                                    placeholder={copy("ex: Agent Smith")}
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label className="text-xs font-mono text-neutral-400">CONTACT (EMAIL) *</Label>
+                                <Label className="text-xs font-mono text-neutral-400">{copy("CONTACT (EMAIL)")} *</Label>
                                 <Input
                                     value={formData.email}
                                     onChange={(e) => handleChange("email", e.target.value)}
@@ -140,14 +142,14 @@ export function CreateAgentModal({ open, onClose, onSuccess }: CreateAgentModalP
                     {/* Security Section */}
                     <div className="space-y-4">
                         <h3 className="text-xs font-bold text-neutral-500 uppercase flex items-center gap-2">
-                            <Key className="size-3.5" /> Security Clearance
+                            <Key className="size-3.5" /> {copy("Security Clearance")}
                         </h3>
                         <div className="space-y-2">
-                            <Label className="text-xs font-mono text-neutral-400">ACCESS_CODE (PASSWORD) *</Label>
+                            <Label className="text-xs font-mono text-neutral-400">{copy("ACCESS_CODE (PASSWORD)")} *</Label>
                             <div className="relative">
                                 <Input
                                     type={showPassword ? "text" : "password"}
-                                    placeholder="Minimum 6 characters"
+                                    placeholder={copy("Minimum 6 characters")}
                                     value={formData.password}
                                     onChange={(e) => handleChange("password", e.target.value)}
                                     className="bg-white/5 border-white/10 text-white placeholder:text-neutral-600 pr-10"
@@ -162,15 +164,15 @@ export function CreateAgentModal({ open, onClose, onSuccess }: CreateAgentModalP
                             </div>
                         </div>
                         <div className="space-y-2">
-                            <Label className="text-xs font-mono text-neutral-400">ACCESS_LEVEL (ROLE)</Label>
+                            <Label className="text-xs font-mono text-neutral-400">{copy("ACCESS_LEVEL (ROLE)")}</Label>
                             <Select value={formData.role} onValueChange={(v) => handleChange("role", v)}>
                                 <SelectTrigger className="bg-white/5 border-white/10 text-white">
-                                    <SelectValue placeholder="Select role" />
+                                    <SelectValue placeholder={copy("Select role")} />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="user">Agent (User)</SelectItem>
-                                    <SelectItem value="admin">Handler (Admin)</SelectItem>
-                                    <SelectItem value="super_admin">Director (Super Admin)</SelectItem>
+                                    <SelectItem value="user">{copy("Agent (User)")}</SelectItem>
+                                    <SelectItem value="admin">{copy("Handler (Admin)")}</SelectItem>
+                                    <SelectItem value="super_admin">{copy("Director (Super Admin)")}</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -181,16 +183,16 @@ export function CreateAgentModal({ open, onClose, onSuccess }: CreateAgentModalP
                     {/* Subscription Section */}
                     <div className="space-y-4">
                         <h3 className="text-xs font-bold text-neutral-500 uppercase flex items-center gap-2">
-                            <CreditCard className="size-3.5" /> Resource Allocation
+                            <CreditCard className="size-3.5" /> {copy("Resource Allocation")}
                         </h3>
                         <div className="space-y-2">
-                            <Label className="text-xs font-mono text-neutral-400">INITIAL PLAN</Label>
+                            <Label className="text-xs font-mono text-neutral-400">{copy("INITIAL PLAN")}</Label>
                             <Select value={formData.plan_id} onValueChange={(v) => handleChange("plan_id", v)}>
                                 <SelectTrigger className="bg-white/5 border-white/10 text-white">
-                                    <SelectValue placeholder="Select plan" />
+                                    <SelectValue placeholder={copy("Select plan")} />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="free">Rookie (Free)</SelectItem>
+                                    <SelectItem value="free">{copy("Rookie (Free)")}</SelectItem>
                                     {plans.filter(p => p.id !== 'free').map((plan) => (
                                         <SelectItem key={plan.id} value={plan.id}>
                                             {plan.name} ({plan.price}€)
@@ -206,7 +208,7 @@ export function CreateAgentModal({ open, onClose, onSuccess }: CreateAgentModalP
                 {/* Footer Actions */}
                 <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/10 bg-black/90 backdrop-blur-md flex gap-3">
                     <Button variant="ghost" className="flex-1 text-neutral-400 hover:text-white hover:bg-white/5" onClick={onClose}>
-                        CANCEL
+                        {copy("CANCEL")}
                     </Button>
                     <Button
                         className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold"
@@ -214,10 +216,10 @@ export function CreateAgentModal({ open, onClose, onSuccess }: CreateAgentModalP
                         disabled={isLoading}
                     >
                         {isLoading ? (
-                            "RECRUITING..."
+                            copy("RECRUITING...")
                         ) : (
                             <>
-                                <Save className="size-4 mr-2" /> CONFIRM RECRUITMENT
+                                <Save className="size-4 mr-2" /> {copy("CONFIRM RECRUITMENT")}
                             </>
                         )}
                     </Button>

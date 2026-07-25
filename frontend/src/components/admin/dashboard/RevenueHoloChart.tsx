@@ -3,12 +3,14 @@
 import { RevenueData } from "@/types/admin";
 import { cn } from "@/lib/utils";
 import { BarChart3, TrendingUp } from "lucide-react";
+import { useI18n } from "@/lib/use-i18n";
 
 interface RevenueHoloChartProps {
     data: RevenueData[];
 }
 
 export function RevenueHoloChart({ data }: RevenueHoloChartProps) {
+    const { copy } = useI18n();
     const maxRevenue = Math.max(...data.map(d => d.revenue));
 
     return (
@@ -27,9 +29,9 @@ export function RevenueHoloChart({ data }: RevenueHoloChartProps) {
                     <div>
                         <h3 className="text-lg font-bold text-white flex items-center gap-2">
                             <BarChart3 className="size-5 text-emerald-400" />
-                            Revenus Mensuels
+                            {copy("Revenus Mensuels")}
                         </h3>
-                        <p className="text-sm text-neutral-500 font-mono mt-1">Projection holographique temps réel</p>
+                        <p className="text-sm text-neutral-500 font-mono mt-1">{copy("Projection holographique temps réel")}</p>
                     </div>
                     <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold uppercase tracking-wider">
                         <TrendingUp className="size-3.5" />

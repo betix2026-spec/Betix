@@ -3,6 +3,8 @@
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { copy } from "@/lib/i18n";
+import { getServerLocale } from "@/lib/i18n-server";
 
 // ============================================================================
 // USER ACTIONS
@@ -14,16 +16,18 @@ import { createClient } from "@/lib/supabase/server";
 export async function sendCancellationRequestAction(options?: { reason?: string }) {
     console.log("[Notification Action] User requested cancellation");
     try {
+        const locale = await getServerLocale();
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
 
         if (!user) {
-            return { success: false, error: "Non autorisé." };
+            return { success: false, error: copy(locale, "Non autorisé.") };
         }
 
+        const title = copy(locale, "Cancellation request");
         const message = options?.reason
-            ? `Demande de résiliation. Raison invoquée : "${options.reason}"`
-            : `Demande de résiliation (Raison non spécifiée).`;
+            ? `${title}. ${copy(locale, "Reason provided")}: "${options.reason}"`
+            : `${title} (${copy(locale, "No reason provided")}).`;
 
         const { error } = await supabaseAdmin
             .from('notifications')
@@ -32,7 +36,7 @@ export async function sendCancellationRequestAction(options?: { reason?: string 
                 user_id: null, // Admin is recipient
                 is_for_admin: true,
                 type: 'cancellation_request',
-                title: 'Demande de résiliation',
+                title,
                 message: message,
                 severity: 'critical'
             });
@@ -53,15 +57,16 @@ export async function sendCancellationRequestAction(options?: { reason?: string 
 export async function sendSupportMessageAction(title: string, message: string) {
     console.log("[Notification Action] User sending support message");
     try {
+        const locale = await getServerLocale();
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
 
         if (!user) {
-            return { success: false, error: "Non autorisé." };
+            return { success: false, error: copy(locale, "Non autorisé.") };
         }
 
         if (!title.trim() || !message.trim()) {
-            return { success: false, error: "Le titre et le message sont obligatoires." };
+            return { success: false, error: copy(locale, "Le titre et le message sont obligatoires.") };
         }
 
         const { error } = await supabaseAdmin
@@ -92,11 +97,12 @@ export async function sendSupportMessageAction(title: string, message: string) {
 export async function markNotificationAsReadAction(notificationId: string) {
     console.log("[Notification Action] User marking notification as read:", notificationId);
     try {
+        const locale = await getServerLocale();
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
 
         if (!user) {
-            return { success: false, error: "Non autorisé." };
+            return { success: false, error: copy(locale, "Non autorisé.") };
         }
 
         // The RLS policy we created ensures the user can only update their own notifications

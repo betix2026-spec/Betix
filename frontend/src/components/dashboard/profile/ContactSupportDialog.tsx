@@ -15,8 +15,10 @@ import {
 import { toast } from "sonner";
 import { Loader2, Mail, Send } from "lucide-react";
 import { sendSupportMessageAction } from "@/app/actions/notifications";
+import { useI18n } from "@/lib/use-i18n";
 
 export function ContactSupportDialog({ trigger }: { trigger: React.ReactNode }) {
+    const { copy } = useI18n();
     const [open, setOpen] = useState(false);
     const [title, setTitle] = useState("");
     const [message, setMessage] = useState("");
@@ -26,7 +28,7 @@ export function ContactSupportDialog({ trigger }: { trigger: React.ReactNode }) 
         e.preventDefault();
 
         if (!title.trim() || !message.trim()) {
-            toast.error("Veuillez remplir tous les champs.");
+            toast.error(copy("Veuillez remplir tous les champs."));
             return;
         }
 
@@ -35,16 +37,16 @@ export function ContactSupportDialog({ trigger }: { trigger: React.ReactNode }) 
             const result = await sendSupportMessageAction(title, message);
 
             if (result.success) {
-                toast.success('Votre message a été envoyé à notre équipe.');
+                toast.success(copy("Votre message a été envoyé à notre équipe."));
                 setTitle("");
                 setMessage("");
                 setOpen(false);
             } else {
-                toast.error(result.error || 'Erreur lors de l\'envoi.');
+                toast.error(result.error || copy("Erreur lors de l'envoi."));
             }
         } catch (error) {
             console.error('[Support] Send Error:', error);
-            toast.error('Erreur inattendue. Veuillez réessayer.');
+            toast.error(copy("Erreur inattendue. Veuillez réessayer."));
         } finally {
             setIsLoading(false);
         }
@@ -59,18 +61,18 @@ export function ContactSupportDialog({ trigger }: { trigger: React.ReactNode }) 
                 <DialogHeader className="pt-2">
                     <DialogTitle className="text-xl font-black uppercase tracking-tight text-white flex items-center gap-2">
                         <Mail className="size-5 text-blue-500" />
-                        Contacter l'équipe
+                        {copy("Contacter l'équipe")}
                     </DialogTitle>
                     <DialogDescription className="text-neutral-400">
-                        Si vous avez une question ou rencontrez un problème technique, expliquez-nous la situation ci-dessous.
+                        {copy("Si vous avez une question ou rencontrez un problème technique, expliquez-nous la situation ci-dessous.")}
                     </DialogDescription>
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit} className="space-y-4 mt-4">
                     <div className="space-y-2">
-                        <label className="text-xs uppercase tracking-widest text-neutral-500 font-bold">Sujet</label>
+                        <label className="text-xs uppercase tracking-widest text-neutral-500 font-bold">{copy("Sujet")}</label>
                         <Input
-                            placeholder="De quoi s'agit-il ?"
+                            placeholder={copy("De quoi s'agit-il ?")}
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
                             disabled={isLoading}
@@ -80,9 +82,9 @@ export function ContactSupportDialog({ trigger }: { trigger: React.ReactNode }) 
                     </div>
 
                     <div className="space-y-2">
-                        <label className="text-xs uppercase tracking-widest text-neutral-500 font-bold">Message</label>
+                        <label className="text-xs uppercase tracking-widest text-neutral-500 font-bold">{copy("Message")}</label>
                         <Textarea
-                            placeholder="Détaillez votre demande ici..."
+                            placeholder={copy("Détaillez votre demande ici...")}
                             value={message}
                             onChange={(e) => setMessage(e.target.value)}
                             disabled={isLoading}
@@ -102,7 +104,7 @@ export function ContactSupportDialog({ trigger }: { trigger: React.ReactNode }) 
                             ) : (
                                 <Send className="w-5 h-5 mr-2" />
                             )}
-                            Envoyer le message
+                            {copy("Envoyer le message")}
                         </Button>
                     </div>
                 </form>

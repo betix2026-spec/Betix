@@ -24,6 +24,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useState } from "react";
+import { useI18n } from "@/lib/use-i18n";
 
 interface HolographicGridProps {
     users: AdminUser[];
@@ -33,6 +34,7 @@ interface HolographicGridProps {
 }
 
 export function HolographicGrid({ users, onSelectUser, onEditUser, onCancelSubscription }: HolographicGridProps) {
+    const { copy } = useI18n();
     const roleConfig: Record<string, any> = {
         free: { color: "text-neutral-400", border: "border-neutral-700", bg: "bg-neutral-500/10", label: "ROOKIE" },
         premium: { color: "text-amber-400", border: "border-amber-500/50", bg: "bg-amber-500/10", label: "PREMIUM" },
@@ -55,12 +57,12 @@ export function HolographicGrid({ users, onSelectUser, onEditUser, onCancelSubsc
         <div className="rounded-3xl border border-white/10 bg-black/40 backdrop-blur-xl overflow-hidden shadow-2xl">
             {/* Header / Legend */}
             <div className="grid grid-cols-12 gap-4 px-6 py-3 border-b border-white/5 bg-white/[0.02] text-[10px] uppercase font-bold tracking-widest text-neutral-500">
-                <div className="col-span-4 sm:col-span-3">Agent Identity</div>
-                <div className="col-span-2 hidden sm:block">Classification</div>
-                <div className="col-span-2 hidden md:block">Status</div>
-                <div className="col-span-2 hidden lg:block">Specialization</div>
-                <div className="col-span-2 hidden xl:block text-right">Intel (Preds)</div>
-                <div className="col-span-1 text-right">Actions</div>
+                <div className="col-span-4 sm:col-span-3">{copy("Agent Identity")}</div>
+                <div className="col-span-2 hidden sm:block">{copy("Classification")}</div>
+                <div className="col-span-2 hidden md:block">{copy("Status")}</div>
+                <div className="col-span-2 hidden lg:block">{copy("Specialization")}</div>
+                <div className="col-span-2 hidden xl:block text-right">{copy("Intel (Preds)")}</div>
+                <div className="col-span-1 text-right">{copy("Actions")}</div>
             </div>
 
             {/* Grid Body */}
@@ -133,7 +135,7 @@ export function HolographicGrid({ users, onSelectUser, onEditUser, onCancelSubsc
                             {/* Intel (Stats) */}
                             <div className="col-span-2 hidden xl:block text-right relative z-10">
                                 <span className="text-sm font-bold font-mono text-white">{user.totalPredictions}</span>
-                                <span className="text-[10px] text-neutral-600 ml-1">OPS</span>
+                                <span className="text-[10px] text-neutral-600 ml-1">{copy("OPS")}</span>
                             </div>
 
                             {/* Actions (Floating on Hover) */}
@@ -162,7 +164,7 @@ export function HolographicGrid({ users, onSelectUser, onEditUser, onCancelSubsc
                                         </Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end" className="w-48 bg-black/90 border-white/10 backdrop-blur-xl">
-                                        <DropdownMenuItem className="gap-2 text-xs font-medium"><User className="size-3.5" /> Voir le dossier</DropdownMenuItem>
+                                        <DropdownMenuItem className="gap-2 text-xs font-medium"><User className="size-3.5" /> {copy("Voir le dossier")}</DropdownMenuItem>
                                         <DropdownMenuItem
                                             className="gap-2 text-xs font-medium"
                                             onSelect={(e) => {
@@ -170,9 +172,9 @@ export function HolographicGrid({ users, onSelectUser, onEditUser, onCancelSubsc
                                                 onEditUser(user);
                                             }}
                                         >
-                                            <Edit className="size-3.5" /> Modifier les accès
+                                            <Edit className="size-3.5" /> {copy("Modifier les accès")}
                                         </DropdownMenuItem>
-                                        <DropdownMenuItem className="gap-2 text-xs font-medium"><Crown className="size-3.5 text-amber-500" /> Offrir Premium</DropdownMenuItem>
+                                        <DropdownMenuItem className="gap-2 text-xs font-medium"><Crown className="size-3.5 text-amber-500" /> {copy("Offrir Premium")}</DropdownMenuItem>
                                         {(user.status === 'active' || user.status === 'past_due' || user.status === 'trialing') && (
                                             <DropdownMenuItem
                                                 className="text-orange-400 focus:text-orange-400 gap-2 text-xs font-medium"
@@ -181,12 +183,12 @@ export function HolographicGrid({ users, onSelectUser, onEditUser, onCancelSubsc
                                                     onCancelSubscription?.(user);
                                                 }}
                                             >
-                                                <Ban className="size-3.5" /> Annuler l&apos;abonnement
+                                                <Ban className="size-3.5" /> {copy("Annuler l'abonnement")}
                                             </DropdownMenuItem>
                                         )}
                                         <DropdownMenuSeparator className="bg-white/10" />
                                         <DropdownMenuItem className="text-red-400 focus:text-red-400 gap-2 text-xs font-medium">
-                                            <Ban className="size-3.5" /> Suspendre l&apos;agent
+                                            <Ban className="size-3.5" /> {copy("Suspendre l'agent")}
                                         </DropdownMenuItem>
                                     </DropdownMenuContent>
                                 </DropdownMenu>

@@ -7,8 +7,10 @@ import { BiometricInput } from "@/components/auth/BiometricInput";
 import { SecurityScanner } from "@/components/auth/SecurityScanner";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { toast } from "sonner";
+import { useI18n } from "@/lib/use-i18n";
 
 export default function UpdatePasswordPage() {
+    const { t, locale } = useI18n();
     const [isLoading, setIsLoading] = useState(false);
     const [formData, setFormData] = useState({
         password: "",
@@ -21,15 +23,15 @@ export default function UpdatePasswordPage() {
         e.preventDefault();
 
         if (formData.password !== formData.confirmPassword) {
-            toast.error("Les mots de passe ne correspondent pas", {
-                description: "Veuillez vérifier votre saisie.",
+            toast.error(t("passwordsDoNotMatch"), {
+                description: t("checkYourInput"),
             });
             return;
         }
 
         if (formData.password.length < 6) {
-            toast.error("Mot de passe trop court", {
-                description: "Le mot de passe doit contenir au moins 6 caractères.",
+            toast.error(t("passwordTooShort"), {
+                description: t("passwordMinLength"),
             });
             return;
         }
@@ -39,18 +41,18 @@ export default function UpdatePasswordPage() {
         const { error } = await updatePassword(formData.password);
 
         if (error) {
-            toast.error("Échec de la mise à jour", {
+            toast.error(t("updateFailed"), {
                 description: error,
             });
             setIsLoading(false);
             return;
         }
 
-        toast.success("Mot de passe mis à jour", {
-            description: "Vous pouvez maintenant vous connecter avec votre nouveau mot de passe.",
+        toast.success(t("passwordUpdated"), {
+            description: t("passwordUpdatedDescription"),
         });
 
-        router.push("/login");
+        router.push(`/${locale}/login`);
     };
 
     const passwordsMatch = formData.confirmPassword.length === 0 || formData.password === formData.confirmPassword;
@@ -60,7 +62,7 @@ export default function UpdatePasswordPage() {
             <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="space-y-2">
                     <BiometricInput
-                        label="Nouveau mot de passe"
+                        label={t("newPassword")}
                         type="password"
                         placeholder="••••••••••••"
                         value={formData.password}
@@ -77,17 +79,17 @@ export default function UpdatePasswordPage() {
                 </div>
 
                 <BiometricInput
-                    label="Confirmer le mot de passe"
+                    label={t("confirmPassword")}
                     type="password"
                     placeholder="••••••••••••"
                     value={formData.confirmPassword}
                     onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                    error={!passwordsMatch ? "Les mots de passe ne correspondent pas" : undefined}
+                    error={!passwordsMatch ? t("passwordsDoNotMatch") : undefined}
                     required
                 />
 
                 <div className="pt-2">
-                    <SecurityScanner type="submit" isLoading={isLoading} label="Mettre à jour le mot de passe" />
+                    <SecurityScanner type="submit" isLoading={isLoading} label={t("updatePassword")} />
                 </div>
             </form>
         </AccessTerminal>

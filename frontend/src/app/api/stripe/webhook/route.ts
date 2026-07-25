@@ -2,14 +2,14 @@
  * BETIX — Stripe Webhook Route
  * POST /api/stripe/webhook
  *
- * Appelée par Stripe à chaque événement de paiement/abonnement.
+ * Called by Stripe for each payment/subscription event.
  *
- * Événements écoutés :
- * - checkout.session.completed → Première souscription réussie
- * - invoice.paid → Renouvellement réussi
- * - invoice.payment_failed → Échec de paiement
- * - customer.subscription.deleted → Abonnement annulé
- * - customer.subscription.updated → Changement de statut
+ * Listened events:
+ * - checkout.session.completed -> First successful subscription
+ * - invoice.paid -> Successful renewal
+ * - invoice.payment_failed -> Failed payment
+ * - customer.subscription.deleted -> Canceled subscription
+ * - customer.subscription.updated -> Status change
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -17,9 +17,23 @@ import { supabaseAdmin } from '@/lib/supabase-admin';
 import { stripe, getSubscriptionPeriodEnd } from '@/lib/stripe';
 import Stripe from 'stripe';
 
-// Stripe envoie du raw body, pas du JSON parsé
-// Dans le App Router, utiliser req.text() suffit pour lire le raw body
-// Pas besoin de l'ancienne config `api: { bodyParser: false }`
+function getErrorMessage(error: unknown, fallback: string) {
+    return error instanceof Error ? error.message : fallback;
+}
+
+type InvoiceWithSubscription = Stripe.Invoice & {
+    subscription?: string | Stripe.Subscription | null;
+};
+
+function getInvoiceSubscriptionId(invoice: InvoiceWithSubscription): string | null {
+    const subscription = invoice.subscription;
+    if (!subscription) return null;
+    return typeof subscription === 'string' ? subscription : subscription.id;
+}
+
+// Stripe sends the raw body, not parsed JSON.
+// In the App Router, req.text() is enough to read the raw body.
+// The old `api: { bodyParser: false }` config is not needed.
 
 export async function POST(req: NextRequest) {
     try {
@@ -31,19 +45,19 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Missing signature' }, { status: 400 });
         }
 
-        // Vérifier la signature du webhook
+        // Verify the webhook signature.
         let event: Stripe.Event;
         const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
         if (webhookSecret) {
             try {
                 event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
-            } catch (err: any) {
-                console.error('[Stripe/Webhook] Signature verification failed:', err.message);
+            } catch (error: unknown) {
+                console.error('[Stripe/Webhook] Signature verification failed:', getErrorMessage(error, 'Unknown error'));
                 return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
             }
         } else {
-            // En dev sans webhook secret, parser directement (non recommandé en prod)
+            // In development without a webhook secret, parse directly. Do not use this in production.
             console.warn('[Stripe/Webhook] No STRIPE_WEBHOOK_SECRET set, skipping signature verification');
             event = JSON.parse(body) as Stripe.Event;
         }
@@ -77,14 +91,14 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({ received: true }, { status: 200 });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('[Stripe/Webhook] Error:', error);
         return NextResponse.json({ received: true }, { status: 200 });
     }
 }
 
 /**
- * Première souscription réussie via Checkout.
+ * First successful subscription through Checkout.
  */
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     const userId = session.metadata?.supabase_user_id;
@@ -98,7 +112,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
 
     console.log(`[Stripe/Webhook] Checkout completed for user ${userId}, plan ${planId}`);
 
-    // Récupérer les détails de l'abonnement Stripe pour la période
+    // Retrieve Stripe subscription details for the billing period.
     const subscription = await stripe.subscriptions.retrieve(stripeSubscriptionId);
     const currentPeriodEnd = getSubscriptionPeriodEnd(subscription);
     const status = subscription.status === 'trialing' ? 'trialing' : 'active';
@@ -112,19 +126,23 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
             current_period_end: currentPeriodEnd.toISOString(),
             source: 'stripe',
             stripe_subscription_id: stripeSubscriptionId,
+            cancel_at_period_end: subscription.cancel_at_period_end ?? false,
+            canceled_at: subscription.canceled_at ? new Date(subscription.canceled_at * 1000).toISOString() : null,
+            cancellation_reason: null,
+            estimated_refund_amount: null,
         });
 
     console.log(`[Stripe/Webhook] Subscription saved for user ${userId}, status: ${status}`);
 }
 
 /**
- * Renouvellement de paiement réussi (invoice.paid).
+ * Successful payment renewal (invoice.paid).
  */
-async function handleInvoicePaid(invoice: any) {
-    const stripeSubscriptionId = invoice.subscription as string;
+async function handleInvoicePaid(invoice: InvoiceWithSubscription) {
+    const stripeSubscriptionId = getInvoiceSubscriptionId(invoice);
     if (!stripeSubscriptionId) return;
 
-    // Trouver l'utilisateur par son stripe_subscription_id
+    // Find the user by their stripe_subscription_id.
     const { data: existingSub } = await supabaseAdmin
         .from('subscriptions')
         .select('user_id, plan_id')
@@ -136,7 +154,7 @@ async function handleInvoicePaid(invoice: any) {
         return;
     }
 
-    // Récupérer la période depuis l'abonnement Stripe
+    // Retrieve the period from the Stripe subscription.
     const subscription = await stripe.subscriptions.retrieve(stripeSubscriptionId);
     const currentPeriodEnd = getSubscriptionPeriodEnd(subscription);
 
@@ -145,6 +163,8 @@ async function handleInvoicePaid(invoice: any) {
         .update({
             status: 'active',
             current_period_end: currentPeriodEnd.toISOString(),
+            cancel_at_period_end: subscription.cancel_at_period_end ?? false,
+            canceled_at: subscription.canceled_at ? new Date(subscription.canceled_at * 1000).toISOString() : null,
         })
         .eq('user_id', existingSub.user_id);
 
@@ -152,10 +172,10 @@ async function handleInvoicePaid(invoice: any) {
 }
 
 /**
- * Échec de paiement.
+ * Failed payment.
  */
-async function handleInvoiceFailed(invoice: any) {
-    const stripeSubscriptionId = invoice.subscription as string;
+async function handleInvoiceFailed(invoice: InvoiceWithSubscription) {
+    const stripeSubscriptionId = getInvoiceSubscriptionId(invoice);
     if (!stripeSubscriptionId) return;
 
     const { data: existingSub } = await supabaseAdmin
@@ -175,7 +195,7 @@ async function handleInvoiceFailed(invoice: any) {
 }
 
 /**
- * Abonnement supprimé/annulé côté Stripe.
+ * Subscription deleted/canceled in Stripe.
  */
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
     const { data: existingSub } = await supabaseAdmin
@@ -188,16 +208,25 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
 
     await supabaseAdmin
         .from('subscriptions')
-        .update({ status: 'canceled' })
+        .update({
+            plan_id: 'no_subscription',
+            status: 'canceled',
+            current_period_end: null,
+            stripe_subscription_id: null,
+            cancel_at_period_end: false,
+            canceled_at: subscription.canceled_at
+                ? new Date(subscription.canceled_at * 1000).toISOString()
+                : new Date().toISOString(),
+        })
         .eq('user_id', existingSub.user_id);
 
     console.log(`[Stripe/Webhook] Subscription canceled for user ${existingSub.user_id}`);
 }
 
 /**
- * Mise à jour d'abonnement (changement de statut, trial → active, etc.).
+ * Subscription update (status change, trial -> active, etc.).
  */
-async function handleSubscriptionUpdated(subscription: any) {
+async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
     const { data: existingSub } = await supabaseAdmin
         .from('subscriptions')
         .select('user_id')
@@ -217,12 +246,17 @@ async function handleSubscriptionUpdated(subscription: any) {
     }
 
     const currentPeriodEnd = getSubscriptionPeriodEnd(subscription);
+    const isScheduledToCancel = Boolean(subscription.cancel_at_period_end);
 
     await supabaseAdmin
         .from('subscriptions')
         .update({
             status,
             current_period_end: currentPeriodEnd.toISOString(),
+            cancel_at_period_end: isScheduledToCancel,
+            canceled_at: subscription.canceled_at
+                ? new Date(subscription.canceled_at * 1000).toISOString()
+                : null,
         })
         .eq('user_id', existingSub.user_id);
 

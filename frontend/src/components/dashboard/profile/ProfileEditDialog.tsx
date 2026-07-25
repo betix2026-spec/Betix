@@ -11,6 +11,7 @@ import { Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { useI18n } from "@/lib/use-i18n";
 
 interface ProfileEditDialogProps {
     profile: UserProfile;
@@ -18,6 +19,7 @@ interface ProfileEditDialogProps {
 }
 
 export function ProfileEditDialog({ profile, trigger }: ProfileEditDialogProps) {
+    const { copy } = useI18n();
     const [open, setOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [username, setUsername] = useState(profile.username);
@@ -102,14 +104,14 @@ export function ProfileEditDialog({ profile, trigger }: ProfileEditDialogProps) 
 
             if (updateError) throw updateError;
 
-            toast.success("Profil mis à jour !");
+            toast.success(copy("Profil mis à jour !"));
             await refreshProfile();
             setOpen(false);
             router.refresh();
         } catch (error: any) {
             console.error("Upload Error Complete Object:", JSON.stringify(error, null, 2));
             console.error("Upload Error Message:", error.message || "No message property");
-            toast.error(`Erreur: ${error.message || "Échec de la mise à jour (voir console)."}`);
+            toast.error(`${copy("Erreur")}: ${error.message || copy("Échec de la mise à jour (voir console).")}`);
         } finally {
             setIsLoading(false);
         }
@@ -125,13 +127,13 @@ export function ProfileEditDialog({ profile, trigger }: ProfileEditDialogProps) 
             </DialogTrigger>
             <DialogContent className="bg-neutral-950/95 border-white/10 backdrop-blur-xl text-white sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle className="text-xl font-bold tracking-tight">Modifier le Profil</DialogTitle>
+                    <DialogTitle className="text-xl font-bold tracking-tight">{copy("Modifier le Profil")}</DialogTitle>
                 </DialogHeader>
 
                 <div className="space-y-6 py-4">
                     {/* Username Input */}
                     <div className="space-y-2">
-                        <Label htmlFor="username" className="text-neutral-400">Pseudo</Label>
+                        <Label htmlFor="username" className="text-neutral-400">{copy("Pseudo")}</Label>
                         <Input
                             id="username"
                             value={username}
@@ -142,7 +144,7 @@ export function ProfileEditDialog({ profile, trigger }: ProfileEditDialogProps) 
 
                     {/* Avatar Selection */}
                     <div className="space-y-2">
-                        <Label className="text-neutral-400">Avatar</Label>
+                        <Label className="text-neutral-400">{copy("Avatar")}</Label>
                         <div className="flex items-center gap-4">
                             <div className="size-16 rounded-full overflow-hidden border-2 border-white/10 bg-black shrink-0 relative Group">
                                 <img
@@ -160,7 +162,7 @@ export function ProfileEditDialog({ profile, trigger }: ProfileEditDialogProps) 
                                     className="bg-white/5 border-white/10 text-xs file:text-white file:bg-white/10 file:border-0 file:rounded-md file:mr-2 cursor-pointer"
                                 />
                                 <div className="text-[10px] text-neutral-500 flex items-center gap-2">
-                                    <span>OU</span>
+                                    <span>{copy("OU")}</span>
                                     <Button
                                         type="button"
                                         variant="link"
@@ -172,7 +174,7 @@ export function ProfileEditDialog({ profile, trigger }: ProfileEditDialogProps) 
                                             setAvatarKey(Math.random().toString(36).substring(7));
                                         }}
                                     >
-                                        Générer un style aléatoire
+                                        {copy("Générer un style aléatoire")}
                                     </Button>
                                 </div>
                             </div>
@@ -182,7 +184,7 @@ export function ProfileEditDialog({ profile, trigger }: ProfileEditDialogProps) 
 
                 <div className="flex justify-end gap-3">
                     <Button variant="ghost" onClick={() => setOpen(false)} className="hover:bg-white/5">
-                        Annuler
+                        {copy("Annuler")}
                     </Button>
                     <Button
                         onClick={handleSave}
@@ -191,7 +193,7 @@ export function ProfileEditDialog({ profile, trigger }: ProfileEditDialogProps) 
                     >
                         {isLoading && <Loader2 className="size-4 mr-2 animate-spin" />}
                         {!isLoading && <Save className="size-4 mr-2" />}
-                        Enregistrer
+                        {copy("Enregistrer")}
                     </Button>
                 </div>
             </DialogContent>

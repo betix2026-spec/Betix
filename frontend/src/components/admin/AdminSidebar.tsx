@@ -14,28 +14,29 @@ import {
     ArrowLeft,
     Terminal,
 } from "lucide-react";
-
-const sidebarLinks = [
-    { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/admin/users", label: "Utilisateurs", icon: Users },
-    { href: "/admin/subscriptions", label: "Abonnements", icon: CreditCard },
-    { href: "/admin/settings", label: "Configuration", icon: Settings },
-    { href: "/admin/notifications", label: "Notifications", icon: Bell, badge: 3 },
-    { href: "/admin/logs", label: "System Logs", icon: Terminal },
-];
+import { useI18n } from "@/lib/use-i18n";
 
 export function AdminSidebar({ className }: { className?: string }) {
+    const { copy, locale } = useI18n();
     const pathname = usePathname();
+    const sidebarLinks = [
+        { href: `/${locale}/admin`, label: copy("Dashboard"), icon: LayoutDashboard },
+        { href: `/${locale}/admin/users`, label: copy("Utilisateurs"), icon: Users },
+        { href: `/${locale}/admin/subscriptions`, label: copy("Abonnements"), icon: CreditCard },
+        { href: `/${locale}/admin/settings`, label: copy("Configuration"), icon: Settings },
+        { href: `/${locale}/admin/notifications`, label: copy("Notifications"), icon: Bell, badge: 3 },
+        { href: `/${locale}/admin/logs`, label: copy("System Logs"), icon: Terminal },
+    ];
 
     return (
         <aside className={cn("w-64 border-r border-border bg-card flex flex-col h-screen sticky top-0", className)}>
             <div className="p-6">
-                <Link href="/dashboard" className="flex items-center gap-2 group">
+                <Link href={`/${locale}/dashboard`} className="flex items-center gap-2 group">
                     <div className="size-8 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-900/40 group-hover:scale-110 transition-transform">
                         <ArrowLeft className="size-5 text-white" />
                     </div>
                     <BetixLogo className="h-6 w-auto" />
-                    <Badge variant="outline" className="ml-2 bg-blue-600/10 text-blue-500 border-blue-500/20 text-[10px] font-black uppercase">Admin</Badge>
+                    <Badge variant="outline" className="ml-2 bg-blue-600/10 text-blue-500 border-blue-500/20 text-[10px] font-black uppercase">{copy("Admin")}</Badge>
                 </Link>
             </div>
 
@@ -72,11 +73,11 @@ export function AdminSidebar({ className }: { className?: string }) {
 
             <div className="p-4 mt-auto border-t border-border">
                 <Link
-                    href="/dashboard"
+                    href={`/${locale}/dashboard`}
                     className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                 >
                     <ArrowLeft className="size-4" />
-                    Retour Dashboard
+                    {copy("Retour Dashboard")}
                 </Link>
             </div>
         </aside>

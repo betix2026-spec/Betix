@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { AccessTerminal } from "@/components/auth/AccessTerminal";
 import { BiometricInput } from "@/components/auth/BiometricInput";
 import { SecurityScanner } from "@/components/auth/SecurityScanner";
@@ -10,18 +10,18 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import { Mail, Lock, KeyRound } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { toast } from "sonner";
 import { Suspense } from "react";
+import { useI18n } from "@/lib/use-i18n";
 
 function LoginForm() {
+    const { t, locale } = useI18n();
     const [isLoading, setIsLoading] = useState(false);
     const [formData, setFormData] = useState({ email: "", password: "" });
-    const { signIn, signInWithGoogle, signInWithMagicLink, user, signOut } = useAuth();
-    const router = useRouter();
+    const { signIn, signInWithGoogle, signInWithMagicLink, user } = useAuth();
     const searchParams = useSearchParams();
-    const redirectTo = searchParams.get("redirect") || "/dashboard";
+    const redirectTo = searchParams.get("redirect") || `/${locale}/dashboard`;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -32,7 +32,7 @@ function LoginForm() {
 
         if (error) {
             console.error("LoginForm: Access denied", error);
-            toast.error("Échec de l'authentification", {
+            toast.error(t("authFailed"), {
                 description: error,
             });
             setIsLoading(false);
@@ -40,8 +40,8 @@ function LoginForm() {
         }
 
         console.log("LoginForm: Authentication successful, redirecting to", redirectTo);
-        toast.success("Accès autorisé", {
-            description: "Redirection vers le tableau de bord...",
+        toast.success(t("accessGranted"), {
+            description: t("redirectDashboard"),
         });
 
         // Utilisation de location.replace pour s'assurer que le cache du routeur Next.js
@@ -75,10 +75,10 @@ function LoginForm() {
                     className="w-full h-10 sm:h-11 bg-white hover:bg-neutral-100 text-black border-0 rounded-xl transition-all duration-300 gap-3 font-medium text-sm"
                     onClick={async () => {
                         setIsLoading(true);
-                        toast.info("Initialisation de l'accès Google...");
+                        toast.info(t("googleStarting"));
                         const { error } = await signInWithGoogle();
                         if (error) {
-                            toast.error("Échec Google OAuth", { description: error });
+                            toast.error(t("googleFailed"), { description: error });
                             setIsLoading(false);
                         }
                     }}
@@ -89,20 +89,20 @@ function LoginForm() {
                         <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
                         <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
                     </svg>
-                    Continuer avec Google
+                    {t("continueWithGoogle")}
                 </Button>
             </div>
 
             <div className="relative mb-5 sm:mb-8">
                 <Separator className="bg-white/10" />
                 <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-black px-4 text-xs font-medium text-neutral-500">
-                    ou
+                    {t("or")}
                 </span>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
                 <BiometricInput
-                    label="Adresse e-mail"
+                    label={t("emailAddress")}
                     type="email"
                     placeholder="votre@email.com"
                     value={formData.email}
@@ -112,7 +112,7 @@ function LoginForm() {
 
                 <div className="space-y-2">
                     <BiometricInput
-                        label="Mot de passe"
+                        label={t("password")}
                         type="password"
                         placeholder="••••••••••••"
                         value={formData.password}
@@ -125,27 +125,27 @@ function LoginForm() {
                             disabled={isLoading}
                             onClick={async () => {
                                 if (!formData.email) {
-                                    toast.error("Identifiant requis", { description: "Veuillez saisir votre email pour recevoir un lien d'accès." });
+                                    toast.error(t("emailRequired"), { description: t("emailRequiredDescription") });
                                     return;
                                 }
                                 setIsLoading(true);
                                 const { error } = await signInWithMagicLink(formData.email);
                                 if (error) {
-                                    toast.error("Échec Magic Link", { description: error });
+                                    toast.error(t("magicLinkFailed"), { description: error });
                                 } else {
-                                    toast.success("Lien envoyé", { description: "Vérifiez votre boîte de réception pour vous connecter." });
+                                    toast.success(t("linkSent"), { description: t("checkInbox") });
                                 }
                                 setIsLoading(false);
                             }}
                             className="text-xs text-neutral-400 hover:text-white transition-colors"
                         >
-                            Connexion sans mot de passe
+                            {t("passwordlessLogin")}
                         </button>
                         <Link
-                            href="/reset-password"
+                            href={`/${locale}/reset-password`}
                             className="text-xs text-neutral-400 hover:text-white transition-colors"
                         >
-                            Mot de passe oublié ?
+                            {t("forgotPassword")}
                         </Link>
                     </div>
                 </div>
@@ -153,21 +153,21 @@ function LoginForm() {
                 <div className="flex items-center gap-2 mt-4">
                     <Checkbox id="remember" className="border-white/20 data-[state=checked]:bg-white data-[state=checked]:border-white data-[state=checked]:text-black" />
                     <Label htmlFor="remember" className="text-xs text-neutral-400 font-medium">
-                        Rester connecté
+                        {t("rememberMe")}
                     </Label>
                 </div>
 
                 <div className="pt-2">
-                    <SecurityScanner type="submit" isLoading={isLoading} label="Se connecter" />
+                    <SecurityScanner type="submit" isLoading={isLoading} label={t("signIn")} />
                 </div>
 
             </form>
 
             <div className="text-center mt-5 sm:mt-8">
                 <p className="text-sm text-neutral-500">
-                    Pas encore de compte ?{" "}
-                    <Link href="/signup" className="text-white hover:underline transition-colors ml-1 font-medium">
-                        Créer un compte
+                    {t("noAccount")}{" "}
+                    <Link href={`/${locale}/signup`} className="text-white hover:underline transition-colors ml-1 font-medium">
+                        {t("createAccount")}
                     </Link>
                 </p>
             </div>

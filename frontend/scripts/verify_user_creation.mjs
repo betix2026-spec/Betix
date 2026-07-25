@@ -19,9 +19,10 @@ if (fs.existsSync(envPath)) {
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const testPassword = process.env.BETIX_TEST_USER_PASSWORD;
 
-if (!supabaseUrl || !supabaseServiceKey) {
-    console.error("❌ Missing Supabase credentials in .env.local");
+if (!supabaseUrl || !supabaseServiceKey || !testPassword) {
+    console.error("❌ Missing Supabase credentials or BETIX_TEST_USER_PASSWORD in .env.local");
     process.exit(1);
 }
 
@@ -34,12 +35,12 @@ async function main() {
     const testUser = {
         username: `Agent_${uniqueId}`,
         email: `agent_${uniqueId}@betix.io`,
-        password: "Password123!",
+        password: testPassword,
         role: "user",
         plan_id: "free"
     };
 
-    console.log("Payload:", testUser);
+    console.log("Payload:", { ...testUser, password: "[redacted]" });
 
     // 1. Create Auth User
     const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({

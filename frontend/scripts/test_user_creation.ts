@@ -4,16 +4,21 @@ import { supabaseAdmin } from "../src/lib/supabase-admin";
 
 async function main() {
     console.log("🚀 Testing User Creation...");
+    const testPassword = process.env.BETIX_TEST_USER_PASSWORD;
+
+    if (!testPassword) {
+        throw new Error("Set BETIX_TEST_USER_PASSWORD before running this script.");
+    }
 
     const testUser = {
         username: `Agent_${Date.now()}`,
         email: `agent_${Date.now()}@betix.io`,
-        password: "Password123!",
+        password: testPassword,
         role: "user",
         plan_id: "free"
     };
 
-    console.log("Payload:", testUser);
+    console.log("Payload:", { ...testUser, password: "[redacted]" });
 
     const result = await createAgentAction(testUser);
 

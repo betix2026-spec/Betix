@@ -8,19 +8,19 @@ import { Label } from "@/components/ui/label";
 import { Loader2, Trash2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
+import { useI18n } from "@/lib/use-i18n";
 
 interface DeleteAccountDialogProps {
     trigger: React.ReactNode;
 }
 
 export function DeleteAccountDialog({ trigger }: DeleteAccountDialogProps) {
+    const { copy, locale } = useI18n();
     const [open, setOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [confirmationText, setConfirmationText] = useState("");
 
     const supabase = createClient();
-    const router = useRouter();
 
     const handleDelete = async () => {
         if (confirmationText !== "DELETE") return;
@@ -37,15 +37,15 @@ export function DeleteAccountDialog({ trigger }: DeleteAccountDialogProps) {
 
             if (error) throw error;
 
-            toast.error("Compte marqué pour suppression.");
+            toast.error(copy("Compte marqué pour suppression."));
 
             // Log out
             await supabase.auth.signOut();
-            window.location.replace("/login");
+            window.location.replace(`/${locale}/login`);
 
         } catch (error) {
             console.error(error);
-            toast.error("Erreur critique lors de la suppression.");
+            toast.error(copy("Erreur critique lors de la suppression."));
         } finally {
             setIsLoading(false);
         }
@@ -60,20 +60,20 @@ export function DeleteAccountDialog({ trigger }: DeleteAccountDialogProps) {
                 <DialogHeader>
                     <DialogTitle className="text-xl font-bold tracking-tight text-red-500 flex items-center gap-2">
                         <AlertTriangle className="size-5" />
-                        Zone de Danger
+                        {copy("Zone de Danger")}
                     </DialogTitle>
                     <DialogDescription className="text-neutral-400">
-                        Cette action est irréversible. Toutes vos données seront perdues.
+                        {copy("Cette action est irréversible. Toutes vos données seront perdues.")}
                     </DialogDescription>
                 </DialogHeader>
 
                 <div className="space-y-4 py-4">
                     <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-200 text-sm">
-                        Tapez <strong>DELETE</strong> ci-dessous pour confirmer la suppression définitive de votre compte.
+                        {copy("Tapez DELETE ci-dessous pour confirmer la suppression définitive de votre compte.")}
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="confirm" className="sr-only">Confirmation</Label>
+                        <Label htmlFor="confirm" className="sr-only">{copy("Confirmation")}</Label>
                         <Input
                             id="confirm"
                             value={confirmationText}
@@ -86,7 +86,7 @@ export function DeleteAccountDialog({ trigger }: DeleteAccountDialogProps) {
 
                 <div className="flex justify-end gap-3">
                     <Button variant="ghost" onClick={() => setOpen(false)} className="hover:bg-white/5">
-                        Annuler
+                        {copy("Annuler")}
                     </Button>
                     <Button
                         onClick={handleDelete}
@@ -95,7 +95,7 @@ export function DeleteAccountDialog({ trigger }: DeleteAccountDialogProps) {
                     >
                         {isLoading && <Loader2 className="size-4 mr-2 animate-spin" />}
                         {!isLoading && <Trash2 className="size-4 mr-2" />}
-                        Supprimer mon compte
+                        {copy("Supprimer mon compte")}
                     </Button>
                 </div>
             </DialogContent>

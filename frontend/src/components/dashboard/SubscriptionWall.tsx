@@ -8,19 +8,20 @@ import { createClient } from "@/lib/supabase/client";
 import { Plan, FeatureDefinition } from "@/types/plans";
 import { getDisplayFeatures } from "@/lib/plans";
 import { cn } from "@/lib/utils";
-import { Loader2, Sparkles, Rocket, Shield, Zap, TrendingUp } from "lucide-react";
-
-const VALUE_PROPS = [
-    { icon: Zap, label: "Analyses IA en temps réel", color: "text-blue-400" },
-    { icon: TrendingUp, label: "Pronostics multi-sports", color: "text-emerald-400" },
-    { icon: Shield, label: "Données exclusives & stats avancées", color: "text-purple-400" },
-];
+import { Loader2, Sparkles, Shield, Zap, TrendingUp } from "lucide-react";
+import { useI18n } from "@/lib/use-i18n";
 
 export function SubscriptionWall() {
+    const { t } = useI18n();
     const [plans, setPlans] = useState<Plan[]>([]);
     const [definitions, setDefinitions] = useState<FeatureDefinition[]>([]);
     const [loading, setLoading] = useState(true);
     const supabase = createClient();
+    const valueProps = [
+        { icon: Zap, label: t("valueAi"), color: "text-blue-400" },
+        { icon: TrendingUp, label: t("valueSports"), color: "text-emerald-400" },
+        { icon: Shield, label: t("valueData"), color: "text-purple-400" },
+    ];
 
     useEffect(() => {
         const fetchPlans = async () => {
@@ -65,24 +66,24 @@ export function SubscriptionWall() {
                 <div className="text-center mb-10 sm:mb-14 space-y-5 max-w-2xl animate-in fade-in slide-in-from-bottom-6 duration-700">
                     <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-bold uppercase tracking-widest">
                         <Sparkles className="size-3.5" />
-                        Accès Premium Requis
+                        {t("premiumRequired")}
                     </div>
 
                     <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight leading-[1.1]">
-                        Débloquez tout le
+                        {t("unlockBetix")}
                         <span className="block bg-gradient-to-r from-blue-400 via-purple-400 to-emerald-400 bg-clip-text text-transparent">
-                            potentiel de Betix
+                            {t("betixPotential")}
                         </span>
                     </h1>
 
                     <p className="text-base sm:text-lg text-neutral-400 max-w-xl mx-auto leading-relaxed">
-                        Accédez aux analyses IA, aux pronostics exclusifs et aux données avancées pour prendre une longueur d&apos;avance.
+                        {t("premiumWallCopy")}
                     </p>
                 </div>
 
                 {/* Value Props */}
                 <div className="flex flex-wrap justify-center gap-4 sm:gap-8 mb-10 sm:mb-14 animate-in fade-in slide-in-from-bottom-8 duration-700" style={{ animationDelay: "200ms" }}>
-                    {VALUE_PROPS.map((prop, i) => (
+                    {valueProps.map((prop, i) => (
                         <div key={i} className="flex items-center gap-2.5 px-4 py-2 rounded-xl bg-white/[0.03] border border-white/5">
                             <prop.icon className={cn("size-4 shrink-0", prop.color)} />
                             <span className="text-sm font-medium text-neutral-300">{prop.label}</span>
@@ -98,7 +99,7 @@ export function SubscriptionWall() {
                         </div>
                     ) : plans.length === 0 ? (
                         <div className="text-center py-12 text-neutral-500">
-                            <p>Aucun plan disponible pour le moment.</p>
+                            <p>{t("noPlansAvailable")}</p>
                         </div>
                     ) : (
                         <SwipeCarousel
@@ -110,13 +111,13 @@ export function SubscriptionWall() {
 
                                 let period = "/mois";
                                 let variant: PricingVariant = "monthly";
-                                let cta = "S'abonner";
+                                let cta = t("subscribe");
 
                                 const badge = dbPlan.badge_text || undefined;
                                 const badgeColor = dbPlan.badge_color || undefined;
 
                                 switch (dbPlan.frequency) {
-                                    case "free": period = "/forever"; variant = "free"; cta = "Commencer"; break;
+                                    case "free": period = "/forever"; variant = "free"; cta = t("startFree"); break;
                                     case "daily": period = "/jour"; break;
                                     case "weekly": period = "/semaine"; break;
                                     case "monthly": period = "/mois"; break;
@@ -130,7 +131,7 @@ export function SubscriptionWall() {
                                     name: dbPlan.name,
                                     price: dbPlan.price.toString(),
                                     period,
-                                    desc: dbPlan.description || "Accès complet",
+                                    desc: dbPlan.description || t("fullAccess"),
                                     badge,
                                     badgeColor,
                                     features: featuresList,
@@ -173,7 +174,7 @@ export function SubscriptionWall() {
                 {/* Footer trust */}
                 <div className="mt-10 text-center animate-in fade-in duration-1000" style={{ animationDelay: "600ms" }}>
                     <p className="text-xs text-neutral-600">
-                        🔒 Paiement sécurisé · Annulation à tout moment · Support prioritaire
+                        {t("securePaymentCancelAnytime")}
                     </p>
                 </div>
             </div>

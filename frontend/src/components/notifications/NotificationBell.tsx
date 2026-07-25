@@ -13,11 +13,13 @@ import {
 import { Bell, Check, Info, AlertTriangle, ShieldAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
-import { fr } from "date-fns/locale";
+import { de, enUS, es, fr } from "date-fns/locale";
 import Link from "next/link";
 import { markNotificationAsReadAction } from "@/app/actions/notifications";
+import { useI18n } from "@/lib/use-i18n";
 
 export function NotificationBell() {
+    const { copy, locale } = useI18n();
     const { profile, isLoading } = useAuth();
     const [notifications, setNotifications] = useState<AppNotification[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
@@ -96,6 +98,8 @@ export function NotificationBell() {
 
     if (isLoading || !profile) return null;
 
+    const dateLocale = { fr, en: enUS, es, de }[locale];
+
     return (
         <Popover open={isOpen} onOpenChange={setIsOpen}>
             <PopoverTrigger asChild>
@@ -110,10 +114,10 @@ export function NotificationBell() {
                 <div className="flex items-center justify-between p-4 border-b border-white/5 bg-white/5">
                     <div className="flex items-center gap-2">
                         <Bell className="size-4 text-neutral-400" />
-                        <span className="text-sm font-bold text-white tracking-wide">Notifications</span>
+                        <span className="text-sm font-bold text-white tracking-wide">{copy("Notifications")}</span>
                         {unreadCount > 0 && (
                             <span className="text-[10px] bg-red-500/10 text-red-500 font-bold px-2 py-0.5 rounded-full border border-red-500/20">
-                                {unreadCount} new
+                                {unreadCount} {copy("new")}
                             </span>
                         )}
                     </div>
@@ -123,7 +127,7 @@ export function NotificationBell() {
                     {notifications.length === 0 ? (
                         <div className="p-8 text-center text-sm text-neutral-500 flex flex-col items-center gap-3">
                             <Bell className="size-8 text-white/5" />
-                            <p>Aucune notification pour le moment.</p>
+                            <p>{copy("Aucune notification pour le moment.")}</p>
                         </div>
                     ) : (
                         notifications.map((notification) => {
@@ -158,7 +162,7 @@ export function NotificationBell() {
                                                 {notification.title}
                                             </p>
                                             <span className="text-[9px] text-neutral-500 font-mono shrink-0 pt-0.5">
-                                                {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true, locale: fr })}
+                                                {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true, locale: dateLocale })}
                                             </span>
                                         </div>
                                         <p className="text-xs text-neutral-400 line-clamp-2 leading-relaxed">
@@ -168,7 +172,7 @@ export function NotificationBell() {
                                         {notification.action_url && (
                                             <Link href={notification.action_url} className="inline-block mt-2">
                                                 <Button variant="outline" size="sm" className="h-6 text-[10px] px-3 font-bold border-white/10 hover:bg-white/10">
-                                                    Voir les détails
+                                                    {copy("Voir les détails")}
                                                 </Button>
                                             </Link>
                                         )}
@@ -180,7 +184,7 @@ export function NotificationBell() {
                                             size="icon"
                                             className="absolute right-2 top-2 size-6 opacity-0 group-hover:opacity-100 transition-opacity text-neutral-500 hover:text-white"
                                             onClick={() => handleMarkAsRead(notification.id)}
-                                            title="Marquer comme lu"
+                                            title={copy("Marquer comme lu")}
                                         >
                                             <Check className="size-3" />
                                         </Button>

@@ -7,6 +7,7 @@ import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/use-i18n";
 
 export default function AdminLayoutClient({
     children,
@@ -15,6 +16,7 @@ export default function AdminLayoutClient({
 }) {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const { isLoading, profile } = useAuth();
+    const { copy } = useI18n();
 
     return (
         <div className="min-h-screen flex bg-black">
@@ -24,7 +26,7 @@ export default function AdminLayoutClient({
                     <BetixLogoAnimated />
                     <div className="flex items-center gap-2 text-blue-500 font-bold uppercase tracking-widest text-xs">
                         <Loader2 className="size-4 animate-spin" />
-                        Initialisation Système...
+                        {copy("Initialisation Système...")}
                     </div>
                 </div>
             )}

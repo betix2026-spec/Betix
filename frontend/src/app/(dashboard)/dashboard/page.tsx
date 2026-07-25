@@ -11,8 +11,10 @@ import { MatchCard } from "@/components/dashboard/MatchCard";
 import { MatchTable } from "@/components/dashboard/MatchTable";
 import { cn } from "@/lib/utils";
 import { Match } from "@/types/match";
+import { useI18n } from "@/lib/use-i18n";
 
 export default function DashboardPage() {
+    const { copy } = useI18n();
     const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
     const [visibleCount, setVisibleCount] = useState(6);
     const [searchTeamA, setSearchTeamA] = useState("");
@@ -253,7 +255,7 @@ export default function DashboardPage() {
                                 viewMode === "grid" ? "bg-white/10 text-white shadow-sm" : "text-neutral-500 hover:text-white"
                             )}
                         >
-                            <LayoutGrid className="size-3 sm:size-3.5" /> <span className="hidden sm:inline">Grille</span>
+                            <LayoutGrid className="size-3 sm:size-3.5" /> <span className="hidden sm:inline">{copy("Grille")}</span>
                         </Button>
                         <Button
                             variant="ghost"
@@ -264,7 +266,7 @@ export default function DashboardPage() {
                                 viewMode === "list" ? "bg-white/10 text-white shadow-sm" : "text-neutral-500 hover:text-white"
                             )}
                         >
-                            <List className="size-3 sm:size-3.5" /> <span className="hidden sm:inline">Liste</span>
+                            <List className="size-3 sm:size-3.5" /> <span className="hidden sm:inline">{copy("Liste")}</span>
                         </Button>
                     </div>
                 </div>
@@ -285,7 +287,7 @@ export default function DashboardPage() {
                                             : "bg-white/5 text-neutral-400 border-white/5 hover:bg-white/10 hover:text-white"
                                     )}
                                 >
-                                    Toutes les ligues
+                                    {copy("Toutes les ligues")}
                                 </Button>
                                 {availableLeagues.map((league) => (
                                     <Button
@@ -318,7 +320,7 @@ export default function DashboardPage() {
                                     <Search className="size-4 sm:size-5 text-neutral-500 group-focus-within:text-blue-400 transition-colors" />
                                 </div>
                                 <Input
-                                    placeholder="Équipe 1"
+                                    placeholder={copy("Équipe 1")}
                                     className="flex-1 h-7 sm:h-12 text-[11px] sm:text-base font-medium px-2 sm:px-0 bg-transparent border-0 focus-visible:ring-0 shadow-none text-white placeholder:text-neutral-600"
                                     value={searchTeamA}
                                     onChange={(e) => setSearchTeamA(e.target.value)}
@@ -339,7 +341,7 @@ export default function DashboardPage() {
                                     <Search className="size-4 sm:size-5 text-neutral-500 group-focus-within:text-purple-400 transition-colors" />
                                 </div>
                                 <Input
-                                    placeholder="Équipe 2"
+                                    placeholder={copy("Équipe 2")}
                                     className="flex-1 h-7 sm:h-12 text-[11px] sm:text-base font-medium px-2 sm:px-0 bg-transparent border-0 focus-visible:ring-0 shadow-none text-white placeholder:text-neutral-600"
                                     value={searchTeamB}
                                     onChange={(e) => setSearchTeamB(e.target.value)}
@@ -374,7 +376,7 @@ export default function DashboardPage() {
                                     className="bg-white/5 border-white/10 text-white hover:bg-white/10 hover:text-white w-full sm:w-auto min-w-[200px] gap-2 h-12"
                                     onClick={() => setVisibleCount(prev => prev + 6)}
                                 >
-                                    Voir plus de matchs ({filtered.length - visibleCount}) <ChevronDown className="size-4" />
+                                    {copy("Voir plus de matchs")} ({filtered.length - visibleCount}) <ChevronDown className="size-4" />
                                 </Button>
                             </div>
                         )}
@@ -382,15 +384,15 @@ export default function DashboardPage() {
                 ) : (
                     <div className="flex flex-col items-center justify-center py-20 text-muted-foreground border border-dashed border-white/10 rounded-xl bg-white/[0.02]">
                         <Swords className="size-10 mb-4 opacity-20" />
-                        <p className="font-medium text-lg">Aucun match trouvé</p>
-                        <p className="text-sm opacity-60">Essayez de modifier vos critères de recherche.</p>
+                        <p className="font-medium text-lg">{copy("Aucun match trouvé")}</p>
+                        <p className="text-sm opacity-60">{copy("Essayez de modifier vos critères de recherche.")}</p>
                         {(searchTeamA || searchTeamB) && (
                             <Button
                                 variant="link"
                                 onClick={() => { setSearchTeamA(""); setSearchTeamB(""); }}
                                 className="mt-2 text-primary"
                             >
-                                Effacer la recherche
+                                {copy("Effacer la recherche")}
                             </Button>
                         )}
                     </div>

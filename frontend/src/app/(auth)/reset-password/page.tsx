@@ -8,8 +8,10 @@ import Link from "next/link";
 import { useState } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { toast } from "sonner";
+import { useI18n } from "@/lib/use-i18n";
 
 export default function ResetPasswordPage() {
+    const { t, locale } = useI18n();
     const [isLoading, setIsLoading] = useState(false);
     const [email, setEmail] = useState("");
     const [emailSent, setEmailSent] = useState(false);
@@ -22,7 +24,7 @@ export default function ResetPasswordPage() {
         const { error } = await resetPasswordForEmail(email);
 
         if (error) {
-            toast.error("Échec de l'envoi", {
+            toast.error(t("updateFailed"), {
                 description: error,
             });
             setIsLoading(false);
@@ -43,18 +45,17 @@ export default function ResetPasswordPage() {
                         </div>
                     </div>
                     <div className="space-y-2">
-                        <h3 className="text-lg font-semibold text-white">E-mail envoyé !</h3>
+                        <h3 className="text-lg font-semibold text-white">{t("emailSentTitle")}</h3>
                         <p className="text-sm text-neutral-400 leading-relaxed">
-                            Si un compte existe avec l&apos;adresse <span className="text-white font-medium">{email}</span>,
-                            vous recevrez un lien pour réinitialiser votre mot de passe.
+                            {t("resetIfExists")} <span className="text-white font-medium">{email}</span>
                         </p>
                     </div>
-                    <p className="text-xs text-neutral-500 mt-4">Vérifiez aussi vos spams.</p>
+                    <p className="text-xs text-neutral-500 mt-4">{t("checkSpam")}</p>
                 </div>
             ) : (
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <BiometricInput
-                        label="Adresse e-mail"
+                        label={t("emailAddress")}
                         type="email"
                         placeholder="votre@email.com"
                         value={email}
@@ -62,14 +63,14 @@ export default function ResetPasswordPage() {
                         required
                     />
 
-                    <SecurityScanner type="submit" isLoading={isLoading} label="Envoyer le lien" />
+                    <SecurityScanner type="submit" isLoading={isLoading} label={t("sendLink")} />
                 </form>
             )}
 
             <div className="text-center mt-8">
-                <Link href="/login" className="text-sm text-neutral-400 hover:text-white flex items-center justify-center gap-2 transition-colors">
+                <Link href={`/${locale}/login`} className="text-sm text-neutral-400 hover:text-white flex items-center justify-center gap-2 transition-colors">
                     <ArrowLeft className="size-4" />
-                    Retour à la connexion
+                    {t("backToLogin")}
                 </Link>
             </div>
         </AccessTerminal>

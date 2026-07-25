@@ -3,23 +3,25 @@
 import { SystemService } from "@/types/admin";
 import { cn } from "@/lib/utils";
 import { Activity, Server } from "lucide-react";
+import { useI18n } from "@/lib/use-i18n";
 
 interface ServerCoreProps {
     services: SystemService[];
 }
 
 export function ServerCore({ services }: ServerCoreProps) {
+    const { copy } = useI18n();
     return (
         <div className="rounded-3xl bg-black/40 border border-white/10 backdrop-blur-xl p-6 h-full flex flex-col">
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-2">
                     <Activity className="size-5 text-neutral-500 animate-pulse" />
-                    <h3 className="text-sm font-bold uppercase tracking-widest text-neutral-500">System Cores</h3>
+                    <h3 className="text-sm font-bold uppercase tracking-widest text-neutral-500">{copy("System Cores")}</h3>
                 </div>
                 <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 text-[10px] font-mono text-neutral-400">
                     <div className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    ONLINE
+                    {copy("ONLINE")}
                 </div>
             </div>
 
@@ -55,7 +57,7 @@ export function ServerCore({ services }: ServerCoreProps) {
                                     <h4 className="font-bold text-white text-sm">{service.name}</h4>
                                     <div className="flex items-center gap-2 mt-1">
                                         <span className={cn("text-[10px] uppercase font-bold tracking-wider", textColor)}>
-                                            {service.status}
+                                            {copy(service.status)}
                                         </span>
                                         <span className="text-[10px] text-neutral-600 font-mono">
                                             {service.latency}ms

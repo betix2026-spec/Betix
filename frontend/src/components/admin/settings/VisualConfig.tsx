@@ -16,6 +16,7 @@ import {
 import { Paintbrush, Type, Radius, Palette } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
+import { useI18n } from "@/lib/use-i18n";
 
 interface SystemConfig {
     key: string;
@@ -45,6 +46,7 @@ const ACCENT_PRESETS = [
 ];
 
 export function VisualConfig() {
+    const { copy } = useI18n();
     const defaults: Record<string, string> = {
         "ui.font_family": "inter",
         "ui.accent_color": "#3b82f6",
@@ -121,14 +123,14 @@ export function VisualConfig() {
                         <div className="space-y-1">
                             <CardTitle className="text-white flex items-center gap-2 text-base">
                                 <Type className="size-4 text-pink-500" />
-                                Typography
+                                {copy("Typography")}
                             </CardTitle>
                             <CardDescription className="text-neutral-400 text-xs">
-                                Police principale de l&apos;application.
+                                {copy("Police principale de l'application.")}
                             </CardDescription>
                         </div>
                         <Badge variant="outline" className="border-pink-500/30 text-pink-400 bg-pink-500/5 text-[10px]">
-                            GLOBAL
+                            {copy("GLOBAL")}
                         </Badge>
                     </div>
                 </CardHeader>
@@ -136,7 +138,7 @@ export function VisualConfig() {
 
                     {/* Font Family */}
                     <div className="space-y-2">
-                        <Label className="text-xs text-neutral-400">Font Family</Label>
+                        <Label className="text-xs text-neutral-400">{copy("Font Family")}</Label>
                         <Select
                             value={configs["ui.font_family"]}
                             onValueChange={(v) => handleSave("ui.font_family", v)}
@@ -156,12 +158,12 @@ export function VisualConfig() {
 
                     {/* Preview */}
                     <div className="p-4 rounded-xl bg-white/5 border border-white/5 space-y-2">
-                        <p className="text-[10px] uppercase tracking-widest text-neutral-600">Preview</p>
+                        <p className="text-[10px] uppercase tracking-widest text-neutral-600">{copy("Preview")}</p>
                         <p className="text-lg font-bold text-white">
-                            The quick brown fox
+                            {copy("The quick brown fox")}
                         </p>
                         <p className="text-sm text-neutral-400">
-                            jumps over the lazy dog — 0123456789
+                            {copy("jumps over the lazy dog")} - 0123456789
                         </p>
                     </div>
 
@@ -175,14 +177,14 @@ export function VisualConfig() {
                         <div className="space-y-1">
                             <CardTitle className="text-white flex items-center gap-2 text-base">
                                 <Paintbrush className="size-4 text-cyan-500" />
-                                Theme & Layout
+                                {copy("Theme & Layout")}
                             </CardTitle>
                             <CardDescription className="text-neutral-400 text-xs">
-                                Couleur d&apos;accent et rayon des bordures.
+                                {copy("Couleur d'accent et rayon des bordures.")}
                             </CardDescription>
                         </div>
                         <Badge variant="outline" className="border-cyan-500/30 text-cyan-400 bg-cyan-500/5 text-[10px]">
-                            VISUAL
+                            {copy("VISUAL")}
                         </Badge>
                     </div>
                 </CardHeader>
@@ -191,7 +193,7 @@ export function VisualConfig() {
                     {/* Accent Color */}
                     <div className="space-y-3">
                         <Label className="text-xs text-neutral-400 flex items-center gap-2">
-                            <Palette className="size-3" /> Accent Color
+                            <Palette className="size-3" /> {copy("Accent Color")}
                         </Label>
                         <div className="flex items-center gap-2">
                             {ACCENT_PRESETS.map((preset) => (
@@ -213,7 +215,7 @@ export function VisualConfig() {
                                 value={configs["ui.accent_color"]}
                                 onChange={(e) => setConfigs((p) => ({ ...p, "ui.accent_color": e.target.value }))}
                                 onBlur={(e) => handleSave("ui.accent_color", e.target.value)}
-                                title="Custom color"
+                                title={copy("Custom color")}
                             />
                         </div>
                     </div>
@@ -222,7 +224,7 @@ export function VisualConfig() {
                     <div className="space-y-3">
                         <div className="flex items-center justify-between">
                             <Label className="text-xs text-neutral-400 flex items-center gap-2">
-                                <Radius className="size-3" /> Border Radius
+                                <Radius className="size-3" /> {copy("Border Radius")}
                             </Label>
                             <span className="text-xs font-mono text-neutral-500">
                                 {configs["ui.border_radius"]}px
@@ -253,7 +255,7 @@ export function VisualConfig() {
                     {/* Card Opacity */}
                     <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                            <Label className="text-xs text-neutral-400">Card Opacity</Label>
+                            <Label className="text-xs text-neutral-400">{copy("Card Opacity")}</Label>
                             <span className="text-xs font-mono text-neutral-500">
                                 {configs["ui.card_opacity"]}%
                             </span>

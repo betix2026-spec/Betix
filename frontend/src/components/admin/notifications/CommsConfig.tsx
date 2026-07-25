@@ -11,6 +11,7 @@ import { RadioTower, Bell, Mail, Smartphone, Volume2, Save } from "lucide-react"
 import { useState } from "react";
 import { toast } from "sonner";
 import { adminSendNotificationAction } from "@/app/actions/notifications";
+import { useI18n } from "@/lib/use-i18n";
 
 interface CommsConfigProps {
     open: boolean;
@@ -18,6 +19,7 @@ interface CommsConfigProps {
 }
 
 export function CommsConfig({ open, onClose }: CommsConfigProps) {
+    const { copy } = useI18n();
     const [isSending, setIsSending] = useState(false);
     const [sendForm, setSendForm] = useState({ title: "", message: "", targetUserId: "" });
 
@@ -35,13 +37,13 @@ export function CommsConfig({ open, onClose }: CommsConfigProps) {
             });
 
             if (result.success) {
-                toast.success("Signal transmis avec succès.");
+                toast.success(copy("Signal transmis avec succès."));
                 setSendForm({ title: "", message: "", targetUserId: "" });
             } else {
-                toast.error(result.error || "Échec de transmission.");
+                toast.error(result.error || copy("Échec de transmission."));
             }
         } catch (error) {
-            toast.error("Erreur système.");
+            toast.error(copy("Erreur système."));
         } finally {
             setIsSending(false);
         }
@@ -51,8 +53,8 @@ export function CommsConfig({ open, onClose }: CommsConfigProps) {
         <Sheet open={open} onOpenChange={onClose}>
             <SheetContent className="w-full sm:max-w-md border-l border-white/10 bg-black/95 backdrop-blur-xl p-0 shadow-2xl">
                 <SheetHeader className="sr-only">
-                    <SheetTitle>Comms Configuration</SheetTitle>
-                    <SheetDescription>Paramètres de réception des alertes</SheetDescription>
+                    <SheetTitle>{copy("Comms Configuration")}</SheetTitle>
+                    <SheetDescription>{copy("Paramètres de réception des alertes")}</SheetDescription>
                 </SheetHeader>
 
                 {/* Header */}
@@ -63,8 +65,8 @@ export function CommsConfig({ open, onClose }: CommsConfigProps) {
                             <RadioTower className="size-5 text-white animate-pulse" />
                         </div>
                         <div>
-                            <h2 className="text-lg font-black text-white uppercase tracking-widest">Comms Config</h2>
-                            <p className="text-[10px] font-mono text-neutral-500">SIGNAL_ROUTING_PROTOCOLS</p>
+                            <h2 className="text-lg font-black text-white uppercase tracking-widest">{copy("Comms Config")}</h2>
+                            <p className="text-[10px] font-mono text-neutral-500">{copy("SIGNAL_ROUTING_PROTOCOLS")}</p>
                         </div>
                     </div>
                 </div>
@@ -74,7 +76,7 @@ export function CommsConfig({ open, onClose }: CommsConfigProps) {
                     {/* Channel Settings */}
                     <div className="space-y-4">
                         <h3 className="text-xs font-bold text-neutral-500 uppercase flex items-center gap-2">
-                            <Bell className="size-3.5" /> Notification Channels
+                            <Bell className="size-3.5" /> {copy("Notification Channels")}
                         </h3>
 
                         <div className="space-y-4">
@@ -84,8 +86,8 @@ export function CommsConfig({ open, onClose }: CommsConfigProps) {
                                         <Mail className="size-4" />
                                     </div>
                                     <div>
-                                        <Label className="text-sm font-bold text-white">Email Uplink</Label>
-                                        <p className="text-[10px] text-neutral-500">Critical alerts only</p>
+                                        <Label className="text-sm font-bold text-white">{copy("Email Uplink")}</Label>
+                                        <p className="text-[10px] text-neutral-500">{copy("Critical alerts only")}</p>
                                     </div>
                                 </div>
                                 <Switch defaultChecked />
@@ -97,8 +99,8 @@ export function CommsConfig({ open, onClose }: CommsConfigProps) {
                                         <Smartphone className="size-4" />
                                     </div>
                                     <div>
-                                        <Label className="text-sm font-bold text-white">Push Notifications</Label>
-                                        <p className="text-[10px] text-neutral-500">Real-time signal feed</p>
+                                        <Label className="text-sm font-bold text-white">{copy("Push Notifications")}</Label>
+                                        <p className="text-[10px] text-neutral-500">{copy("Real-time signal feed")}</p>
                                     </div>
                                 </div>
                                 <Switch defaultChecked />
@@ -111,24 +113,24 @@ export function CommsConfig({ open, onClose }: CommsConfigProps) {
                     {/* Alert Thresholds */}
                     <div className="space-y-4">
                         <h3 className="text-xs font-bold text-neutral-500 uppercase flex items-center gap-2">
-                            <Volume2 className="size-3.5" /> Signal Intensity
+                            <Volume2 className="size-3.5" /> {copy("Signal Intensity")}
                         </h3>
                         <div className="p-3 rounded-lg border border-white/10 bg-white/5 space-y-3">
                             <div className="flex items-center justify-between">
-                                <span className="text-xs font-mono text-neutral-400">INFO_LEVEL_LOGS</span>
+                                <span className="text-xs font-mono text-neutral-400">{copy("INFO_LEVEL_LOGS")}</span>
                                 <Switch />
                             </div>
                             <div className="flex items-center justify-between">
-                                <span className="text-xs font-mono text-neutral-400">WARNING_LEVEL_LOGS</span>
+                                <span className="text-xs font-mono text-neutral-400">{copy("WARNING_LEVEL_LOGS")}</span>
                                 <Switch defaultChecked />
                             </div>
                             <div className="flex items-center justify-between">
-                                <span className="text-xs font-mono text-red-400 font-bold">CRITICAL_ALERTS</span>
+                                <span className="text-xs font-mono text-red-400 font-bold">{copy("CRITICAL_ALERTS")}</span>
                                 <Switch defaultChecked disabled className="opacity-50 cursor-not-allowed data-[state=checked]:bg-red-500" />
                             </div>
                         </div>
                         <p className="text-[10px] text-neutral-600 italic">
-                            *Critical alerts cannot be disabled via this terminal. Contact SysAdmin for override.
+                            {copy("*Critical alerts cannot be disabled via this terminal. Contact SysAdmin for override.")}
                         </p>
                     </div>
 
@@ -137,14 +139,14 @@ export function CommsConfig({ open, onClose }: CommsConfigProps) {
 
                     <div className="space-y-4">
                         <h3 className="text-xs font-bold text-neutral-500 uppercase flex items-center gap-2">
-                            <RadioTower className="size-3.5" /> Broadcast Channel
+                            <RadioTower className="size-3.5" /> {copy("Broadcast Channel")}
                         </h3>
 
                         <form onSubmit={handleSendMessage} className="space-y-3 p-4 rounded-xl border border-white/10 bg-white/5">
                             <div className="space-y-1">
-                                <Label className="text-[10px] text-neutral-400 uppercase tracking-widest">Titre</Label>
+                                <Label className="text-[10px] text-neutral-400 uppercase tracking-widest">{copy("Titre")}</Label>
                                 <Input
-                                    placeholder="Titre de l'alerte"
+                                    placeholder={copy("Titre de l'alerte")}
                                     className="h-8 text-xs bg-black/50 border-white/10"
                                     value={sendForm.title}
                                     onChange={e => setSendForm(prev => ({ ...prev, title: e.target.value }))}
@@ -153,9 +155,9 @@ export function CommsConfig({ open, onClose }: CommsConfigProps) {
                             </div>
 
                             <div className="space-y-1">
-                                <Label className="text-[10px] text-neutral-400 uppercase tracking-widest">Message</Label>
+                                <Label className="text-[10px] text-neutral-400 uppercase tracking-widest">{copy("Message")}</Label>
                                 <Textarea
-                                    placeholder="Contenu..."
+                                    placeholder={copy("Contenu...")}
                                     className="min-h-[60px] text-xs bg-black/50 border-white/10 resize-none"
                                     value={sendForm.message}
                                     onChange={e => setSendForm(prev => ({ ...prev, message: e.target.value }))}
@@ -164,9 +166,9 @@ export function CommsConfig({ open, onClose }: CommsConfigProps) {
                             </div>
 
                             <div className="space-y-1">
-                                <Label className="text-[10px] text-neutral-400 uppercase tracking-widest">Cible (Optionnel)</Label>
+                                <Label className="text-[10px] text-neutral-400 uppercase tracking-widest">{copy("Cible (Optionnel)")}</Label>
                                 <Input
-                                    placeholder="ID Utilisateur (laisser vide pour TOUS)"
+                                    placeholder={copy("ID Utilisateur (laisser vide pour TOUS)")}
                                     className="h-8 text-xs bg-black/50 border-white/10"
                                     value={sendForm.targetUserId}
                                     onChange={e => setSendForm(prev => ({ ...prev, targetUserId: e.target.value }))}
@@ -178,7 +180,7 @@ export function CommsConfig({ open, onClose }: CommsConfigProps) {
                                 disabled={isSending}
                                 className="w-full h-8 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white mt-2"
                             >
-                                {isSending ? "Transmission..." : "Envoyer Signal"}
+                                {isSending ? copy("Transmission...") : copy("Envoyer Signal")}
                             </Button>
                         </form>
                     </div>
@@ -188,7 +190,7 @@ export function CommsConfig({ open, onClose }: CommsConfigProps) {
                 {/* Footer Actions */}
                 <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/10 bg-black/90 backdrop-blur-md">
                     <Button onClick={onClose} className="w-full bg-white text-black font-bold hover:bg-neutral-200">
-                        <Save className="size-4 mr-2" /> UPDATE PROTOCOLS
+                        <Save className="size-4 mr-2" /> {copy("UPDATE PROTOCOLS")}
                     </Button>
                 </div>
 

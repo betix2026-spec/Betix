@@ -11,6 +11,7 @@ import { UserCog, Save, Key, Shield, CreditCard, User, Eye, EyeOff } from "lucid
 import { useState, useEffect } from "react";
 import { updateAgentAction, getPlansAction } from "@/app/(admin)/admin/users/actions";
 import { toast } from "sonner";
+import { useI18n } from "@/lib/use-i18n";
 
 interface EditAgentModalProps {
     user: any | null; // Using any for now to match page state
@@ -20,6 +21,7 @@ interface EditAgentModalProps {
 }
 
 export function EditAgentModal({ user, open, onClose, onSuccess }: EditAgentModalProps) {
+    const { copy } = useI18n();
     const [isLoading, setIsLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [plans, setPlans] = useState<any[]>([]);
@@ -80,14 +82,14 @@ export function EditAgentModal({ user, open, onClose, onSuccess }: EditAgentModa
             const result = await updateAgentAction(user.id, updates);
 
             if (result.success) {
-                toast.success("Agent updated successfully");
+                toast.success(copy("Agent updated successfully"));
                 if (onSuccess) onSuccess();
                 onClose();
             } else {
-                toast.error(`Error: ${result.error}`);
+                toast.error(`${copy("Erreur")}: ${result.error}`);
             }
         } catch (error) {
-            toast.error("An unexpected error occurred");
+            toast.error(copy("An unexpected error occurred"));
             console.error(error);
         } finally {
             setIsLoading(false);
@@ -100,8 +102,8 @@ export function EditAgentModal({ user, open, onClose, onSuccess }: EditAgentModa
         <Sheet open={open} onOpenChange={onClose}>
             <SheetContent className="w-full sm:max-w-lg border-l border-white/10 bg-black/95 backdrop-blur-xl p-0 shadow-2xl">
                 <SheetHeader className="sr-only">
-                    <SheetTitle>Edit Agent: {user.username}</SheetTitle>
-                    <SheetDescription>Modification des paramètres de l&apos;agent</SheetDescription>
+                    <SheetTitle>{copy("Edit Agent")}: {user.username}</SheetTitle>
+                    <SheetDescription>{copy("Modification des paramètres de l'agent")}</SheetDescription>
                 </SheetHeader>
 
                 {/* Header */}
@@ -113,12 +115,12 @@ export function EditAgentModal({ user, open, onClose, onSuccess }: EditAgentModa
                                 <UserCog className="size-5 text-neutral-400" />
                             </div>
                             <div>
-                                <h2 className="text-lg font-black text-white uppercase tracking-widest">Agent Config</h2>
+                                <h2 className="text-lg font-black text-white uppercase tracking-widest">{copy("Agent Config")}</h2>
                                 <p className="text-[10px] font-mono text-neutral-500">ID: {user.id.slice(0, 8)}...</p>
                             </div>
                         </div>
                         <Badge variant="outline" className="border-blue-500/50 text-blue-500 bg-blue-500/10 font-bold">
-                            EDITING
+                            {copy("EDITING")}
                         </Badge>
                     </div>
                 </div>
@@ -128,11 +130,11 @@ export function EditAgentModal({ user, open, onClose, onSuccess }: EditAgentModa
                     {/* Identity Section */}
                     <div className="space-y-4">
                         <h3 className="text-xs font-bold text-neutral-500 uppercase flex items-center gap-2">
-                            <User className="size-3.5" /> Identity Matrix
+                            <User className="size-3.5" /> {copy("Identity Matrix")}
                         </h3>
                         <div className="grid gap-4">
                             <div className="space-y-2">
-                                <Label className="text-xs font-mono text-neutral-400">CODENAME (USERNAME)</Label>
+                                <Label className="text-xs font-mono text-neutral-400">{copy("CODENAME (USERNAME)")}</Label>
                                 <Input
                                     value={formData.username}
                                     onChange={(e) => handleChange("username", e.target.value)}
@@ -140,7 +142,7 @@ export function EditAgentModal({ user, open, onClose, onSuccess }: EditAgentModa
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label className="text-xs font-mono text-neutral-400">CONTACT_FREQUENCY (EMAIL)</Label>
+                                <Label className="text-xs font-mono text-neutral-400">{copy("CONTACT_FREQUENCY (EMAIL)")}</Label>
                                 <Input
                                     value={formData.email}
                                     onChange={(e) => handleChange("email", e.target.value)}
@@ -155,14 +157,14 @@ export function EditAgentModal({ user, open, onClose, onSuccess }: EditAgentModa
                     {/* Security Section */}
                     <div className="space-y-4">
                         <h3 className="text-xs font-bold text-neutral-500 uppercase flex items-center gap-2">
-                            <Key className="size-3.5" /> Security Clearance
+                            <Key className="size-3.5" /> {copy("Security Clearance")}
                         </h3>
                         <div className="space-y-2">
-                            <Label className="text-xs font-mono text-neutral-400">RESET_ACCESS_CODE (PASSWORD)</Label>
+                            <Label className="text-xs font-mono text-neutral-400">{copy("RESET_ACCESS_CODE (PASSWORD)")}</Label>
                             <div className="relative">
                                 <Input
                                     type={showPassword ? "text" : "password"}
-                                    placeholder="Laisser vide pour ne pas changer"
+                                    placeholder={copy("Laisser vide pour ne pas changer")}
                                     value={formData.password}
                                     onChange={(e) => handleChange("password", e.target.value)}
                                     className="bg-white/5 border-white/10 text-white placeholder:text-neutral-600 pr-10"
@@ -176,19 +178,19 @@ export function EditAgentModal({ user, open, onClose, onSuccess }: EditAgentModa
                                 </button>
                             </div>
                             <p className="text-[10px] text-amber-500/80 font-mono">
-                                ⚠ Une modification ici changera immédiatement le mot de passe de l&apos;utilisateur.
+                                ⚠ {copy("Une modification ici changera immédiatement le mot de passe de l'utilisateur.")}
                             </p>
                         </div>
                         <div className="space-y-2">
-                            <Label className="text-xs font-mono text-neutral-400">ACCESS_LEVEL (ROLE)</Label>
+                            <Label className="text-xs font-mono text-neutral-400">{copy("ACCESS_LEVEL (ROLE)")}</Label>
                             <Select value={formData.role} onValueChange={(v) => handleChange("role", v)}>
                                 <SelectTrigger className="bg-white/5 border-white/10 text-white">
-                                    <SelectValue placeholder="Select role" />
+                                    <SelectValue placeholder={copy("Select role")} />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="user">Agent (User)</SelectItem>
-                                    <SelectItem value="admin">Handler (Admin)</SelectItem>
-                                    <SelectItem value="super_admin">Director (Super Admin)</SelectItem>
+                                    <SelectItem value="user">{copy("Agent (User)")}</SelectItem>
+                                    <SelectItem value="admin">{copy("Handler (Admin)")}</SelectItem>
+                                    <SelectItem value="super_admin">{copy("Director (Super Admin)")}</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -199,17 +201,17 @@ export function EditAgentModal({ user, open, onClose, onSuccess }: EditAgentModa
                     {/* Subscription Section */}
                     <div className="space-y-4">
                         <h3 className="text-xs font-bold text-neutral-500 uppercase flex items-center gap-2">
-                            <CreditCard className="size-3.5" /> Resource Allocation
+                            <CreditCard className="size-3.5" /> {copy("Resource Allocation")}
                         </h3>
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label className="text-xs font-mono text-neutral-400">PLAN_TIER</Label>
+                                <Label className="text-xs font-mono text-neutral-400">{copy("PLAN_TIER")}</Label>
                                 <Select value={formData.plan_id} onValueChange={(v) => handleChange("plan_id", v)}>
                                     <SelectTrigger className="bg-white/5 border-white/10 text-white">
-                                        <SelectValue placeholder="Select plan" />
+                                        <SelectValue placeholder={copy("Select plan")} />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="free">Rookie (Free)</SelectItem>
+                                        <SelectItem value="free">{copy("Rookie (Free)")}</SelectItem>
                                         {plans.filter(p => p.id !== 'free').map((plan) => (
                                             <SelectItem key={plan.id} value={plan.id}>
                                                 {plan.name} ({plan.price}€)
@@ -219,17 +221,17 @@ export function EditAgentModal({ user, open, onClose, onSuccess }: EditAgentModa
                                 </Select>
                             </div>
                             <div className="space-y-2">
-                                <Label className="text-xs font-mono text-neutral-400">STATUS</Label>
+                                <Label className="text-xs font-mono text-neutral-400">{copy("STATUS")}</Label>
                                 <Select value={formData.status} onValueChange={(v) => handleChange("status", v)}>
                                     <SelectTrigger className="bg-white/5 border-white/10 text-white">
-                                        <SelectValue placeholder="Select status" />
+                                        <SelectValue placeholder={copy("Select status")} />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="active">Active</SelectItem>
-                                        <SelectItem value="past_due">Past Due</SelectItem>
-                                        <SelectItem value="canceled">Canceled</SelectItem>
-                                        <SelectItem value="suspended">Suspended</SelectItem>
-                                        <SelectItem value="inactive">Inactive</SelectItem>
+                                        <SelectItem value="active">{copy("Active")}</SelectItem>
+                                        <SelectItem value="past_due">{copy("Past Due")}</SelectItem>
+                                        <SelectItem value="canceled">{copy("Canceled")}</SelectItem>
+                                        <SelectItem value="suspended">{copy("Suspended")}</SelectItem>
+                                        <SelectItem value="inactive">{copy("Inactive")}</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -241,7 +243,7 @@ export function EditAgentModal({ user, open, onClose, onSuccess }: EditAgentModa
                 {/* Footer Actions */}
                 <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/10 bg-black/90 backdrop-blur-md flex gap-3">
                     <Button variant="ghost" className="flex-1 text-neutral-400 hover:text-white hover:bg-white/5" onClick={onClose}>
-                        CANCEL
+                        {copy("CANCEL")}
                     </Button>
                     <Button
                         className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold"
@@ -249,10 +251,10 @@ export function EditAgentModal({ user, open, onClose, onSuccess }: EditAgentModa
                         disabled={isLoading}
                     >
                         {isLoading ? (
-                            "UPDATING..."
+                            copy("UPDATING...")
                         ) : (
                             <>
-                                <Save className="size-4 mr-2" /> SAVE CONFIG
+                                <Save className="size-4 mr-2" /> {copy("SAVE CONFIG")}
                             </>
                         )}
                     </Button>

@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Zap, Clock, Activity, Save, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
+import { useI18n } from "@/lib/use-i18n";
 
 interface SystemConfig {
     key: string;
@@ -19,6 +20,7 @@ interface SystemConfig {
 }
 
 export function AlgorithmicControl() {
+    const { copy } = useI18n();
     // Default values
     const defaults = {
         schedule_live_interval: "300",
@@ -82,7 +84,7 @@ export function AlgorithmicControl() {
             setConfigs(configMap);
         } catch (error) {
             console.error("Failed to fetch configs:", error);
-            toast.error("Erreur lors du chargement de la configuration système.");
+            toast.error(copy("Erreur lors du chargement de la configuration système."));
         } finally {
             setLoading(false);
         }
@@ -104,10 +106,10 @@ export function AlgorithmicControl() {
             if (error) throw error;
 
             setConfigs(prev => ({ ...prev, [key]: value }));
-            toast.success("Configuration mise à jour avec succès !");
+            toast.success(copy("Configuration mise à jour avec succès !"));
         } catch (error: any) {
             console.error("Failed to update config:", error);
-            toast.error(`Erreur lors de la sauvegarde: ${error.message || error.code || "Inconnue"}`);
+            toast.error(`${copy("Erreur lors de la sauvegarde")}: ${error.message || error.code || copy("Inconnue")}`);
         } finally {
             setSaving(false);
         }
@@ -132,10 +134,10 @@ export function AlgorithmicControl() {
                     <div className="space-y-1">
                         <CardTitle className="text-white flex items-center gap-2 text-base">
                             <Activity className="size-4 text-purple-500" />
-                            Contrôle Algorithmique
+                            {copy("Contrôle Algorithmique")}
                         </CardTitle>
                         <CardDescription className="text-neutral-400 text-xs">
-                            Paramètres globaux du système.
+                            {copy("Paramètres globaux du système.")}
                         </CardDescription>
                     </div>
                     <Badge variant="outline" className="border-purple-500/30 text-purple-400 bg-purple-500/5 text-[10px]">
@@ -156,7 +158,7 @@ export function AlgorithmicControl() {
                             </Label>
                         </div>
                         <p className="text-[10px] text-neutral-500 pl-4">
-                            Fréquence de mise à jour des scores (en secondes).
+                            {copy("Fréquence de mise à jour des scores (en secondes).")}
                         </p>
                     </div>
                     <div className="flex items-center gap-4">
@@ -189,7 +191,7 @@ export function AlgorithmicControl() {
                             </Label>
                         </div>
                         <p className="text-[10px] text-neutral-500 pl-4">
-                            Détection des matchs à venir (&lt; 3h).
+                            {copy("Détection des matchs à venir (< 3h).")}
                         </p>
                     </div>
                     <div className="flex items-center gap-4">
@@ -239,7 +241,7 @@ export function AlgorithmicControl() {
                         <div className="grid grid-cols-2 gap-3 pl-4">
                             {/* Hour */}
                             <div className="group flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/5 hover:border-emerald-500/30 transition-all">
-                                <span className="text-[10px] text-neutral-400">Heure (0-23h)</span>
+                                <span className="text-[10px] text-neutral-400">{copy("Heure (0-23h)")}</span>
                                 <div className="flex items-center gap-1">
                                     <Input
                                         type="number"
@@ -255,7 +257,7 @@ export function AlgorithmicControl() {
 
                             {/* Days Ahead */}
                             <div className="group flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/5 hover:border-emerald-500/30 transition-all">
-                                <span className="text-[10px] text-neutral-400">Jours (Futures)</span>
+                                <span className="text-[10px] text-neutral-400">{copy("Jours (Futures)")}</span>
                                 <div className="flex items-center gap-1">
                                     <Input
                                         type="number"
