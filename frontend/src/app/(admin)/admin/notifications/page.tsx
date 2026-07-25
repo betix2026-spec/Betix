@@ -108,10 +108,10 @@ export default function AdminNotificationsPage() {
             {/* Command Header */}
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-white/10 pb-6">
                 <div>
-                    <h1 className="text-4xl font-black uppercase tracking-tight text-white mb-2">{copy("Comms Deck")}</h1>
+                    <h1 className="text-4xl font-black uppercase tracking-tight text-white mb-2">{copy("Notifications admin")}</h1>
                     <p className="text-sm font-mono text-neutral-500 flex items-center gap-2">
                         <Radio className="size-3.5 animate-pulse text-emerald-500" />
-                        {copy("SIGNAL_INT_ESTABLISHED :: ENCRYPTED_CHANNEL")}
+                        {copy("Connecté en temps réel")}
                     </p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -121,14 +121,14 @@ export default function AdminNotificationsPage() {
                         size="sm"
                         className="border-white/10 text-neutral-400 hover:text-white hover:bg-white/5 font-mono text-xs gap-2"
                     >
-                        <Check className="size-3.5" /> {copy("CLEAR_BUFFER")}
+                        <Check className="size-3.5" /> {copy("Tout marquer comme lu")}
                     </Button>
                     <Button
                         onClick={() => setIsConfigOpen(true)}
                         size="sm"
                         className="bg-neutral-800 hover:bg-neutral-700 text-white font-bold tracking-wide border border-white/10 gap-2"
                     >
-                        <Settings className="size-3.5" /> {copy("COMMS_CONFIG")}
+                        <Settings className="size-3.5" /> {copy("Réglages")}
                     </Button>
                 </div>
             </div>

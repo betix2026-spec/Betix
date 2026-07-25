@@ -34,14 +34,20 @@ const TYPE_COLORS: Record<string, string> = {
 };
 
 export function FeatureDefinitionsManager({ definitions, onUpdate }: FeatureDefinitionsManagerProps) {
-    const { copy } = useI18n();
+    const { copy, t } = useI18n();
     const [editingId, setEditingId] = useState<string | null>(null);
-    const [editForm, setEditForm] = useState<{ label: string; description: string; type: string }>({
-        label: "", description: "", type: "text"
+    const [editForm, setEditForm] = useState({
+        label: "", label_en: "", label_es: "", label_de: "",
+        description: "", description_en: "", description_es: "", description_de: "",
+        type: "text"
     });
 
     const [showAddForm, setShowAddForm] = useState(false);
-    const [newFeature, setNewFeature] = useState({ id: "", label: "", description: "", type: "text" });
+    const [newFeature, setNewFeature] = useState({
+        id: "", label: "", label_en: "", label_es: "", label_de: "",
+        description: "", description_en: "", description_es: "", description_de: "",
+        type: "text"
+    });
 
     const [isLoading, setIsLoading] = useState(false);
     const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -49,12 +55,26 @@ export function FeatureDefinitionsManager({ definitions, onUpdate }: FeatureDefi
     // ── Edit ──
     const startEdit = (def: FeatureDefinition) => {
         setEditingId(def.id);
-        setEditForm({ label: def.label, description: def.description || "", type: def.type });
+        setEditForm({
+            label: def.label,
+            label_en: def.label_en || "",
+            label_es: def.label_es || "",
+            label_de: def.label_de || "",
+            description: def.description || "",
+            description_en: def.description_en || "",
+            description_es: def.description_es || "",
+            description_de: def.description_de || "",
+            type: def.type,
+        });
     };
 
     const cancelEdit = () => {
         setEditingId(null);
-        setEditForm({ label: "", description: "", type: "text" });
+        setEditForm({
+            label: "", label_en: "", label_es: "", label_de: "",
+            description: "", description_en: "", description_es: "", description_de: "",
+            type: "text"
+        });
     };
 
     const saveEdit = async () => {
@@ -62,7 +82,13 @@ export function FeatureDefinitionsManager({ definitions, onUpdate }: FeatureDefi
         setIsLoading(true);
         const result = await updateFeatureDefinitionAction(editingId, {
             label: editForm.label,
+            label_en: editForm.label_en || null,
+            label_es: editForm.label_es || null,
+            label_de: editForm.label_de || null,
             description: editForm.description,
+            description_en: editForm.description_en || null,
+            description_es: editForm.description_es || null,
+            description_de: editForm.description_de || null,
             type: editForm.type as 'text' | 'boolean' | 'number',
         });
         setIsLoading(false);
@@ -85,13 +111,23 @@ export function FeatureDefinitionsManager({ definitions, onUpdate }: FeatureDefi
         const result = await createFeatureDefinitionAction({
             id: newFeature.id,
             label: newFeature.label,
+            label_en: newFeature.label_en || null,
+            label_es: newFeature.label_es || null,
+            label_de: newFeature.label_de || null,
             description: newFeature.description || undefined,
+            description_en: newFeature.description_en || null,
+            description_es: newFeature.description_es || null,
+            description_de: newFeature.description_de || null,
             type: newFeature.type as 'text' | 'boolean' | 'number',
         });
         setIsLoading(false);
         if (result.success) {
             toast.success(copy("Feature créée"));
-            setNewFeature({ id: "", label: "", description: "", type: "text" });
+            setNewFeature({
+                id: "", label: "", label_en: "", label_es: "", label_de: "",
+                description: "", description_en: "", description_es: "", description_de: "",
+                type: "text"
+            });
             setShowAddForm(false);
             onUpdate();
         } else {
@@ -127,7 +163,7 @@ export function FeatureDefinitionsManager({ definitions, onUpdate }: FeatureDefi
                 <div className="flex items-center gap-3">
                     <Database className="size-4 text-neutral-500" />
                     <span className="text-xs font-bold uppercase tracking-widest text-neutral-400">
-                        {copy("Feature Registry")}
+                        {copy("Fonctionnalités")}
                     </span>
                     <Badge variant="secondary" className="text-[10px] font-mono">
                         {definitions.length}
@@ -189,6 +225,44 @@ export function FeatureDefinitionsManager({ definitions, onUpdate }: FeatureDefi
                                 {isLoading ? <Loader2 className="size-3 animate-spin" /> : <Check className="size-3" />}
                             </Button>
                         </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                        <Input
+                            placeholder={t("featureLabelEnglish")}
+                            value={newFeature.label_en}
+                            onChange={(e) => setNewFeature({ ...newFeature, label_en: e.target.value })}
+                            className="bg-black/50 border-white/10 text-xs h-9"
+                        />
+                        <Input
+                            placeholder={t("featureLabelSpanish")}
+                            value={newFeature.label_es}
+                            onChange={(e) => setNewFeature({ ...newFeature, label_es: e.target.value })}
+                            className="bg-black/50 border-white/10 text-xs h-9"
+                        />
+                        <Input
+                            placeholder={t("featureLabelGerman")}
+                            value={newFeature.label_de}
+                            onChange={(e) => setNewFeature({ ...newFeature, label_de: e.target.value })}
+                            className="bg-black/50 border-white/10 text-xs h-9"
+                        />
+                        <Input
+                            placeholder={t("featureDescEnglish")}
+                            value={newFeature.description_en}
+                            onChange={(e) => setNewFeature({ ...newFeature, description_en: e.target.value })}
+                            className="bg-black/50 border-white/10 text-xs h-9"
+                        />
+                        <Input
+                            placeholder={t("featureDescSpanish")}
+                            value={newFeature.description_es}
+                            onChange={(e) => setNewFeature({ ...newFeature, description_es: e.target.value })}
+                            className="bg-black/50 border-white/10 text-xs h-9"
+                        />
+                        <Input
+                            placeholder={t("featureDescGerman")}
+                            value={newFeature.description_de}
+                            onChange={(e) => setNewFeature({ ...newFeature, description_de: e.target.value })}
+                            className="bg-black/50 border-white/10 text-xs h-9"
+                        />
                     </div>
                 </div>
             )}
@@ -307,10 +381,58 @@ export function FeatureDefinitionsManager({ definitions, onUpdate }: FeatureDefi
                                 )}
                             </tr>
                         ))}
+                        {editingId && (() => {
+                            const editingDef = definitions.find((d) => d.id === editingId);
+                            if (!editingDef) return null;
+                            return (
+                                <tr key={`${editingId}-translations`} className="border-b border-white/[0.03] bg-white/[0.02]">
+                                    <td colSpan={5} className="px-5 py-3">
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                            <Input
+                                                placeholder={t("featureLabelEnglish")}
+                                                value={editForm.label_en}
+                                                onChange={(e) => setEditForm({ ...editForm, label_en: e.target.value })}
+                                                className="bg-black/50 border-white/10 text-xs h-8"
+                                            />
+                                            <Input
+                                                placeholder={t("featureLabelSpanish")}
+                                                value={editForm.label_es}
+                                                onChange={(e) => setEditForm({ ...editForm, label_es: e.target.value })}
+                                                className="bg-black/50 border-white/10 text-xs h-8"
+                                            />
+                                            <Input
+                                                placeholder={t("featureLabelGerman")}
+                                                value={editForm.label_de}
+                                                onChange={(e) => setEditForm({ ...editForm, label_de: e.target.value })}
+                                                className="bg-black/50 border-white/10 text-xs h-8"
+                                            />
+                                            <Input
+                                                placeholder={t("featureDescEnglish")}
+                                                value={editForm.description_en}
+                                                onChange={(e) => setEditForm({ ...editForm, description_en: e.target.value })}
+                                                className="bg-black/50 border-white/10 text-xs h-8"
+                                            />
+                                            <Input
+                                                placeholder={t("featureDescSpanish")}
+                                                value={editForm.description_es}
+                                                onChange={(e) => setEditForm({ ...editForm, description_es: e.target.value })}
+                                                className="bg-black/50 border-white/10 text-xs h-8"
+                                            />
+                                            <Input
+                                                placeholder={t("featureDescGerman")}
+                                                value={editForm.description_de}
+                                                onChange={(e) => setEditForm({ ...editForm, description_de: e.target.value })}
+                                                className="bg-black/50 border-white/10 text-xs h-8"
+                                            />
+                                        </div>
+                                    </td>
+                                </tr>
+                            );
+                        })()}
                         {definitions.length === 0 && (
                             <tr>
                                 <td colSpan={5} className="px-5 py-8 text-center text-neutral-600 font-mono text-xs">
-                                    {copy(":: AUCUNE FEATURE DÉFINIE ::")}
+                                    {copy("Aucune fonctionnalité définie")}
                                 </td>
                             </tr>
                         )}

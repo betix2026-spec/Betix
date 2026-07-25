@@ -116,7 +116,7 @@ export async function POST(req: NextRequest) {
         // 3. Retrieve or create the Stripe Customer.
         const { data: profile } = await supabaseAdmin
             .from('profiles')
-            .select('id, username, stripe_customer_id')
+            .select('id, username, stripe_customer_id, has_used_trial')
             .eq('id', user.id)
             .single();
 
@@ -178,8 +178,9 @@ export async function POST(req: NextRequest) {
             subscription_data: subscriptionData,
         };
 
-        // Trial handling.
-        if (plan.trial_days && plan.trial_days > 0) {
+        // Trial handling. Only grant a trial the first time — prevents the
+        // cancel-then-resubscribe loop from generating a fresh free trial every time.
+        if (plan.trial_days && plan.trial_days > 0 && !profile?.has_used_trial) {
             subscriptionData.trial_period_days = plan.trial_days;
         }
 

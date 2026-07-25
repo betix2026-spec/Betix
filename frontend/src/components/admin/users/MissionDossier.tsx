@@ -36,7 +36,7 @@ interface MissionDossierProps {
 }
 
 export function MissionDossier({ user, open, onClose, onSubscriptionCancelled }: MissionDossierProps) {
-    const { copy, locale } = useI18n();
+    const { copy, t, locale } = useI18n();
     const [plans, setPlans] = useState<any[]>([]);
     const [cancelConfirm, setCancelConfirm] = useState(false);
     const [cancelling, setCancelling] = useState(false);
@@ -99,8 +99,8 @@ export function MissionDossier({ user, open, onClose, onSubscriptionCancelled }:
         <Sheet open={open} onOpenChange={onClose}>
             <SheetContent className="w-full sm:max-w-xl border-l border-white/10 bg-black/95 backdrop-blur-xl p-0 shadow-2xl">
                 <SheetHeader className="sr-only">
-                    <SheetTitle>Mission Dossier: {user.name}</SheetTitle>
-                    <SheetDescription>{copy("Détails complets de l'agent")} {user.name}</SheetDescription>
+                    <SheetTitle>{t("adminUserDetailsTitle")}: {user.name}</SheetTitle>
+                    <SheetDescription>{t("adminUserDetailsDescription")}: {user.name}</SheetDescription>
                 </SheetHeader>
                 {/* Header Image / Pattern */}
                 <div className="h-32 bg-[url('https://images.unsplash.com/photo-1550751827-4bd374c3f58b?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center relative group">
@@ -175,17 +175,17 @@ export function MissionDossier({ user, open, onClose, onSubscriptionCancelled }:
                     {/* Subscription Section */}
                     <div className="space-y-4 mb-8">
                         <h3 className="text-xs font-bold uppercase tracking-widest text-neutral-500 flex items-center gap-2">
-                            <CreditCard className="size-3.5" /> {copy("Resource Allocation")}
+                            <CreditCard className="size-3.5" /> {t("adminSubscriptionSection")}
                         </h3>
                         <div className="grid grid-cols-2 gap-4">
                             <div className="p-4 rounded-xl bg-white/5 border border-white/5">
-                                <p className="text-[10px] font-mono text-neutral-500 mb-1">{copy("CURRENT PLAN")}</p>
+                                <p className="text-[10px] font-mono text-neutral-500 mb-1">{t("adminCurrentPlanLabel")}</p>
                                 <p className="text-sm font-bold text-white">
-                                    {(plans.find(p => p.id === user.plan_id)?.name) || user.plan_id || copy("No Plan")}
+                                    {(plans.find(p => p.id === user.plan_id)?.name) || user.plan_id || t("adminNoPlanLabel")}
                                 </p>
                             </div>
                             <div className="p-4 rounded-xl bg-white/5 border border-white/5">
-                                <p className="text-[10px] font-mono text-neutral-500 mb-1">{copy("SUB STATUS")}</p>
+                                <p className="text-[10px] font-mono text-neutral-500 mb-1">{t("adminSubStatusLabel")}</p>
                                 <div className="flex items-center gap-2">
                                     <div className={cn("size-2 rounded-full animate-pulse",
                                         user.status === 'active' ? "bg-emerald-500" : "bg-neutral-500"
@@ -199,7 +199,7 @@ export function MissionDossier({ user, open, onClose, onSubscriptionCancelled }:
                         {billingLoading && (
                             <div className="flex items-center gap-2 mt-3 text-neutral-500">
                                 <Loader2 className="size-3 animate-spin" />
-                                <span className="text-[10px] font-mono">{copy("FETCHING_STRIPE_DATA...")}</span>
+                                <span className="text-[10px] font-mono">{t("adminLoadingBilling")}</span>
                             </div>
                         )}
 
@@ -208,7 +208,7 @@ export function MissionDossier({ user, open, onClose, onSubscriptionCancelled }:
                                 <p className="text-[10px] font-mono font-bold text-blue-400 uppercase tracking-widest">{copy("Stripe Billing")}</p>
                                 <div className="grid grid-cols-2 gap-2">
                                     <div>
-                                        <p className="text-[9px] font-mono text-neutral-500">{copy("STATUS")}</p>
+                                        <p className="text-[9px] font-mono text-neutral-500">{t("adminStatusLabel")}</p>
                                         <p className={cn("text-xs font-bold uppercase",
                                             billingInfo.stripe.status === 'active' ? "text-emerald-400" :
                                             billingInfo.stripe.status === 'canceled' ? "text-red-400" : "text-amber-400"
@@ -217,27 +217,27 @@ export function MissionDossier({ user, open, onClose, onSubscriptionCancelled }:
                                         </p>
                                     </div>
                                     <div>
-                                        <p className="text-[9px] font-mono text-neutral-500">{copy("MONTANT")}</p>
+                                        <p className="text-[9px] font-mono text-neutral-500">{t("adminBillingAmountLabel")}</p>
                                         <p className="text-xs font-bold text-white">
                                             {billingInfo.stripe.amount} {billingInfo.stripe.currency} / {billingInfo.stripe.interval}
                                         </p>
                                     </div>
                                     <div>
-                                        <p className="text-[9px] font-mono text-neutral-500">{copy("CREE LE")}</p>
+                                        <p className="text-[9px] font-mono text-neutral-500">{t("adminBillingCreatedLabel")}</p>
                                         <p className="text-xs text-neutral-300">
                                             {new Date(billingInfo.stripe.createdAt).toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' })}
                                         </p>
                                     </div>
                                     {billingInfo.stripe.currentPeriodEnd ? (
                                         <div>
-                                            <p className="text-[9px] font-mono text-neutral-500">{copy("PROCHAIN PRELEVEMENT")}</p>
+                                            <p className="text-[9px] font-mono text-neutral-500">{t("adminBillingNextChargeLabel")}</p>
                                             <p className="text-xs font-bold text-amber-400">
                                                 {new Date(billingInfo.stripe.currentPeriodEnd).toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' })}
                                             </p>
                                         </div>
                                     ) : billingInfo.stripe.canceledAt ? (
                                         <div>
-                                            <p className="text-[9px] font-mono text-neutral-500">{copy("RESILIE LE")}</p>
+                                            <p className="text-[9px] font-mono text-neutral-500">{t("adminBillingCanceledLabel")}</p>
                                             <p className="text-xs text-red-400">
                                                 {new Date(billingInfo.stripe.canceledAt).toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' })}
                                             </p>
@@ -262,7 +262,7 @@ export function MissionDossier({ user, open, onClose, onSubscriptionCancelled }:
                                 className="w-full mt-3 border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300 font-mono text-xs gap-2"
                                 onClick={() => setCancelConfirm(true)}
                             >
-                                <XCircle className="size-3.5" /> {copy("RESILIER_ABONNEMENT")}
+                                <XCircle className="size-3.5" /> {t("cancelSubscription")}
                             </Button>
                         )}
 
@@ -283,7 +283,7 @@ export function MissionDossier({ user, open, onClose, onSubscriptionCancelled }:
                                         onClick={() => setCancelConfirm(false)}
                                         disabled={cancelling}
                                     >
-                                        {copy("Annuler")}
+                                        {t("adminCancelButton")}
                                     </Button>
                                     <Button
                                         size="sm"
@@ -292,7 +292,7 @@ export function MissionDossier({ user, open, onClose, onSubscriptionCancelled }:
                                         disabled={cancelling}
                                     >
                                         {cancelling ? <Loader2 className="size-3.5 animate-spin" /> : <XCircle className="size-3.5" />}
-                                        {cancelling ? copy("Annulation...") : copy("Confirmer")}
+                                        {cancelling ? t("confirmingCancellation") : copy("Confirmer")}
                                     </Button>
                                 </div>
                             </div>
@@ -354,7 +354,7 @@ export function MissionDossier({ user, open, onClose, onSubscriptionCancelled }:
                                             </div>
                                             <div>
                                                 <p className="text-sm font-medium text-white">{copy("Sport Favori")}</p>
-                                                <p className="text-xs text-neutral-500">{copy("Cible principale")}</p>
+                                                <p className="text-xs text-neutral-500">{t("adminPrimarySportLabel")}</p>
                                             </div>
                                         </div>
                                         <span className="text-sm font-bold text-white uppercase tracking-widest">{user.favoriteSport}</span>
@@ -363,10 +363,10 @@ export function MissionDossier({ user, open, onClose, onSubscriptionCancelled }:
                             ) : (
                                 <div className="pt-4 border-t border-white/5">
                                     <div className="p-4 rounded-xl bg-purple-500/5 border border-purple-500/10">
-                                        <p className="text-xs font-mono text-purple-400 uppercase tracking-widest mb-1">{copy("Privileges d'Accès")}</p>
+                                        <p className="text-xs font-mono text-purple-400 uppercase tracking-widest mb-1">{t("adminAccessLevelLabel")}</p>
                                         <p className="text-sm text-neutral-400 leading-relaxed italic">
-                                            {copy("Cet agent dispose de privilèges")} {user.role === 'super_admin' ? 'Super Admin' : 'Admin'}.
-                                            {copy("Les statistiques opérationnelles ne s'appliquent pas aux profils de supervision.")}
+                                            {user.role === 'super_admin' ? t("adminUserHasSuperAdminPrivileges") : t("adminUserHasAdminPrivileges")}{" "}
+                                            {t("adminSupervisionStatsNote")}
                                         </p>
                                     </div>
                                 </div>

@@ -1,4 +1,5 @@
 import { Plan, FeatureDefinition, PlanFeature, PlanFeatures } from "@/types/plans";
+import { pickLocalized, type Locale } from "@/lib/i18n";
 
 /**
  * Formats a raw feature value into a human-readable string.
@@ -18,7 +19,8 @@ export function formatFeatureValue(value: string | number | boolean): string {
  */
 export function getDisplayFeatures(
     plan: Plan,
-    definitions: FeatureDefinition[]
+    definitions: FeatureDefinition[],
+    locale?: Locale | null
 ): { text: string; included: boolean; tooltip?: string }[] {
 
     const displayList: { text: string; included: boolean; tooltip?: string }[] = [];
@@ -33,8 +35,12 @@ export function getDisplayFeatures(
 
         Object.entries(features).forEach(([key, value]) => {
             const def = defMap.get(key);
-            const label = def?.label || key; // Fallback to key if no definition
-            const description = def?.description || undefined;
+            const label = def
+                ? pickLocalized(locale, def.label, { en: def.label_en, es: def.label_es, de: def.label_de })
+                : key; // Fallback to key if no definition
+            const description = def?.description
+                ? pickLocalized(locale, def.description, { en: def.description_en, es: def.description_es, de: def.description_de })
+                : undefined;
 
             let included = true;
             let displayValue = "";

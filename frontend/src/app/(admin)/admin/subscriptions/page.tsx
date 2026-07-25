@@ -59,35 +59,35 @@ export default function AdminSubscriptionsPage() {
             {/* Command Header */}
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-black uppercase tracking-tight text-white">{copy("The Arsenal")}</h1>
-                    <p className="text-sm font-mono text-neutral-500 mt-1">{copy(":: SUPPLY DROP MANAGEMENT ::")}</p>
+                    <h1 className="text-3xl font-black uppercase tracking-tight text-white">{copy("Plans d'abonnement")}</h1>
+                    <p className="text-sm font-mono text-neutral-500 mt-1">{copy("Gérez vos offres et tarifs")}</p>
                 </div>
                 <div className="flex items-center gap-2">
                     <Button variant="outline" size="sm" className="bg-black border-white/10 hover:bg-white/5 text-neutral-400 gap-2 font-mono text-xs h-9">
-                        <ShieldCheck className="size-3.5" /> {copy("SECURITY_LOGS")}
+                        <ShieldCheck className="size-3.5" /> {copy("Journal d'audit")}
                     </Button>
                     <Button
                         size="sm"
                         onClick={() => { setSelectedPlan(null); setIsEngineeringOpen(true); }}
                         className="bg-amber-500 hover:bg-amber-600 text-black gap-2 font-bold font-mono text-xs h-9"
                     >
-                        <Plus className="size-3.5" /> {copy("NEW_SUPPLY_CRATE")}
+                        <Plus className="size-3.5" /> {copy("Nouveau plan")}
                     </Button>
                 </div>
             </div>
 
             {/* 1. Resource Monitor (KPIs) */}
             <section className="space-y-2">
-                <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-600 px-2">{copy("Resource Monitor")}</h2>
+                <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-600 px-2">{copy("Aperçu")}</h2>
                 <ResourceMonitor />
             </section>
 
             {/* 2. Arsenal Grid (Plans) */}
             <section className="space-y-2">
-                <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-600 px-2">{copy("Tactical Packages")}</h2>
+                <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-600 px-2">{copy("Plans")}</h2>
                 {isLoading ? (
                     <div className="text-white px-2 py-8 text-center text-sm font-mono animate-pulse border border-white/5 bg-white/5 rounded-2xl">
-                        {copy(":: LOADING ARSENAL DATABANKS ::")}
+                        {copy("Chargement des plans...")}
                     </div>
                 ) : (
                     <ArsenalGrid
@@ -100,7 +100,7 @@ export default function AdminSubscriptionsPage() {
 
             {/* 3. Feature Definitions Registry */}
             <section className="space-y-2">
-                <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-600 px-2">{copy("Feature Registry")}</h2>
+                <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-600 px-2">{copy("Fonctionnalités")}</h2>
                 <FeatureDefinitionsManager
                     definitions={definitions}
                     onUpdate={fetchPlans}

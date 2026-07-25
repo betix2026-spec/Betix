@@ -7,12 +7,13 @@ import { SwipeCarousel } from "@/components/pricing/SwipeCarousel";
 import { createClient } from "@/lib/supabase/client";
 import { Plan, FeatureDefinition } from "@/types/plans";
 import { getDisplayFeatures } from "@/lib/plans";
+import { pickLocalized } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { Loader2, Sparkles, Shield, Zap, TrendingUp } from "lucide-react";
 import { useI18n } from "@/lib/use-i18n";
 
 export function SubscriptionWall() {
-    const { t } = useI18n();
+    const { t, locale } = useI18n();
     const [plans, setPlans] = useState<Plan[]>([]);
     const [definitions, setDefinitions] = useState<FeatureDefinition[]>([]);
     const [loading, setLoading] = useState(true);
@@ -107,7 +108,7 @@ export function SubscriptionWall() {
                             className="gap-4 lg:gap-8 pb-8 lg:pb-0 pt-4 px-6 sm:px-12 lg:px-0 -mx-4 lg:mx-0 snap-x snap-mandatory"
                         >
                             {plans.map((dbPlan) => {
-                                const featuresList = getDisplayFeatures(dbPlan, definitions);
+                                const featuresList = getDisplayFeatures(dbPlan, definitions, locale);
 
                                 let period = "/mois";
                                 let variant: PricingVariant = "monthly";
@@ -128,10 +129,12 @@ export function SubscriptionWall() {
 
                                 const planProps = {
                                     id: dbPlan.id,
-                                    name: dbPlan.name,
+                                    name: pickLocalized(locale, dbPlan.name, { en: dbPlan.name_en, es: dbPlan.name_es, de: dbPlan.name_de }),
                                     price: dbPlan.price.toString(),
                                     period,
-                                    desc: dbPlan.description || t("fullAccess"),
+                                    desc: dbPlan.description
+                                        ? pickLocalized(locale, dbPlan.description, { en: dbPlan.description_en, es: dbPlan.description_es, de: dbPlan.description_de })
+                                        : t("fullAccess"),
                                     badge,
                                     badgeColor,
                                     features: featuresList,

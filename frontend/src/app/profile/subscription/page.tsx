@@ -23,7 +23,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Plan, FeatureDefinition } from "@/types/plans";
 import { getDisplayFeatures } from "@/lib/plans";
 import { estimateAnnualRefund, formatCurrency, getCancellationKind } from "@/lib/billing";
-import { getLocaleFromPath, t } from "@/lib/i18n";
+import { getLocaleFromPath, t, pickLocalized } from "@/lib/i18n";
 
 export default function SubscriptionPage() {
     const { subscription, currentPlanId, isLoading: authLoading } = useAuth();
@@ -347,7 +347,7 @@ export default function SubscriptionPage() {
                         {plans.map((dbPlan) => {
                             const isCurrent = currentPlanId === dbPlan.id;
 
-                            const featuresList = getDisplayFeatures(dbPlan, definitions);
+                            const featuresList = getDisplayFeatures(dbPlan, definitions, locale);
 
                             let period = t(locale, "periodMonth");
                             let variant: PricingVariant = "monthly";
@@ -391,10 +391,12 @@ export default function SubscriptionPage() {
 
                             const planProps = {
                                 id: dbPlan.id,
-                                name: dbPlan.name,
+                                name: pickLocalized(locale, dbPlan.name, { en: dbPlan.name_en, es: dbPlan.name_es, de: dbPlan.name_de }),
                                 price: priceDisplay,
                                 period,
-                                desc: dbPlan.description || t(locale, "fullAccess"),
+                                desc: dbPlan.description
+                                    ? pickLocalized(locale, dbPlan.description, { en: dbPlan.description_en, es: dbPlan.description_es, de: dbPlan.description_de })
+                                    : t(locale, "fullAccess"),
                                 badge,
                                 badgeColor,
                                 features: featuresList,

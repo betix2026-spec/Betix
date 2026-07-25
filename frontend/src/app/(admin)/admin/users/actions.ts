@@ -340,7 +340,7 @@ export async function cancelSubscriptionAction(userId: string) {
         revalidatePath('/admin/users');
         return {
             success: true,
-            message: copy(locale, `Abonnement résilié. L'utilisateur est passé en no_subscription.`)
+            message: copy(locale, `Abonnement résilié. L'utilisateur n'a plus d'abonnement actif.`)
         };
 
     } catch (error: any) {

@@ -84,6 +84,13 @@ export async function POST(req: NextRequest) {
                         estimated_refund_amount: null,
                     });
 
+                if (status === 'trialing') {
+                    await supabaseAdmin
+                        .from('profiles')
+                        .update({ has_used_trial: true })
+                        .eq('id', user.id);
+                }
+
                 console.log(`[Stripe/Verify] Subscription verified via session ${sessionId} for user ${user.id}`);
 
                 return NextResponse.json({
@@ -157,6 +164,13 @@ export async function POST(req: NextRequest) {
                 cancellation_reason: null,
                 estimated_refund_amount: null,
             });
+
+        if (status === 'trialing') {
+            await supabaseAdmin
+                .from('profiles')
+                .update({ has_used_trial: true })
+                .eq('id', user.id);
+        }
 
         console.log(`[Stripe/Verify] Subscription activated for user ${user.id}, plan ${planId}`);
 

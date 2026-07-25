@@ -79,6 +79,81 @@ def parse_ai_response(raw: str) -> Optional[Dict[str, Any]]:
     return None
 
 
+async def translate_analysis_texts(ai: ChatModel, analysis: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Traduit les textes d'analyse (français) en anglais, espagnol et allemand,
+    et transforme chaque champ texte concerné en { fr, en, es, de } au lieu
+    d'une simple chaîne. Un seul appel IA pour tout traduire (moins cher qu'une
+    génération complète par langue).
+    """
+    cat_keys = ["high_confidence", "medium_confidence", "risky"]
+    texts_to_translate: Dict[str, str] = {}
+
+    if analysis.get("match_summary"):
+        texts_to_translate["match_summary"] = analysis["match_summary"]
+
+    for cat in cat_keys:
+        for idx, item in enumerate(analysis.get("categories", {}).get(cat, [])):
+            if item.get("analysis"):
+                texts_to_translate[f"{cat}.{idx}"] = item["analysis"]
+
+    if not texts_to_translate:
+        return analysis
+
+    translation_prompt = (
+        "Translate each of the following French sports-betting analysis texts into "
+        "English, Spanish, and German. Preserve the meaning, tone, and level of detail — "
+        "these are natural-language explanations, not literal word-for-word translations. "
+        "Respond with ONLY a JSON object, no markdown, no commentary, in this exact shape:\n"
+        '{ "<key>": { "en": "...", "es": "...", "de": "..." }, ... }\n\n'
+        f"Texts to translate:\n{json.dumps(texts_to_translate, ensure_ascii=False, indent=2)}"
+    )
+
+    ai.clear_history()
+    try:
+        raw = await ai.generate_response(message=translation_prompt)
+    except Exception as e:
+        logger.error(f"❌ Échec de l'appel de traduction: {e}")
+        return analysis
+    finally:
+        ai.clear_history()
+
+    if not raw or raw.startswith("Error:"):
+        logger.warning(f"⚠️ Traduction indisponible, analyse laissée en français uniquement: {raw[:200] if raw else 'empty'}")
+        return analysis
+
+    translated = parse_ai_response(raw)
+    if not translated:
+        logger.warning("⚠️ Parsing de la traduction échoué, analyse laissée en français uniquement.")
+        return analysis
+
+    if "match_summary" in texts_to_translate:
+        fr_text = texts_to_translate["match_summary"]
+        t = translated.get("match_summary", {}) or {}
+        analysis["match_summary"] = {
+            "fr": fr_text,
+            "en": t.get("en") or fr_text,
+            "es": t.get("es") or fr_text,
+            "de": t.get("de") or fr_text,
+        }
+
+    for cat in cat_keys:
+        for idx, item in enumerate(analysis.get("categories", {}).get(cat, [])):
+            key = f"{cat}.{idx}"
+            if key not in texts_to_translate:
+                continue
+            fr_text = texts_to_translate[key]
+            t = translated.get(key, {}) or {}
+            item["analysis"] = {
+                "fr": fr_text,
+                "en": t.get("en") or fr_text,
+                "es": t.get("es") or fr_text,
+                "de": t.get("de") or fr_text,
+            }
+
+    return analysis
+
+
 def validate_analysis(data: Dict[str, Any]) -> bool:
     """Vérifie que le JSON de l'IA contient les champs obligatoires."""
     required = ["match_summary", "data_quality", "categories"]
@@ -190,6 +265,9 @@ async def generate_confidence(
     # 5. Valider la structure
     if not validate_analysis(analysis):
         logger.warning("⚠️ Analyse incomplète mais retournée quand même.")
+
+    # 5b. Traduire les textes d'analyse (fr -> en/es/de) pour le site multilingue
+    analysis = await translate_analysis_texts(ai, analysis)
 
     # 6. Enrichir avec les métadonnées
     analysis["_meta"] = {
