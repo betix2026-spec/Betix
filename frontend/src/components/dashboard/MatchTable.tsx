@@ -16,12 +16,14 @@ import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronUp, ExternalLink, Activity, Clock } from "lucide-react";
 import { SportIcon } from "@/components/icons/SportIcons";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/use-i18n";
 
 interface MatchTableProps {
     items: Match[];
 }
 
 export function MatchTable({ items }: MatchTableProps) {
+    const { copy, locale } = useI18n();
     const [expandedRows, setExpandedRows] = useState<string[]>([]);
 
     const toggleRow = (id: string) => {
@@ -36,15 +38,15 @@ export function MatchTable({ items }: MatchTableProps) {
                 <TableHeader className="bg-white/5 hover:bg-white/5">
                     <TableRow className="border-white/10 hover:bg-transparent">
                         {/* Time: Visible */}
-                        <TableHead className="w-[80px] sm:w-[100px] text-xs uppercase tracking-wider font-semibold text-muted-foreground">Heure</TableHead>
+                        <TableHead className="w-[80px] sm:w-[100px] text-xs uppercase tracking-wider font-semibold text-muted-foreground">{copy("Heure")}</TableHead>
                         {/* League: Hidden on mobile */}
-                        <TableHead className="hidden md:table-cell w-[180px] text-xs uppercase tracking-wider font-semibold text-muted-foreground">Ligue</TableHead>
+                        <TableHead className="hidden md:table-cell w-[180px] text-xs uppercase tracking-wider font-semibold text-muted-foreground">{copy("Ligue")}</TableHead>
                         {/* Match: Visible - Expanded on mobile */}
-                        <TableHead className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Match</TableHead>
+                        <TableHead className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">{copy("Match")}</TableHead>
                         {/* Score: Hidden on mobile (merged into Match) */}
-                        <TableHead className="hidden md:table-cell text-center w-[100px] text-xs uppercase tracking-wider font-semibold text-muted-foreground">Score</TableHead>
+                        <TableHead className="hidden md:table-cell text-center w-[100px] text-xs uppercase tracking-wider font-semibold text-muted-foreground">{copy("Score")}</TableHead>
                         {/* IA: Visible (compact mobile) */}
-                        <TableHead className="w-[80px] md:w-[140px] text-xs uppercase tracking-wider font-semibold text-muted-foreground text-right md:text-left">Confiance</TableHead>
+                        <TableHead className="w-[80px] md:w-[140px] text-xs uppercase tracking-wider font-semibold text-muted-foreground text-right md:text-left">{copy("Confiance")}</TableHead>
                         <TableHead className="w-[40px] md:w-[50px]"></TableHead>
                     </TableRow>
                 </TableHeader>
@@ -69,7 +71,7 @@ export function MatchTable({ items }: MatchTableProps) {
                                         {isLive ? (
                                             <span className="flex flex-col sm:flex-row items-center gap-1.5 text-red-500 font-bold animate-pulse">
                                                 <Activity className="size-3" />
-                                                <span className="text-[10px] sm:text-sm">LIVE</span>
+                                                <span className="text-[10px] sm:text-sm">{copy("LIVE")}</span>
                                             </span>
                                         ) : (
                                             <div className="flex flex-col gap-1">
@@ -253,11 +255,11 @@ export function MatchTable({ items }: MatchTableProps) {
                                                 {topPrediction ? (
                                                     <div className="space-y-3 md:border-r border-white/5 md:pr-6">
                                                         <h4 className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-2">
-                                                            <Activity className="size-3" /> Analyse IA
+                                                            <Activity className="size-3" /> {copy("Analyse IA")}
                                                         </h4>
                                                         <div className="space-y-2">
                                                             <div className="text-sm text-white font-medium">
-                                                                Misez sur <span className="text-primary">{topPrediction.bet}</span>
+                                                                {copy("Misez sur")} <span className="text-primary">{topPrediction.bet}</span>
                                                             </div>
                                                             {topPrediction.analysis && (
                                                                 <p className="text-xs text-neutral-400 line-clamp-2">
@@ -269,17 +271,17 @@ export function MatchTable({ items }: MatchTableProps) {
                                                 ) : (
                                                     <div className="space-y-3 md:border-r border-white/5 md:pr-6">
                                                         <h4 className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-2">
-                                                            <Activity className="size-3" /> Analyse IA
+                                                            <Activity className="size-3" /> {copy("Analyse IA")}
                                                         </h4>
-                                                        <span className="text-xs text-muted-foreground">Analyse en cours...</span>
+                                                        <span className="text-xs text-muted-foreground">{copy("Analyse en cours...")}</span>
                                                     </div>
                                                 )}
 
                                                 {/* Action */}
                                                 <div className="flex items-center justify-end">
-                                                    <Link href={`/dashboard/match/${match.id}?sport=${match.sport}`} className="w-full sm:w-auto">
+                                                    <Link href={`/${locale}/dashboard/match/${match.id}?sport=${match.sport}`} className="w-full sm:w-auto">
                                                         <Button className="w-full gap-2 bg-primary/10 text-primary hover:bg-primary/20 border-primary/20" variant="outline">
-                                                            Voir l&apos;analyse complète <ExternalLink className="size-3.5" />
+                                                            {copy("Voir l'analyse complète")} <ExternalLink className="size-3.5" />
                                                         </Button>
                                                     </Link>
                                                 </div>

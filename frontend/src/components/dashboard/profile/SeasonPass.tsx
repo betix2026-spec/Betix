@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Check, CreditCard, Sparkles, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth, UserSubscription } from "@/components/auth/AuthProvider";
+import { useI18n } from "@/lib/use-i18n";
 
 interface SeasonPassProps {
     // Prop is optional now as we use context, but kept for compatibility if passed
@@ -11,6 +12,7 @@ interface SeasonPassProps {
 }
 
 export function SeasonPass({ subscription: propSub }: SeasonPassProps) {
+    const { copy, locale } = useI18n();
     const { subscription: authSub, currentPlanId, isLoading } = useAuth();
     const router = useRouter();
 
@@ -55,14 +57,14 @@ export function SeasonPass({ subscription: propSub }: SeasonPassProps) {
     // Default fallback if empty or invalid
     if (benefits.length === 0) {
         benefits = [
-            "Analyses limitées",
-            "Pas d'alertes live",
-            "Support standard"
+            copy("Analyses limitées"),
+            copy("Pas d'alertes live"),
+            copy("Support standard")
         ];
     }
 
     const handleAction = () => {
-        router.push("/profile/subscription");
+        router.push(`/${locale}/profile/subscription`);
     };
 
     return (
@@ -86,11 +88,11 @@ export function SeasonPass({ subscription: propSub }: SeasonPassProps) {
                             <h3 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
                                 {planName}
                             </h3>
-                            {isPremium && <Badge className="bg-amber-500 text-black font-bold text-[10px] uppercase">Actif</Badge>}
+                            {isPremium && <Badge className="bg-amber-500 text-black font-bold text-[10px] uppercase">{copy("Actif")}</Badge>}
                             <p className="text-sm text-neutral-400">
                                 {isPremium && subscription?.current_period_end
-                                    ? `Renouvellement le ${new Date(subscription.current_period_end).toLocaleDateString()}`
-                                    : "Passez au niveau supérieur"}
+                                    ? `${copy("Renouvellement le")} ${new Date(subscription.current_period_end).toLocaleDateString(locale)}`
+                                    : copy("Passez au niveau supérieur")}
                             </p>
                         </div>
                     </div>
@@ -118,7 +120,7 @@ export function SeasonPass({ subscription: propSub }: SeasonPassProps) {
                                 ? "bg-white/5 border border-white/10 hover:bg-white/10 text-white"
                                 : "bg-amber-500 hover:bg-amber-600 text-black shadow-[0_0_20px_-5px_rgba(245,158,11,0.5)]"
                         )}>
-                        {isPremium ? "Gérer l'abonnement" : "Passer Premium"}
+                        {isPremium ? copy("Gérer l'abonnement") : copy("Passer Premium")}
                     </Button>
                 </div>
 

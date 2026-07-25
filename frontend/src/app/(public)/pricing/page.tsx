@@ -15,8 +15,10 @@ import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { Plan, FeatureDefinition } from "@/types/plans";
 import { getDisplayFeatures, getMonthlyEquivalent } from "@/lib/plans";
+import { useI18n } from "@/lib/use-i18n";
 
 export default function PricingPage() {
+    const { t } = useI18n();
     const [isAnnual, setIsAnnual] = useState(false);
     const [plans, setPlans] = useState<Plan[]>([]);
     const [definitions, setDefinitions] = useState<FeatureDefinition[]>([]);
@@ -65,60 +67,52 @@ export default function PricingPage() {
         );
     }
 
-    // Identifiers for logic (fallback to frequency if IDs change)
-    const monthlyPlan = plans.find(p => p.frequency === 'monthly');
-    const annualPlan = plans.find(p => p.frequency === 'yearly');
-
-    // Filter out annual plan from main grid if we want to toggle it manually
-    // Or just map all plans? Current design has a toggle that affects the "Annual" card display.
-    // Let's stick to the mapped display logic.
-
     const displayPlans = plans.map(dbPlan => {
         // Prepare features flattened list
         const featuresList = getDisplayFeatures(dbPlan, definitions);
 
         // Visual Logic & Period Mapping
-        let period = "/mois";
+        let period = t("periodMonth");
         let variant: PricingVariant = "monthly";
         let badge: string | undefined = undefined;
         let badgeColor: string | undefined = undefined;
         let priceDisplay = dbPlan.price.toString();
-        let cta = "S'abonner";
+        let cta = t("subscribe");
 
         switch (dbPlan.frequency) {
             case 'free':
-                period = "/forever";
+                period = t("periodForever");
                 variant = "free";
-                cta = "Débuter";
+                cta = t("start");
                 break;
             case 'daily':
-                period = "/jour";
+                period = t("periodDay");
                 variant = "monthly";
                 break;
             case 'weekly':
-                period = "/semaine";
+                period = t("periodWeek");
                 variant = "monthly";
                 break;
             case 'monthly':
-                period = "/mois";
+                period = t("periodMonth");
                 variant = "monthly";
                 break;
             case 'quarterly':
-                period = "/trimestre";
+                period = t("periodQuarter");
                 variant = "semi_annual";
                 break;
             case 'semi_annual':
-                period = "/semestre";
+                period = t("periodSemester");
                 variant = "semi_annual";
                 break;
             case 'yearly':
-                period = "/an";
+                period = t("periodYear");
                 variant = "yearly";
 
                 // If toggle is ON, show monthly equivalent
                 if (isAnnual) {
                     priceDisplay = getMonthlyEquivalent(dbPlan.price, 'yearly');
-                    period = "/mois"; // Visual trick
+                    period = t("periodMonth"); // Visual trick
                 }
                 break;
         }
@@ -132,7 +126,7 @@ export default function PricingPage() {
             name: dbPlan.name,
             price: priceDisplay,
             period,
-            desc: dbPlan.description || "Accès complet",
+            desc: dbPlan.description || t("fullAccess"),
             badge,
             badgeColor,
             features: featuresList,
@@ -156,22 +150,21 @@ export default function PricingPage() {
                 {/* Hero Section */}
                 <div className="text-center space-y-6 max-w-3xl mx-auto">
                     <Badge variant="outline" className="border-blue-500/30 text-blue-400 bg-blue-500/10 px-4 py-1 uppercase tracking-widest text-xs font-bold animate-fade-in">
-                        <Zap className="size-3 mr-2 fill-blue-500" /> Prends l&apos;avantage
+                        <Zap className="size-3 mr-2 fill-blue-500" /> {t("pricingBadge")}
                     </Badge>
 
                     <h1 className="text-5xl md:text-7xl font-black tracking-tighter text-white animate-fade-in-up">
-                        Choisis ton <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">abonnement</span>
+                        {t("pricingTitlePrefix")} <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">{t("pricingTitleAccent")}</span>
                     </h1>
 
                     <p className="text-lg text-neutral-400 max-w-xl mx-auto leading-relaxed animate-fade-in-up delay-100">
-                        Accédez aux données que les bookmakers préféreraient garder secrètes.
-                        Rejoignez l&apos;élite des parieurs dès aujourd&apos;hui.
+                        {t("pricingDescription")}
                     </p>
 
                     {/* Toggle */}
                     <div className="flex items-center justify-center gap-4 animate-fade-in-up delay-200">
                         <Label className={cn("text-sm font-bold cursor-pointer transition-colors", !isAnnual ? "text-white" : "text-neutral-500")}>
-                            MENSUEL
+                            {t("monthly").toUpperCase()}
                         </Label>
                         <Switch
                             checked={isAnnual}
@@ -179,7 +172,7 @@ export default function PricingPage() {
                             className="data-[state=checked]:bg-amber-500"
                         />
                         <Label className={cn("text-sm font-bold cursor-pointer transition-colors flex items-center gap-2", isAnnual ? "text-white" : "text-neutral-500")}>
-                            ANNUEL <Badge className="bg-amber-500 text-black text-[9px] px-1.5 h-4 hover:bg-amber-400">-20%</Badge>
+                            {t("annual").toUpperCase()} <Badge className="bg-amber-500 text-black text-[9px] px-1.5 h-4 hover:bg-amber-400">-20%</Badge>
                         </Label>
                     </div>
                 </div>
@@ -207,8 +200,8 @@ export default function PricingPage() {
                 {/* Comparison Matrix */}
                 <div className="max-w-5xl mx-auto space-y-8">
                     <div className="text-center space-y-2">
-                        <h2 className="text-3xl font-black text-white tracking-tight">L&apos;avantage par la donnée</h2>
-                        <p className="text-neutral-500">Comparatif détaillé des fonctionnalités</p>
+                        <h2 className="text-3xl font-black text-white tracking-tight">{t("dataAdvantage")}</h2>
+                        <p className="text-neutral-500">{t("featureComparison")}</p>
                     </div>
                     {/* Matrix would require similar refactor to be dynamic, keeping static for now to focus on cards */}
                     <FeatureMatrix plans={plans} definitions={definitions} />

@@ -3,12 +3,14 @@
 import { AdminKPI } from "@/types/admin";
 import { cn } from "@/lib/utils";
 import { Users, CreditCard, DollarSign, Target, TrendingUp, TrendingDown } from "lucide-react";
+import { useI18n } from "@/lib/use-i18n";
 
 interface AdminHUDProps {
     kpis: AdminKPI[];
 }
 
 export function AdminHUD({ kpis }: AdminHUDProps) {
+    const { copy } = useI18n();
     // Icon mapping
     const icons: Record<string, React.ElementType> = {
         mrr: DollarSign,
@@ -62,7 +64,7 @@ export function AdminHUD({ kpis }: AdminHUDProps) {
                                 {isPositive ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}
                                 {kpi.change > 0 ? "+" : ""}{kpi.change}%
                             </span>
-                            <span className="text-neutral-600">vs 30j</span>
+                            <span className="text-neutral-600">{copy("vs 30j")}</span>
                         </div>
                     </div>
                 );

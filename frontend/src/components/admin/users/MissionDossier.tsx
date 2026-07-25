@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { getPlansAction, cancelSubscriptionAction, getSubscriptionDetailsAction } from "@/app/(admin)/admin/users/actions";
 import { useState, useEffect } from "react";
+import { useI18n } from "@/lib/use-i18n";
 
 interface MissionDossierProps {
     user: AdminUser | null;
@@ -35,6 +36,7 @@ interface MissionDossierProps {
 }
 
 export function MissionDossier({ user, open, onClose, onSubscriptionCancelled }: MissionDossierProps) {
+    const { copy, locale } = useI18n();
     const [plans, setPlans] = useState<any[]>([]);
     const [cancelConfirm, setCancelConfirm] = useState(false);
     const [cancelling, setCancelling] = useState(false);
@@ -76,15 +78,15 @@ export function MissionDossier({ user, open, onClose, onSubscriptionCancelled }:
             setCancelResult({
                 success: result.success,
                 message: result.success
-                    ? (result.message || 'Abonnement annulé.')
-                    : (result.error || 'Erreur inconnue.')
+                    ? (result.message || copy('Abonnement annulé.'))
+                    : (result.error || copy('Erreur inconnue.'))
             });
             if (result.success) {
                 setCancelConfirm(false);
                 onSubscriptionCancelled?.();
             }
         } catch {
-            setCancelResult({ success: false, message: 'Erreur réseau.' });
+            setCancelResult({ success: false, message: copy('Erreur réseau.') });
         } finally {
             setCancelling(false);
         }
@@ -98,7 +100,7 @@ export function MissionDossier({ user, open, onClose, onSubscriptionCancelled }:
             <SheetContent className="w-full sm:max-w-xl border-l border-white/10 bg-black/95 backdrop-blur-xl p-0 shadow-2xl">
                 <SheetHeader className="sr-only">
                     <SheetTitle>Mission Dossier: {user.name}</SheetTitle>
-                    <SheetDescription>Détails complets de l&apos;agent {user.name}</SheetDescription>
+                    <SheetDescription>{copy("Détails complets de l'agent")} {user.name}</SheetDescription>
                 </SheetHeader>
                 {/* Header Image / Pattern */}
                 <div className="h-32 bg-[url('https://images.unsplash.com/photo-1550751827-4bd374c3f58b?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center relative group">
@@ -127,10 +129,10 @@ export function MissionDossier({ user, open, onClose, onSubscriptionCancelled }:
                         </Avatar>
                         <div className="mb-2 space-x-2">
                             <Button size="sm" variant="outline" className="h-8 border-white/10 bg-white/5 hover:bg-white/10 text-xs">
-                                <Mail className="size-3.5 mr-2" /> Message
+                                <Mail className="size-3.5 mr-2" /> {copy("Message")}
                             </Button>
                             <Button size="sm" className="h-8 bg-blue-600 hover:bg-blue-700 text-xs font-bold">
-                                <Shield className="size-3.5 mr-2" /> Actions
+                                <Shield className="size-3.5 mr-2" /> {copy("Actions")}
                             </Button>
                         </div>
                     </div>
@@ -140,14 +142,14 @@ export function MissionDossier({ user, open, onClose, onSubscriptionCancelled }:
                         <div className="flex items-center gap-3 text-sm text-neutral-400 mt-1">
                             <span className="flex items-center gap-1.5"><Mail className="size-3.5" /> {user.email}</span>
                             <span className="w-1 h-1 rounded-full bg-neutral-600" />
-                            <span className="flex items-center gap-1.5"><Calendar className="size-3.5" /> Depuis le {user.joinDate}</span>
+                            <span className="flex items-center gap-1.5"><Calendar className="size-3.5" /> {copy("Depuis le")} {user.joinDate}</span>
                         </div>
                     </div>
 
                     {/* Status Grid */}
                     <div className="grid grid-cols-3 gap-3 mt-8">
                         <div className="p-3 rounded-xl bg-white/5 border border-white/5 text-center">
-                            <p className="text-[10px] uppercase font-bold text-neutral-500 mb-1">Status</p>
+                            <p className="text-[10px] uppercase font-bold text-neutral-500 mb-1">{copy("Status")}</p>
                             <Badge variant="outline" className={cn("h-6 border-0 bg-transparent px-0 mx-auto",
                                 user.status === "active" ? "text-emerald-400" : "text-red-400"
                             )}>
@@ -155,7 +157,7 @@ export function MissionDossier({ user, open, onClose, onSubscriptionCancelled }:
                             </Badge>
                         </div>
                         <div className="p-3 rounded-xl bg-white/5 border border-white/5 text-center">
-                            <p className="text-[10px] uppercase font-bold text-neutral-500 mb-1">Role</p>
+                            <p className="text-[10px] uppercase font-bold text-neutral-500 mb-1">{copy("Role")}</p>
                             <span className={cn("font-black tracking-wider text-sm",
                                 user.role === "admin" ? "text-blue-400" : user.role === "premium" ? "text-amber-400" : "text-neutral-300"
                             )}>
@@ -163,7 +165,7 @@ export function MissionDossier({ user, open, onClose, onSubscriptionCancelled }:
                             </span>
                         </div>
                         <div className="p-3 rounded-xl bg-white/5 border border-white/5 text-center">
-                            <p className="text-[10px] uppercase font-bold text-neutral-500 mb-1">Risk Level</p>
+                            <p className="text-[10px] uppercase font-bold text-neutral-500 mb-1">{copy("Risk Level")}</p>
                             <span className={cn("font-black tracking-wider text-sm", riskColor)}>
                                 {riskLevel}
                             </span>
@@ -173,22 +175,22 @@ export function MissionDossier({ user, open, onClose, onSubscriptionCancelled }:
                     {/* Subscription Section */}
                     <div className="space-y-4 mb-8">
                         <h3 className="text-xs font-bold uppercase tracking-widest text-neutral-500 flex items-center gap-2">
-                            <CreditCard className="size-3.5" /> Resource Allocation
+                            <CreditCard className="size-3.5" /> {copy("Resource Allocation")}
                         </h3>
                         <div className="grid grid-cols-2 gap-4">
                             <div className="p-4 rounded-xl bg-white/5 border border-white/5">
-                                <p className="text-[10px] font-mono text-neutral-500 mb-1">CURRENT PLAN</p>
+                                <p className="text-[10px] font-mono text-neutral-500 mb-1">{copy("CURRENT PLAN")}</p>
                                 <p className="text-sm font-bold text-white">
-                                    {(plans.find(p => p.id === user.plan_id)?.name) || user.plan_id || "No Plan"}
+                                    {(plans.find(p => p.id === user.plan_id)?.name) || user.plan_id || copy("No Plan")}
                                 </p>
                             </div>
                             <div className="p-4 rounded-xl bg-white/5 border border-white/5">
-                                <p className="text-[10px] font-mono text-neutral-500 mb-1">SUB STATUS</p>
+                                <p className="text-[10px] font-mono text-neutral-500 mb-1">{copy("SUB STATUS")}</p>
                                 <div className="flex items-center gap-2">
                                     <div className={cn("size-2 rounded-full animate-pulse",
                                         user.status === 'active' ? "bg-emerald-500" : "bg-neutral-500"
                                     )} />
-                                    <p className="text-sm font-bold text-white uppercase">{user.status || "Unknown"}</p>
+                                    <p className="text-sm font-bold text-white uppercase">{copy(user.status || "Unknown")}</p>
                                 </div>
                             </div>
                         </div>
@@ -197,16 +199,16 @@ export function MissionDossier({ user, open, onClose, onSubscriptionCancelled }:
                         {billingLoading && (
                             <div className="flex items-center gap-2 mt-3 text-neutral-500">
                                 <Loader2 className="size-3 animate-spin" />
-                                <span className="text-[10px] font-mono">FETCHING_STRIPE_DATA...</span>
+                                <span className="text-[10px] font-mono">{copy("FETCHING_STRIPE_DATA...")}</span>
                             </div>
                         )}
 
                         {billingInfo?.stripe && (
                             <div className="mt-3 p-3 rounded-xl bg-blue-500/5 border border-blue-500/15 space-y-2">
-                                <p className="text-[10px] font-mono font-bold text-blue-400 uppercase tracking-widest">Stripe Billing</p>
+                                <p className="text-[10px] font-mono font-bold text-blue-400 uppercase tracking-widest">{copy("Stripe Billing")}</p>
                                 <div className="grid grid-cols-2 gap-2">
                                     <div>
-                                        <p className="text-[9px] font-mono text-neutral-500">STATUS</p>
+                                        <p className="text-[9px] font-mono text-neutral-500">{copy("STATUS")}</p>
                                         <p className={cn("text-xs font-bold uppercase",
                                             billingInfo.stripe.status === 'active' ? "text-emerald-400" :
                                             billingInfo.stripe.status === 'canceled' ? "text-red-400" : "text-amber-400"
@@ -215,29 +217,29 @@ export function MissionDossier({ user, open, onClose, onSubscriptionCancelled }:
                                         </p>
                                     </div>
                                     <div>
-                                        <p className="text-[9px] font-mono text-neutral-500">MONTANT</p>
+                                        <p className="text-[9px] font-mono text-neutral-500">{copy("MONTANT")}</p>
                                         <p className="text-xs font-bold text-white">
                                             {billingInfo.stripe.amount} {billingInfo.stripe.currency} / {billingInfo.stripe.interval}
                                         </p>
                                     </div>
                                     <div>
-                                        <p className="text-[9px] font-mono text-neutral-500">CREE LE</p>
+                                        <p className="text-[9px] font-mono text-neutral-500">{copy("CREE LE")}</p>
                                         <p className="text-xs text-neutral-300">
-                                            {new Date(billingInfo.stripe.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                            {new Date(billingInfo.stripe.createdAt).toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' })}
                                         </p>
                                     </div>
                                     {billingInfo.stripe.currentPeriodEnd ? (
                                         <div>
-                                            <p className="text-[9px] font-mono text-neutral-500">PROCHAIN PRELEVEMENT</p>
+                                            <p className="text-[9px] font-mono text-neutral-500">{copy("PROCHAIN PRELEVEMENT")}</p>
                                             <p className="text-xs font-bold text-amber-400">
-                                                {new Date(billingInfo.stripe.currentPeriodEnd).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                {new Date(billingInfo.stripe.currentPeriodEnd).toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' })}
                                             </p>
                                         </div>
                                     ) : billingInfo.stripe.canceledAt ? (
                                         <div>
-                                            <p className="text-[9px] font-mono text-neutral-500">RESILIE LE</p>
+                                            <p className="text-[9px] font-mono text-neutral-500">{copy("RESILIE LE")}</p>
                                             <p className="text-xs text-red-400">
-                                                {new Date(billingInfo.stripe.canceledAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                {new Date(billingInfo.stripe.canceledAt).toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' })}
                                             </p>
                                         </div>
                                     ) : null}
@@ -248,7 +250,7 @@ export function MissionDossier({ user, open, onClose, onSubscriptionCancelled }:
 
                         {billingInfo && !billingInfo.stripe && billingInfo.source === 'manual_gift' && (
                             <div className="mt-3 p-2 rounded-lg bg-purple-500/5 border border-purple-500/15">
-                                <p className="text-[10px] font-mono text-purple-400">Abonnement offert manuellement (pas de facturation Stripe)</p>
+                                <p className="text-[10px] font-mono text-purple-400">{copy("Abonnement offert manuellement (pas de facturation Stripe)")}</p>
                             </div>
                         )}
 
@@ -260,7 +262,7 @@ export function MissionDossier({ user, open, onClose, onSubscriptionCancelled }:
                                 className="w-full mt-3 border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300 font-mono text-xs gap-2"
                                 onClick={() => setCancelConfirm(true)}
                             >
-                                <XCircle className="size-3.5" /> RESILIER_ABONNEMENT
+                                <XCircle className="size-3.5" /> {copy("RESILIER_ABONNEMENT")}
                             </Button>
                         )}
 
@@ -269,8 +271,8 @@ export function MissionDossier({ user, open, onClose, onSubscriptionCancelled }:
                                 <div className="flex items-start gap-2">
                                     <AlertTriangle className="size-4 text-red-400 mt-0.5 shrink-0" />
                                     <p className="text-xs text-red-300 leading-relaxed">
-                                        Résilier l&apos;abonnement de <strong>{user.name}</strong> ?
-                                        L&apos;accès premium sera coupé immédiatement et l&apos;abonnement Stripe annulé.
+                                        {copy("Résilier l'abonnement de")} <strong>{user.name}</strong> ?
+                                        {copy("L'accès premium sera coupé immédiatement et l'abonnement Stripe annulé.")}
                                     </p>
                                 </div>
                                 <div className="flex gap-2">
@@ -281,7 +283,7 @@ export function MissionDossier({ user, open, onClose, onSubscriptionCancelled }:
                                         onClick={() => setCancelConfirm(false)}
                                         disabled={cancelling}
                                     >
-                                        Annuler
+                                        {copy("Annuler")}
                                     </Button>
                                     <Button
                                         size="sm"
@@ -290,7 +292,7 @@ export function MissionDossier({ user, open, onClose, onSubscriptionCancelled }:
                                         disabled={cancelling}
                                     >
                                         {cancelling ? <Loader2 className="size-3.5 animate-spin" /> : <XCircle className="size-3.5" />}
-                                        {cancelling ? 'Annulation...' : 'Confirmer'}
+                                        {cancelling ? copy("Annulation...") : copy("Confirmer")}
                                     </Button>
                                 </div>
                             </div>
@@ -312,7 +314,7 @@ export function MissionDossier({ user, open, onClose, onSubscriptionCancelled }:
                     {/* Detailed Intel */}
                     <div className="space-y-6">
                         <h3 className="text-xs font-bold uppercase tracking-widest text-neutral-500 flex items-center gap-2">
-                            <Activity className="size-3.5" /> Activity Log
+                            <Activity className="size-3.5" /> {copy("Activity Log")}
                         </h3>
 
                         <div className="space-y-4">
@@ -322,7 +324,7 @@ export function MissionDossier({ user, open, onClose, onSubscriptionCancelled }:
                                         <Wifi className="size-4" />
                                     </div>
                                     <div>
-                                        <p className="text-sm font-medium text-white">Dernière Connexion</p>
+                                        <p className="text-sm font-medium text-white">{copy("Dernière Connexion")}</p>
                                         <p className="text-xs text-neutral-500">{user.lastActive}</p>
                                     </div>
                                 </div>
@@ -338,8 +340,8 @@ export function MissionDossier({ user, open, onClose, onSubscriptionCancelled }:
                                                 <TrendingUp className="size-4" />
                                             </div>
                                             <div>
-                                                <p className="text-sm font-medium text-white">Win Rate Global</p>
-                                                <p className="text-xs text-neutral-500">Basé sur {user.totalPredictions} pronostics</p>
+                                                <p className="text-sm font-medium text-white">{copy("Win Rate Global")}</p>
+                                                <p className="text-xs text-neutral-500">{copy("Basé sur")} {user.totalPredictions} {copy("pronostics")}</p>
                                             </div>
                                         </div>
                                         <span className="text-xl font-black text-white tracking-tighter">{user.win_rate !== undefined ? `${user.win_rate}%` : "68%"}</span>
@@ -351,8 +353,8 @@ export function MissionDossier({ user, open, onClose, onSubscriptionCancelled }:
                                                 <ShieldCheck className="size-4" />
                                             </div>
                                             <div>
-                                                <p className="text-sm font-medium text-white">Sport Favori</p>
-                                                <p className="text-xs text-neutral-500">Cible principale</p>
+                                                <p className="text-sm font-medium text-white">{copy("Sport Favori")}</p>
+                                                <p className="text-xs text-neutral-500">{copy("Cible principale")}</p>
                                             </div>
                                         </div>
                                         <span className="text-sm font-bold text-white uppercase tracking-widest">{user.favoriteSport}</span>
@@ -361,10 +363,10 @@ export function MissionDossier({ user, open, onClose, onSubscriptionCancelled }:
                             ) : (
                                 <div className="pt-4 border-t border-white/5">
                                     <div className="p-4 rounded-xl bg-purple-500/5 border border-purple-500/10">
-                                        <p className="text-xs font-mono text-purple-400 uppercase tracking-widest mb-1">Privileges d'Accès</p>
+                                        <p className="text-xs font-mono text-purple-400 uppercase tracking-widest mb-1">{copy("Privileges d'Accès")}</p>
                                         <p className="text-sm text-neutral-400 leading-relaxed italic">
-                                            Cet agent dispose de privilèges {user.role === 'super_admin' ? 'Super Admin' : 'Admin'}.
-                                            Les statistiques opérationnelles ne s'appliquent pas aux profils de supervision.
+                                            {copy("Cet agent dispose de privilèges")} {user.role === 'super_admin' ? 'Super Admin' : 'Admin'}.
+                                            {copy("Les statistiques opérationnelles ne s'appliquent pas aux profils de supervision.")}
                                         </p>
                                     </div>
                                 </div>
@@ -374,9 +376,9 @@ export function MissionDossier({ user, open, onClose, onSubscriptionCancelled }:
 
                     {/* Admin Notes */}
                     <div className="mt-8 p-4 rounded-xl bg-yellow-500/5 border border-yellow-500/10">
-                        <h4 className="text-xs font-bold text-yellow-500 mb-2 uppercase tracking-wide">Admin Notes</h4>
+                        <h4 className="text-xs font-bold text-yellow-500 mb-2 uppercase tracking-wide">{copy("Admin Notes")}</h4>
                         <p className="text-xs text-neutral-400 leading-relaxed">
-                            Utilisateur actif et engagé. A contacté le support 2 fois pour des questions sur l&apos;API. Potentiel upgrade vers plan Annuel si on lui propose une offre.
+                            {copy("Utilisateur actif et engagé. A contacté le support 2 fois pour des questions sur l'API. Potentiel upgrade vers plan Annuel si on lui propose une offre.")}
                         </p>
                     </div>
 

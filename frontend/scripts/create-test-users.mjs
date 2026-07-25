@@ -5,23 +5,28 @@
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const TEST_USER_PASSWORD = process.env.BETIX_TEST_USER_PASSWORD;
+
+if (!TEST_USER_PASSWORD) {
+    throw new Error("Set BETIX_TEST_USER_PASSWORD before creating test users.");
+}
 
 const testUsers = [
     {
         email: "superadmin@betix.io",
-        password: "Betix2025!",
+        password: TEST_USER_PASSWORD,
         username: "SuperAdmin",
         role: "super_admin",
     },
     {
         email: "admin@betix.io",
-        password: "Betix2025!",
+        password: TEST_USER_PASSWORD,
         username: "AdminBetix",
         role: "admin",
     },
     {
         email: "user@betix.io",
-        password: "Betix2025!",
+        password: TEST_USER_PASSWORD,
         username: "TestUser",
         role: "user",
     },
@@ -146,15 +151,15 @@ async function main() {
 
     console.log("\n" + "━".repeat(50));
     console.log("\n✅ Done! Test accounts:");
-    console.log("┌──────────────────────┬─────────────┬──────────────┐");
-    console.log("│ Email                │ Password    │ Role         │");
-    console.log("├──────────────────────┼─────────────┼──────────────┤");
+    console.log("┌──────────────────────┬──────────────┐");
+    console.log("│ Email                │ Role         │");
+    console.log("├──────────────────────┼──────────────┤");
     testUsers.forEach((u) => {
         console.log(
-            `│ ${u.email.padEnd(20)} │ ${u.password.padEnd(11)} │ ${u.role.padEnd(12)} │`
+            `│ ${u.email.padEnd(20)} │ ${u.role.padEnd(12)} │`
         );
     });
-    console.log("└──────────────────────┴─────────────┴──────────────┘");
+    console.log("└──────────────────────┴──────────────┘");
 }
 
 main().catch(console.error);

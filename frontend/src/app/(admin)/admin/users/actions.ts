@@ -1,7 +1,9 @@
 'use server';
 
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { stripe } from "@/lib/stripe";
+import { getSubscriptionPeriodEnd, stripe } from "@/lib/stripe";
+import { copy } from "@/lib/i18n";
+import { getServerLocale } from "@/lib/i18n-server";
 import { revalidatePath } from "next/cache";
 
 export async function getPlansAction() {
@@ -155,7 +157,7 @@ export async function updateAgentAction(agentId: string, data: UpdateAgentData) 
             if (data.plan_id) subUpdates.plan_id = data.plan_id;
             if (data.subscription_status) subUpdates.status = data.subscription_status;
 
-            // Si l'admin change le plan ET qu'un abonnement Stripe existe, l'annuler
+            // If the admin changes the plan and a Stripe subscription exists, cancel it.
             if (data.plan_id && existingSub?.stripe_subscription_id && existingSub.plan_id !== data.plan_id) {
                 try {
                     await stripe.subscriptions.cancel(existingSub.stripe_subscription_id);
@@ -200,10 +202,11 @@ export async function updateAgentAction(agentId: string, data: UpdateAgentData) 
 }
 
 /**
- * Récupère les détails de facturation Stripe pour un utilisateur.
+ * Retrieves Stripe billing details for a user.
  */
 export async function getSubscriptionDetailsAction(userId: string) {
     try {
+        const locale = await getServerLocale();
         const { data: subscription } = await supabaseAdmin
             .from('subscriptions')
             .select('plan_id, status, stripe_subscription_id, current_period_end, source')
@@ -211,10 +214,10 @@ export async function getSubscriptionDetailsAction(userId: string) {
             .single();
 
         if (!subscription) {
-            return { success: false, error: 'Aucun abonnement trouvé.' };
+            return { success: false, error: copy(locale, 'Aucun abonnement trouvé.') };
         }
 
-        // Si pas d'abonnement Stripe, retourner uniquement les données BDD
+        // If there is no Stripe subscription, return only database data.
         if (!subscription.stripe_subscription_id) {
             return {
                 success: true,
@@ -228,9 +231,10 @@ export async function getSubscriptionDetailsAction(userId: string) {
             };
         }
 
-        // Appeler Stripe pour les détails live
+        // Call Stripe for live details.
         try {
             const stripeSub = await stripe.subscriptions.retrieve(subscription.stripe_subscription_id) as any;
+            const stripePeriodEnd = getSubscriptionPeriodEnd(stripeSub);
 
             return {
                 success: true,
@@ -246,9 +250,10 @@ export async function getSubscriptionDetailsAction(userId: string) {
                         currency: stripeSub.currency.toUpperCase(),
                         interval: stripeSub.items.data[0]?.price?.recurring?.interval || 'month',
                         intervalCount: stripeSub.items.data[0]?.price?.recurring?.interval_count || 1,
-                        currentPeriodEnd: new Date(stripeSub.current_period_end * 1000).toISOString(),
+                        currentPeriodEnd: stripePeriodEnd.toISOString(),
                         createdAt: new Date(stripeSub.created * 1000).toISOString(),
                         canceledAt: stripeSub.canceled_at ? new Date(stripeSub.canceled_at * 1000).toISOString() : null,
+                        cancelAtPeriodEnd: Boolean(stripeSub.cancel_at_period_end),
                     },
                 }
             };
@@ -273,14 +278,15 @@ export async function getSubscriptionDetailsAction(userId: string) {
 }
 
 /**
- * Résilie l'abonnement d'un utilisateur : annule sur Stripe + passe en no_subscription.
- * Coupure immédiate de l'accès premium.
+ * Cancels a user's subscription in Stripe and moves them to no_subscription.
+ * Premium access is removed immediately.
  */
 export async function cancelSubscriptionAction(userId: string) {
     console.log(`[Admin Action] Terminating subscription for user ${userId}`);
 
     try {
-        // 1. Récupérer l'abonnement actuel
+        const locale = await getServerLocale();
+        // 1. Retrieve the current subscription.
         const { data: subscription, error: subError } = await supabaseAdmin
             .from('subscriptions')
             .select('user_id, plan_id, status, stripe_subscription_id')
@@ -288,14 +294,14 @@ export async function cancelSubscriptionAction(userId: string) {
             .single();
 
         if (subError || !subscription) {
-            return { success: false, error: 'Aucun abonnement trouvé pour cet utilisateur.' };
+            return { success: false, error: copy(locale, 'Aucun abonnement trouvé pour cet utilisateur.') };
         }
 
         if (subscription.plan_id === 'no_subscription') {
-            return { success: false, error: 'L\'utilisateur n\'a déjà aucun abonnement actif.' };
+            return { success: false, error: copy(locale, 'L\'utilisateur n\'a déjà aucun abonnement actif.') };
         }
 
-        // 2. Annuler sur Stripe si un abonnement récurrent existe
+        // 2. Cancel in Stripe if a recurring subscription exists.
         if (subscription.stripe_subscription_id) {
             try {
                 await stripe.subscriptions.cancel(subscription.stripe_subscription_id);
@@ -305,12 +311,12 @@ export async function cancelSubscriptionAction(userId: string) {
                 if (msg.includes('canceled') || msg.includes('No such subscription')) {
                     console.log(`[Admin Action] Stripe sub already cancelled, continuing DB cleanup`);
                 } else {
-                    return { success: false, error: `Échec annulation Stripe : ${msg}` };
+                    return { success: false, error: `${copy(locale, 'Échec annulation Stripe')}: ${msg}` };
                 }
             }
         }
 
-        // 3. Résilier : plan → no_subscription, statut → canceled, accès coupé immédiatement
+        // 3. Cancel: plan -> no_subscription, status -> canceled, access removed immediately.
         const { error: updateError } = await supabaseAdmin
             .from('subscriptions')
             .update({
@@ -318,6 +324,10 @@ export async function cancelSubscriptionAction(userId: string) {
                 status: 'canceled',
                 stripe_subscription_id: null,
                 current_period_end: null,
+                cancel_at_period_end: false,
+                canceled_at: new Date().toISOString(),
+                cancellation_reason: 'admin_terminated',
+                estimated_refund_amount: null,
             })
             .eq('user_id', userId);
 
@@ -330,7 +340,7 @@ export async function cancelSubscriptionAction(userId: string) {
         revalidatePath('/admin/users');
         return {
             success: true,
-            message: `Abonnement résilié. L'utilisateur est passé en no_subscription.`
+            message: copy(locale, `Abonnement résilié. L'utilisateur est passé en no_subscription.`)
         };
 
     } catch (error: any) {

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Eye, EyeOff, Play, RefreshCw, CheckCircle2, XCircle, Zap } from "lucide-react";
+import { useI18n } from "@/lib/use-i18n";
 
 interface APIKeyConfig {
     id: string;
@@ -17,13 +18,14 @@ interface APIKeyConfig {
 }
 
 const initialKeys: APIKeyConfig[] = [
-    { id: "api-sports", name: "API-Sports (Data Feed)", value: "sk_live_aBcDeFg1234567890", status: "error", type: "core" },
-    { id: "gemini", name: "Google Gemini (Neural Engine)", value: "AIzaSyA_xYzAbCdEfGhIjKlMnO", status: "connected", type: "core" },
-    { id: "stripe", name: "Stripe (Payment Gateway)", value: "pk_live_51SyZKk...", status: "connected", type: "financial" },
-    { id: "supabase", name: "Supabase (Data Core)", value: "eyJhbGciOiJIUzI1NiIs...", status: "connected", type: "external" },
+    { id: "api-sports", name: "API-Sports (Data Feed)", value: "Configured in server environment", status: "untested", type: "core" },
+    { id: "gemini", name: "Google Gemini (Neural Engine)", value: "Configured in server environment", status: "untested", type: "core" },
+    { id: "stripe", name: "Stripe (Payment Gateway)", value: "Configured in server environment", status: "untested", type: "financial" },
+    { id: "supabase", name: "Supabase (Data Core)", value: "Configured in server environment", status: "untested", type: "external" },
 ];
 
 export function NeuralUplinks() {
+    const { copy } = useI18n();
     const [keys, setKeys] = useState(initialKeys);
     const [testing, setTesting] = useState<string | null>(null);
 
@@ -89,7 +91,7 @@ export function NeuralUplinks() {
                             <div className="flex items-center gap-2 md:w-48 justify-end">
                                 {testing === key.id ? (
                                     <Button disabled variant="outline" size="sm" className="w-full bg-white/5 border-white/10 text-neutral-400 gap-2 font-mono text-xs">
-                                        <RefreshCw className="size-3 animate-spin" /> PINGING...
+                                        <RefreshCw className="size-3 animate-spin" /> {copy("PINGING...")}
                                     </Button>
                                 ) : (
                                     <Button
@@ -103,7 +105,7 @@ export function NeuralUplinks() {
                                                     "text-neutral-400 hover:text-white"
                                         )}
                                     >
-                                        <Zap className="size-3" /> TEST_LINK
+                                        <Zap className="size-3" /> {copy("TEST_LINK")}
                                     </Button>
                                 )}
                             </div>

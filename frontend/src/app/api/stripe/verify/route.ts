@@ -2,38 +2,47 @@
  * BETIX — Stripe Verify Route
  * POST /api/stripe/verify
  *
- * Fallback pour vérifier qu'un paiement a bien été effectué.
- * Vérifie la Checkout Session et active l'abonnement si le webhook n'a pas encore été reçu.
+ * Fallback to verify that a payment has completed.
+ * Checks the Checkout Session and activates the subscription if the webhook has not arrived yet.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { stripe, getSubscriptionPeriodEnd } from '@/lib/stripe';
+import { copy } from '@/lib/i18n';
+import { getLocaleFromRequest } from '@/lib/i18n-server';
+
+function getErrorMessage(error: unknown, fallback: string) {
+    return error instanceof Error ? error.message : fallback;
+}
 
 export async function POST(req: NextRequest) {
+    const locale = getLocaleFromRequest(req);
+    const localize = (source: string) => copy(locale, source);
+
     try {
-        // 1. Authentification
+        // 1. Authentication
         const supabase = await createClient();
         const { data: { user }, error: authError } = await supabase.auth.getUser();
 
         if (authError || !user) {
             return NextResponse.json(
-                { error: 'Non authentifié.' },
+                { error: localize('Non authentifié.') },
                 { status: 401 }
             );
         }
 
-        // 2. Récupérer le planId et éventuellement le session_id
+        // 2. Retrieve the planId and optional session_id.
         const { planId, sessionId } = await req.json();
         if (!planId) {
             return NextResponse.json(
-                { error: 'Plan ID manquant.' },
+                { error: localize('Plan ID manquant.') },
                 { status: 400 }
             );
         }
 
-        // 3. Vérifier si l'abonnement est déjà actif
+        // 3. Check whether the subscription is already active.
         const { data: existingSub } = await supabaseAdmin
             .from('subscriptions')
             .select('plan_id, status, stripe_subscription_id')
@@ -47,11 +56,11 @@ export async function POST(req: NextRequest) {
         if (isAlreadyActive) {
             return NextResponse.json({
                 verified: true,
-                message: 'Abonnement déjà actif pour ce plan.'
+                message: localize('Abonnement déjà actif pour ce plan.')
             });
         }
 
-        // 4. Si on a un session_id, vérifier directement cette session
+        // 4. If a session_id is present, verify that session directly.
         if (sessionId) {
             const session = await stripe.checkout.sessions.retrieve(sessionId);
 
@@ -69,20 +78,24 @@ export async function POST(req: NextRequest) {
                         current_period_end: currentPeriodEnd.toISOString(),
                         source: 'stripe',
                         stripe_subscription_id: subscription.id,
+                        cancel_at_period_end: subscription.cancel_at_period_end ?? false,
+                        canceled_at: null,
+                        cancellation_reason: null,
+                        estimated_refund_amount: null,
                     });
 
                 console.log(`[Stripe/Verify] Subscription verified via session ${sessionId} for user ${user.id}`);
 
                 return NextResponse.json({
                     verified: true,
-                    message: 'Abonnement activé avec succès !',
+                    message: localize('Abonnement activé avec succès !'),
                     planId,
                     currentPeriodEnd: currentPeriodEnd.toISOString(),
                 });
             }
         }
 
-        // 5. Fallback : chercher la dernière Checkout Session complétée pour ce customer
+        // 5. Fallback: find the latest completed Checkout Session for this customer.
         const { data: profile } = await supabaseAdmin
             .from('profiles')
             .select('stripe_customer_id')
@@ -92,11 +105,11 @@ export async function POST(req: NextRequest) {
         if (!profile?.stripe_customer_id) {
             return NextResponse.json({
                 verified: false,
-                message: 'Aucun customer Stripe trouvé. Effectuez d\'abord un paiement.'
+                message: localize('Aucun customer Stripe trouvé. Effectuez d\'abord un paiement.')
             });
         }
 
-        // Lister les sessions Checkout récentes pour ce customer
+        // List recent Checkout Sessions for this customer.
         const sessions = await stripe.checkout.sessions.list({
             customer: profile.stripe_customer_id,
             limit: 5,
@@ -111,21 +124,21 @@ export async function POST(req: NextRequest) {
         if (!paidSession) {
             return NextResponse.json({
                 verified: false,
-                message: 'Aucun paiement confirmé trouvé pour ce plan.'
+                message: localize('Aucun paiement confirmé trouvé pour ce plan.')
             });
         }
 
-        // 6. Si l'utilisateur change de plan, annuler l'ancien abonnement Stripe
+        // 6. If the user changes plan, cancel the old Stripe subscription.
         if (existingSub?.stripe_subscription_id && existingSub.plan_id !== planId) {
             try {
                 await stripe.subscriptions.cancel(existingSub.stripe_subscription_id);
                 console.log(`[Stripe/Verify] Old subscription ${existingSub.stripe_subscription_id} cancelled (upgrade to ${planId})`);
-            } catch (err: any) {
-                console.warn(`[Stripe/Verify] Could not cancel old subscription: ${err.message}`);
+            } catch (error: unknown) {
+                console.warn(`[Stripe/Verify] Could not cancel old subscription: ${getErrorMessage(error, 'Unknown error')}`);
             }
         }
 
-        // 7. Récupérer les détails de l'abonnement et sauvegarder
+        // 7. Retrieve subscription details and save them.
         const subscription = await stripe.subscriptions.retrieve(paidSession.subscription as string);
         const currentPeriodEnd = getSubscriptionPeriodEnd(subscription);
         const status = subscription.status === 'trialing' ? 'trialing' : 'active';
@@ -139,21 +152,25 @@ export async function POST(req: NextRequest) {
                 current_period_end: currentPeriodEnd.toISOString(),
                 source: 'stripe',
                 stripe_subscription_id: subscription.id,
+                cancel_at_period_end: subscription.cancel_at_period_end ?? false,
+                canceled_at: null,
+                cancellation_reason: null,
+                estimated_refund_amount: null,
             });
 
         console.log(`[Stripe/Verify] Subscription activated for user ${user.id}, plan ${planId}`);
 
         return NextResponse.json({
             verified: true,
-            message: 'Abonnement activé avec succès !',
+            message: localize('Abonnement activé avec succès !'),
             planId,
             currentPeriodEnd: currentPeriodEnd.toISOString(),
         });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('[Stripe/Verify] Error:', error);
         return NextResponse.json(
-            { error: error.message || 'Erreur interne' },
+            { error: getErrorMessage(error, localize('Erreur interne')) },
             { status: 500 }
         );
     }

@@ -12,8 +12,10 @@ import { Download, Search, UserPlus, Filter, Loader2 } from "lucide-react";
 
 import { AdminUser } from "@/types/admin";
 import { cancelSubscriptionAction } from "@/app/(admin)/admin/users/actions";
+import { useI18n } from "@/lib/use-i18n";
 
 export default function AdminUsersPage() {
+    const { copy, locale } = useI18n();
     const [search, setSearch] = useState("");
     const [users, setUsers] = useState<AdminUser[]>([]);
     const [loading, setLoading] = useState(true);
@@ -40,10 +42,10 @@ export default function AdminUsersPage() {
             // Map DB names to UI names if necessary
             const mappedUsers = (data || []).map((u: any) => ({
                 ...u,
-                name: u.username || "Agent Inconnu",
+                name: u.username || copy("Agent Inconnu"),
                 avatar: u.avatar_url,
-                joinDate: u.created_at ? new Date(u.created_at).toLocaleDateString('fr-FR') : "N/A",
-                lastActive: u.last_active ? new Date(u.last_active).toLocaleString('fr-FR') : "Jamais",
+                joinDate: u.created_at ? new Date(u.created_at).toLocaleDateString(locale) : "N/A",
+                lastActive: u.last_active ? new Date(u.last_active).toLocaleString(locale) : copy("Jamais"),
                 totalPredictions: u.total_predictions || 0,
                 favoriteSport: u.favorite_sport || "N/A",
             }));
@@ -51,11 +53,11 @@ export default function AdminUsersPage() {
             setUsers(mappedUsers as AdminUser[]);
         } catch (err: any) {
             console.error("Error fetching admin users:", err);
-            setError(err.message || "Une erreur inconnue est survenue.");
+            setError(err.message || copy("Une erreur inconnue est survenue."));
         } finally {
             setLoading(false);
         }
-    }, [supabase]);
+    }, [copy, locale, supabase]);
 
     useEffect(() => {
         fetchUsers();
@@ -97,19 +99,19 @@ export default function AdminUsersPage() {
             {/* Command Header */}
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-black uppercase tracking-tight text-white">The Agency</h1>
-                    <p className="text-sm font-mono text-neutral-500 mt-1">:: PERSONNEL DATABASE: ACCESS GRANTED ::</p>
+                    <h1 className="text-3xl font-black uppercase tracking-tight text-white">{copy("The Agency")}</h1>
+                    <p className="text-sm font-mono text-neutral-500 mt-1">{copy(":: PERSONNEL DATABASE: ACCESS GRANTED ::")}</p>
                 </div>
                 <div className="flex items-center gap-2">
                     <Button variant="outline" size="sm" className="bg-black border-white/10 hover:bg-white/5 text-neutral-400 gap-2 font-mono text-xs h-9">
-                        <Download className="size-3.5" /> EXPORT_DATA
+                        <Download className="size-3.5" /> {copy("EXPORT_DATA")}
                     </Button>
                     <Button
                         size="sm"
                         className="bg-white text-black hover:bg-neutral-200 gap-2 font-bold font-mono text-xs h-9"
                         onClick={() => setIsCreateOpen(true)}
                     >
-                        <UserPlus className="size-3.5" /> RECRUIT_AGENT
+                        <UserPlus className="size-3.5" /> {copy("RECRUIT_AGENT")}
                     </Button>
                 </div>
             </div>
@@ -119,7 +121,7 @@ export default function AdminUsersPage() {
                 <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-neutral-500" />
                     <Input
-                        placeholder="_Rechercher un agent par nom ou matricule..."
+                        placeholder={copy("_Rechercher un agent par nom ou matricule...")}
                         className="pl-9 bg-transparent border-none text-white placeholder:text-neutral-600 focus-visible:ring-0 font-mono text-sm h-10"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
@@ -127,16 +129,16 @@ export default function AdminUsersPage() {
                 </div>
                 <div className="w-[1px] h-6 bg-white/10" />
                 <Button variant="ghost" size="sm" className="text-neutral-400 hover:text-white gap-2 font-mono text-xs">
-                    <Filter className="size-3.5" /> FILTERS
+                    <Filter className="size-3.5" /> {copy("FILTERS")}
                 </Button>
             </div>
 
             {error ? (
                 <div className="p-8 rounded-2xl bg-red-500/10 border border-red-500/20 text-center space-y-4">
-                    <p className="text-sm font-mono text-red-400">❌ ERREUR DE BASE DE DONNÉES</p>
+                    <p className="text-sm font-mono text-red-400">❌ {copy("ERREUR DE BASE DE DONNÉES")}</p>
                     <p className="text-lg font-bold text-white leading-tight">{error}</p>
                     <p className="text-xs text-neutral-500 max-w-md mx-auto leading-relaxed">
-                        Cela est probablement dû à la fonction RPC manquante. Assurez-vous d'avoir bien exécuté le script SQL dans votre console Supabase.
+                        {copy("Cela est probablement dû à la fonction RPC manquante. Assurez-vous d'avoir bien exécuté le script SQL dans votre console Supabase.")}
                     </p>
                     <Button
                         variant="outline"
@@ -144,7 +146,7 @@ export default function AdminUsersPage() {
                         onClick={() => window.location.reload()}
                         className="border-white/10 hover:bg-white/5 text-white"
                     >
-                        Réessayer
+                        {copy("Réessayer")}
                     </Button>
                 </div>
             ) : (

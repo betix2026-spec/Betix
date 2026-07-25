@@ -7,8 +7,10 @@ import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { BiometricInput } from "@/components/auth/BiometricInput";
 import { SecurityScanner } from "@/components/auth/SecurityScanner";
+import { useI18n } from "@/lib/use-i18n";
 
 export function MFASettings() {
+    const { copy, t } = useI18n();
     const [isLoading, setIsLoading] = useState(true);
     const [isEnrolling, setIsEnrolling] = useState(false);
     const [factors, setFactors] = useState<any[]>([]);
@@ -46,7 +48,7 @@ export function MFASettings() {
             setEnrollData(data);
             setIsEnrolling(true);
         } catch (err: any) {
-            toast.error("Échec de l'enrôlement", { description: err.message });
+            toast.error(copy("Échec de l'enrôlement"), { description: err.message });
         }
     };
 
@@ -65,28 +67,28 @@ export function MFASettings() {
 
             if (verify.error) throw verify.error;
 
-            toast.success("MFA Activé", { description: "Votre compte est désormais protégé." });
+            toast.success(copy("MFA Activé"), { description: copy("Votre compte est désormais protégé.") });
             setIsEnrolling(false);
             setEnrollData(null);
             setVerifyCode("");
             fetchFactors();
         } catch (err: any) {
-            toast.error("Code invalide", { description: err.message });
+            toast.error(t("invalidCode"), { description: err.message });
         } finally {
             setIsVerifying(false);
         }
     };
 
     const unenroll = async (factorId: string) => {
-        if (!confirm("Voulez-vous vraiment désactiver la double authentification ? Cela réduira votre niveau de sécurité.")) return;
+        if (!confirm(copy("Voulez-vous vraiment désactiver la double authentification ? Cela réduira votre niveau de sécurité."))) return;
 
         try {
             const { error } = await supabase.auth.mfa.unenroll({ factorId });
             if (error) throw error;
-            toast.success("MFA Désactivé");
+            toast.success(copy("MFA Désactivé"));
             fetchFactors();
         } catch (err: any) {
-            toast.error("Erreur", { description: err.message });
+            toast.error(copy("Erreur"), { description: err.message });
         }
     };
 
@@ -94,7 +96,7 @@ export function MFASettings() {
 
     if (isLoading) return (
         <div className="flex items-center justify-center p-8 bg-white/5 rounded-3xl border border-white/10 italic text-neutral-500 text-xs">
-            <Loader2 className="size-4 animate-spin mr-2" /> Synchro sécurité...
+            <Loader2 className="size-4 animate-spin mr-2" /> {copy("Synchro sécurité...")}
         </div>
     );
 
@@ -102,21 +104,21 @@ export function MFASettings() {
         <div className="p-6 rounded-3xl bg-blue-500/5 border border-blue-500/10 backdrop-blur-xl space-y-4">
             <div className="flex items-center justify-between mb-2">
                 <h3 className="text-sm font-bold uppercase tracking-widest text-blue-400 flex items-center gap-2">
-                    <Shield className="size-4" /> Security Clearance
+                    <Shield className="size-4" /> {copy("Security Clearance")}
                 </h3>
                 {activeFactor ? (
                     <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-black text-emerald-500 uppercase tracking-tighter">
-                        <CheckCircle2 className="size-3" /> Fully Encrypted
+                        <CheckCircle2 className="size-3" /> {copy("Fully Encrypted")}
                     </div>
                 ) : (
                     <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-[10px] font-black text-amber-500 uppercase tracking-tighter">
-                        <ShieldAlert className="size-3" /> Unprotected
+                        <ShieldAlert className="size-3" /> {copy("Unprotected")}
                     </div>
                 )}
             </div>
 
             <p className="text-xs text-neutral-500 leading-relaxed">
-                Renforcez la sécurité de votre accès agent en activant l'authentification à deux facteurs.
+                {copy("Renforcez la sécurité de votre accès agent en activant l'authentification à deux facteurs.")}
             </p>
 
             <div className="p-4 rounded-2xl bg-white/5 border border-white/5">
@@ -128,8 +130,8 @@ export function MFASettings() {
                                     <Lock className="size-5 text-blue-400" />
                                 </div>
                                 <div>
-                                    <p className="font-medium text-white text-sm">Agent Authenticator</p>
-                                    <p className="text-[10px] text-neutral-500 uppercase font-bold tracking-widest">TOTP (Google/Authy)</p>
+                                    <p className="font-medium text-white text-sm">{copy("Agent Authenticator")}</p>
+                                    <p className="text-[10px] text-neutral-500 uppercase font-bold tracking-widest">{copy("TOTP (Google/Authy)")}</p>
                                 </div>
                             </div>
                             <Button
@@ -138,13 +140,13 @@ export function MFASettings() {
                                 className="h-8 bg-blue-500/10 border-blue-500/20 text-blue-400 hover:bg-blue-500/20 text-[10px] font-black uppercase tracking-widest"
                                 onClick={startEnroll}
                             >
-                                ACTIVATE 2FA
+                                {copy("ACTIVATE 2FA")}
                             </Button>
                         </div>
                     ) : (
                         <div className="space-y-6">
                             <div className="flex justify-between items-center">
-                                <span className="text-[10px] font-black uppercase tracking-widest text-white">Setup Encryption Factor</span>
+                                <span className="text-[10px] font-black uppercase tracking-widest text-white">{copy("Setup Encryption Factor")}</span>
                                 <Button variant="ghost" size="icon" className="h-6 w-6 text-neutral-500" onClick={() => setIsEnrolling(false)}>
                                     <X className="size-3" />
                                 </Button>
@@ -162,16 +164,16 @@ export function MFASettings() {
 
                                 <div className="text-center space-y-2">
                                     <p className="text-[11px] text-neutral-400 text-center max-w-[200px]">
-                                        Scannez ce code avec votre application de sécurité.
+                                        {copy("Scannez ce code avec votre application de sécurité.")}
                                     </p>
                                     <code className="text-[9px] bg-white/5 px-2 py-1 rounded text-blue-400 select-all cursor-pointer">
-                                        Secret: {enrollData?.totp?.secret.slice(0, 10)}...
+                                        {copy("Secret")}: {enrollData?.totp?.secret.slice(0, 10)}...
                                     </code>
                                 </div>
 
                                 <form onSubmit={confirmEnroll} className="w-full space-y-4">
                                     <BiometricInput
-                                        label="6-Digit Verification Code"
+                                        label={copy("6-Digit Verification Code")}
                                         placeholder="000 000"
                                         value={verifyCode}
                                         onChange={(e) => setVerifyCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
@@ -180,7 +182,7 @@ export function MFASettings() {
                                     <SecurityScanner
                                         type="submit"
                                         isLoading={isVerifying}
-                                        label="FINALIZE LINKING"
+                                        label={copy("FINALIZE LINKING")}
                                     />
                                 </form>
                             </div>
@@ -193,8 +195,8 @@ export function MFASettings() {
                                 <Shield className="size-5 text-emerald-400" />
                             </div>
                             <div>
-                                <p className="font-medium text-white text-sm">Agent Protection Active</p>
-                                <p className="text-[10px] text-neutral-500 uppercase font-bold tracking-widest tracking-widest">AAL Level: 2 (Encrypted)</p>
+                                <p className="font-medium text-white text-sm">{copy("Agent Protection Active")}</p>
+                                <p className="text-[10px] text-neutral-500 uppercase font-bold tracking-widest tracking-widest">{copy("AAL Level: 2 (Encrypted)")}</p>
                             </div>
                         </div>
                         <Button
@@ -203,7 +205,7 @@ export function MFASettings() {
                             className="h-8 border-red-500/20 text-red-500 hover:bg-red-500/10 text-[10px] font-black uppercase tracking-widest"
                             onClick={() => unenroll(activeFactor.id)}
                         >
-                            DISABLE
+                            {copy("DISABLE")}
                         </Button>
                     </div>
                 )}

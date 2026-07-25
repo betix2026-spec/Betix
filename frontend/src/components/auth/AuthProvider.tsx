@@ -25,12 +25,18 @@ export interface UserPlan {
     id: string;
     name: string;
     price: number;
+    frequency?: string;
     features: (string | { text: string; included: boolean })[];
 }
 
 export interface UserSubscription {
     status: string;
     current_period_end: string;
+    created_at?: string | null;
+    cancel_at_period_end?: boolean;
+    canceled_at?: string | null;
+    cancellation_reason?: string | null;
+    estimated_refund_amount?: number | null;
     plan: UserPlan | null;
 }
 
@@ -98,7 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // 2. Fetch Subscription (with Plan)
             const { data: subData, error: subError } = await supabase
                 .from("subscriptions")
-                .select("status, current_period_end, plans(id, name, price, features)")
+                .select("status, current_period_end, created_at, cancel_at_period_end, canceled_at, cancellation_reason, estimated_refund_amount, plans(id, name, price, frequency, features)")
                 .eq("user_id", userId)
                 .in("status", ["active", "trialing", "past_due"])
                 .maybeSingle();
@@ -110,6 +116,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 userSub = {
                     status: subData.status,
                     current_period_end: subData.current_period_end,
+                    created_at: subData.created_at,
+                    cancel_at_period_end: subData.cancel_at_period_end ?? false,
+                    canceled_at: subData.canceled_at,
+                    cancellation_reason: subData.cancellation_reason,
+                    estimated_refund_amount: subData.estimated_refund_amount,
                     plan: planData as UserPlan
                 };
             }

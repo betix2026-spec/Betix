@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { CheckCircle2, Ticket, Crown, Trophy, Gem, ArrowRight, X, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { useI18n } from "@/lib/use-i18n";
 
 /* ══ Centralized color theme per variant ══ */
 const VARIANT_THEME = {
@@ -81,18 +82,17 @@ interface PricingProps {
 }
 
 export function PricingCard({ plan, variant, isCurrentPlan, subscriptionStatus }: PricingProps) {
+    const { t, copy, locale } = useI18n();
     const theme = VARIANT_THEME[variant];
     const isFree = variant === "free";
 
     const [isCheckingOut, setIsCheckingOut] = useState(false);
 
     let buttonText = plan.cta;
-    let buttonDisabled = false;
     let buttonVariantClass = "";
 
     if (isCurrentPlan) {
-        buttonText = "Plan Actuel";
-        buttonDisabled = true;
+        buttonText = t("currentPlan");
         buttonVariantClass = "bg-green-500/20 text-green-400 border-green-500/50 cursor-default hover:bg-green-500/20";
     } else {
         buttonVariantClass = theme.cta;
@@ -113,7 +113,7 @@ export function PricingCard({ plan, variant, isCurrentPlan, subscriptionStatus }
 
             if (!res.ok) {
                 console.error('[PricingCard] Checkout error:', data.error);
-                toast.error(data.error || 'Erreur lors de la création du paiement.');
+                toast.error(data.error || t("checkoutCreationError"));
                 return;
             }
 
@@ -129,7 +129,7 @@ export function PricingCard({ plan, variant, isCurrentPlan, subscriptionStatus }
             }
         } catch (err) {
             console.error('[PricingCard] Network error:', err);
-            toast.error('Erreur réseau. Veuillez réessayer.');
+            toast.error(t("networkRetry"));
         } finally {
             setIsCheckingOut(false);
         }
@@ -195,12 +195,12 @@ export function PricingCard({ plan, variant, isCurrentPlan, subscriptionStatus }
                     </div>
                     <div className="mt-2 flex-grow flex flex-col justify-end">
                         {plan.trial_price === 0 && plan.trial_days != null ? (
-                            /* ══ Scénario 3 : Essai Gratuit (0€) - Design de Référence ══ */
+                            /* Scenario 3: Free trial (0 EUR) reference design. */
                             <div className="flex flex-col gap-1">
-                                {/* Badge Essai Gratuit */}
+                                {/* Free trial badge */}
                                 <div className="mb-2">
                                     <span className="inline-flex items-center justify-center px-3 py-1 rounded-full bg-green-500/10 text-green-400 text-xs font-bold border border-green-500/20">
-                                        {plan.trial_days} jours d'essai gratuit
+                                        {plan.trial_days} {t("freeTrialDays")}
                                     </span>
                                 </div>
                                 <div className="flex items-baseline flex-wrap gap-x-2 gap-y-1">
@@ -216,7 +216,7 @@ export function PricingCard({ plan, variant, isCurrentPlan, subscriptionStatus }
                                 </div>
                             </div>
                         ) : plan.trial_price != null && plan.trial_days != null ? (
-                            /* ══ Scénario 4 : Offre de lancement payante (ex: 14.99€) ══ */
+                            /* Scenario 4: Paid launch offer, for example 14.99 EUR. */
                             <div className="flex flex-col gap-3">
                                 <div className="flex items-baseline flex-wrap gap-x-2 gap-y-1">
                                     {plan.strikethrough_price != null && (
@@ -231,15 +231,15 @@ export function PricingCard({ plan, variant, isCurrentPlan, subscriptionStatus }
                                         {plan.trial_days} jours
                                     </span>
                                 </div>
-                                {/* Encart glassmorphism "Suivi de..." */}
+                                {/* Followed-by pricing inset */}
                                 <div className="text-xs font-semibold text-neutral-400 bg-white/[0.03] backdrop-blur-sm py-2 px-3 rounded-lg border border-white/10 inline-flex w-fit items-center gap-1.5 align-middle">
-                                    <span className="text-neutral-500">Suivi de</span>
+                                    <span className="text-neutral-500">{copy("puis")}</span>
                                     <span className="text-white font-bold">{plan.price}€</span>
                                     <span className="text-neutral-500">{plan.period}</span>
                                 </div>
                             </div>
                         ) : (
-                            /* ══ Scénario 1 & 2 : Prix normal (avec ou sans prix barré) ══ */
+                            /* Scenarios 1 and 2: normal price, with or without a strikethrough price. */
                             <div className="flex flex-col gap-2">
                                 <div className="flex items-baseline flex-wrap gap-x-2 gap-y-1">
                                     {plan.strikethrough_price != null && (
@@ -283,7 +283,7 @@ export function PricingCard({ plan, variant, isCurrentPlan, subscriptionStatus }
                             {buttonText} {subscriptionStatus && subscriptionStatus !== 'active' && `(${subscriptionStatus})`}
                         </Button>
                     ) : isFree ? (
-                        <Link href="/signup" className="block">
+                        <Link href={`/${locale}/signup`} className="block">
                             <Button className={cn("w-full h-12 font-bold uppercase tracking-wide transition-all duration-300 group/btn", buttonVariantClass)}>
                                 {buttonText} <ArrowRight className="size-4 ml-2 group-hover/btn:translate-x-1 transition-transform" />
                             </Button>
@@ -295,7 +295,7 @@ export function PricingCard({ plan, variant, isCurrentPlan, subscriptionStatus }
                             className={cn("w-full h-12 font-bold uppercase tracking-wide transition-all duration-300 group/btn", buttonVariantClass)}
                         >
                             {isCheckingOut ? (
-                                <><Loader2 className="size-4 mr-2 animate-spin" /> Redirection...</>
+                                <><Loader2 className="size-4 mr-2 animate-spin" /> {t("secureRedirect")}</>
                             ) : (
                                 <>{buttonText} <ArrowRight className="size-4 ml-2 group-hover/btn:translate-x-1 transition-transform" /></>
                             )}
@@ -306,4 +306,3 @@ export function PricingCard({ plan, variant, isCurrentPlan, subscriptionStatus }
         </div>
     );
 }
-

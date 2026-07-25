@@ -1,6 +1,6 @@
 // =============================================================================
-// BETIX — Types TypeScript partagés
-// Structures de données normalisées pour les 3 sports
+// BETIX — Shared TypeScript types
+// Normalized data structures for the three sports
 // =============================================================================
 
 // --- Enums ---
@@ -13,7 +13,7 @@ export type ConfidenceLevel = "safe" | "intermediate" | "risky";
 
 export type FactorImpact = "positive" | "negative" | "neutral";
 
-// --- Données sportives ---
+// --- Sports data ---
 
 export interface League {
     id: number;

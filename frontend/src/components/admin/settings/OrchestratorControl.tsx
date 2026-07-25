@@ -12,6 +12,7 @@ import { FootballIcon, BasketballIcon, TennisIcon } from "@/components/icons/Spo
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/use-i18n";
 
 interface ConfigMap {
     [key: string]: string;
@@ -78,6 +79,7 @@ const AI_PROVIDERS = [
 ];
 
 export function OrchestratorControl() {
+    const { copy } = useI18n();
     const [cfg, setCfg] = useState<ConfigMap>({ ...DEFAULTS });
     const [loading, setLoading] = useState(true);
     const supabase = createClient();
@@ -116,7 +118,7 @@ export function OrchestratorControl() {
             setCfg(map);
         } catch (e) {
             console.error("Failed to fetch orchestrator config:", e);
-            toast.error("Erreur de chargement de la configuration orchestrateurs.");
+            toast.error(copy("Erreur de chargement de la configuration orchestrateurs."));
         } finally {
             setLoading(false);
         }
@@ -130,10 +132,10 @@ export function OrchestratorControl() {
 
             if (error) throw error;
             setCfg((prev) => ({ ...prev, [key]: value }));
-            toast.success(`${key} mis a jour.`);
+            toast.success(`${key} updated.`);
         } catch (e: any) {
             console.error("Config save error:", e);
-            toast.error(`Erreur: ${e.message || "inconnue"}`);
+            toast.error(`${copy("Erreur")}: ${e.message || copy("inconnue")}`);
         }
     };
 
@@ -159,7 +161,7 @@ export function OrchestratorControl() {
                                 Orchestrator Live
                             </CardTitle>
                             <CardDescription className="text-neutral-400 text-xs">
-                                Monitoring des scores en direct, detection imminent/live.
+                                {copy("Monitoring des scores en direct, detection imminent/live.")}
                             </CardDescription>
                         </div>
                         <Switch
@@ -193,7 +195,7 @@ export function OrchestratorControl() {
                                 Orchestrator Data
                             </CardTitle>
                             <CardDescription className="text-neutral-400 text-xs">
-                                Ingestion matchs, cotes, nettoyage quotidien.
+                                {copy("Ingestion matchs, cotes, nettoyage quotidien.")}
                             </CardDescription>
                         </div>
                         <Switch
@@ -228,7 +230,7 @@ export function OrchestratorControl() {
                                 Orchestrator AI
                             </CardTitle>
                             <CardDescription className="text-neutral-400 text-xs">
-                                Analyses IA multi-frequence. Planning UTC configurable.
+                                {copy("Analyses IA multi-frequence. Planning UTC configurable.")}
                             </CardDescription>
                         </div>
                         <Switch
@@ -243,21 +245,21 @@ export function OrchestratorControl() {
 
                         {/* Global AI settings */}
                         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                            <ConfigRow label="Check interval" unit="s" configKey="orch_ai.check_interval_s" value={cfg} onSave={save} />
-                            <ConfigRow label="Tolerance" unit="min" configKey="orch_ai.tolerance_min" value={cfg} onSave={save} />
-                            <ConfigRow label="Scan window" unit="j" configKey="orch_ai.scan_days" value={cfg} onSave={save} />
-                            <ConfigRow label="Pause audits" unit="s" configKey="orch_ai.audit_pause_s" value={cfg} onSave={save} />
+                            <ConfigRow label={copy("Check interval")} unit="s" configKey="orch_ai.check_interval_s" value={cfg} onSave={save} />
+                            <ConfigRow label={copy("Tolerance")} unit="min" configKey="orch_ai.tolerance_min" value={cfg} onSave={save} />
+                            <ConfigRow label={copy("Scan window")} unit="j" configKey="orch_ai.scan_days" value={cfg} onSave={save} />
+                            <ConfigRow label={copy("Pause audits")} unit="s" configKey="orch_ai.audit_pause_s" value={cfg} onSave={save} />
                         </div>
 
                         {/* Schedule UTC */}
                         <div>
                             <Label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2 block">
-                                <Clock className="size-3 inline mr-1" />Planning UTC
+                                <Clock className="size-3 inline mr-1" />{copy("Planning UTC")}
                             </Label>
                             <div className="grid grid-cols-4 gap-3">
                                 {[1, 2, 3, 4].map((n) => (
                                     <div key={n} className="flex items-center gap-2 p-2 rounded-lg bg-white/5 border border-white/5">
-                                        <span className="text-[10px] text-neutral-400 font-mono whitespace-nowrap">Run {n}</span>
+                                        <span className="text-[10px] text-neutral-400 font-mono whitespace-nowrap">{copy("Run")} {n}</span>
                                         <Input
                                             type="number"
                                             min={0} max={23}
@@ -275,7 +277,7 @@ export function OrchestratorControl() {
                         {/* Per-sport config */}
                         <div className="space-y-3">
                             <Label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 block">
-                                <Cpu className="size-3 inline mr-1" />Configuration par sport
+                                <Cpu className="size-3 inline mr-1" />{copy("Configuration par sport")}
                             </Label>
 
                             {SPORTS.map((sport) => {
@@ -310,7 +312,7 @@ export function OrchestratorControl() {
                                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                                 {/* Runs per day */}
                                                 <div className="flex items-center justify-between p-2 rounded-lg bg-black/30 border border-white/5">
-                                                    <span className="text-[10px] text-neutral-400">Runs/jour</span>
+                                                    <span className="text-[10px] text-neutral-400">{copy("Runs/jour")}</span>
                                                     <Input
                                                         type="number"
                                                         min={1} max={6}
@@ -323,7 +325,7 @@ export function OrchestratorControl() {
 
                                                 {/* Provider */}
                                                 <div className="flex items-center justify-between p-2 rounded-lg bg-black/30 border border-white/5">
-                                                    <span className="text-[10px] text-neutral-400">Provider</span>
+                                                    <span className="text-[10px] text-neutral-400">{copy("Provider")}</span>
                                                     <Select
                                                         value={cfg[`${prefix}.provider`]}
                                                         onValueChange={(v) => save(`${prefix}.provider`, v)}
@@ -341,7 +343,7 @@ export function OrchestratorControl() {
 
                                                 {/* Model */}
                                                 <div className="flex items-center justify-between p-2 rounded-lg bg-black/30 border border-white/5">
-                                                    <span className="text-[10px] text-neutral-400">Model</span>
+                                                    <span className="text-[10px] text-neutral-400">{copy("Model")}</span>
                                                     <Select
                                                         value={cfg[`${prefix}.model`]}
                                                         onValueChange={(v) => save(`${prefix}.model`, v)}

@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { FootballIcon, BasketballIcon, TennisIcon } from "@/components/icons/SportIcons";
+import { useI18n } from "@/lib/use-i18n";
 
 interface SportsSelectionDialogProps {
     currentFavorites: string[];
@@ -25,6 +26,7 @@ const AVAILABLE_SPORTS = [
 ];
 
 export function SportsSelectionDialog({ currentFavorites, userId, trigger }: SportsSelectionDialogProps) {
+    const { copy } = useI18n();
     const [open, setOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [selected, setSelected] = useState<string[]>(currentFavorites || []);
@@ -58,13 +60,13 @@ export function SportsSelectionDialog({ currentFavorites, userId, trigger }: Spo
 
             if (error) throw error;
 
-            toast.success("Sports favoris mis à jour !");
+            toast.success(copy("Sports favoris mis à jour !"));
             await refreshProfile();
             setOpen(false);
             router.refresh();
         } catch (error) {
             console.error(error);
-            toast.error("Erreur lors de la mise à jour.");
+            toast.error(copy("Erreur lors de la mise à jour."));
         } finally {
             setIsLoading(false);
         }
@@ -77,7 +79,7 @@ export function SportsSelectionDialog({ currentFavorites, userId, trigger }: Spo
             </DialogTrigger>
             <DialogContent className="bg-neutral-950/95 border-white/10 backdrop-blur-xl text-white sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle className="text-xl font-bold tracking-tight">Vos Sports Favoris</DialogTitle>
+                    <DialogTitle className="text-xl font-bold tracking-tight">{copy("Vos Sports Favoris")}</DialogTitle>
                 </DialogHeader>
 
                 <div className="grid grid-cols-1 gap-3 py-4">
@@ -115,7 +117,7 @@ export function SportsSelectionDialog({ currentFavorites, userId, trigger }: Spo
 
                 <div className="flex justify-end gap-3">
                     <Button variant="ghost" onClick={() => setOpen(false)} className="hover:bg-white/5">
-                        Annuler
+                        {copy("Annuler")}
                     </Button>
                     <Button
                         onClick={handleSave}
@@ -124,7 +126,7 @@ export function SportsSelectionDialog({ currentFavorites, userId, trigger }: Spo
                     >
                         {isLoading && <Loader2 className="size-4 mr-2 animate-spin" />}
                         {!isLoading && <Save className="size-4 mr-2" />}
-                        Enregistrer
+                        {copy("Enregistrer")}
                     </Button>
                 </div>
             </DialogContent>

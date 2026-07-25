@@ -20,6 +20,7 @@ import {
 } from "@/app/(admin)/admin/subscriptions/actions";
 import { Plus, Pencil, Trash2, Check, X, Loader2, Database } from "lucide-react";
 import { toast } from "sonner";
+import { useI18n } from "@/lib/use-i18n";
 
 interface FeatureDefinitionsManagerProps {
     definitions: FeatureDefinition[];
@@ -33,6 +34,7 @@ const TYPE_COLORS: Record<string, string> = {
 };
 
 export function FeatureDefinitionsManager({ definitions, onUpdate }: FeatureDefinitionsManagerProps) {
+    const { copy } = useI18n();
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editForm, setEditForm] = useState<{ label: string; description: string; type: string }>({
         label: "", description: "", type: "text"
@@ -65,18 +67,18 @@ export function FeatureDefinitionsManager({ definitions, onUpdate }: FeatureDefi
         });
         setIsLoading(false);
         if (result.success) {
-            toast.success("Feature mise à jour");
+            toast.success(copy("Feature mise à jour"));
             cancelEdit();
             onUpdate();
         } else {
-            toast.error(result.error || "Erreur lors de la mise à jour");
+            toast.error(result.error || copy("Erreur lors de la mise à jour"));
         }
     };
 
     // ── Create ──
     const handleCreate = async () => {
         if (!newFeature.id || !newFeature.label) {
-            toast.error("ID et Label sont obligatoires");
+            toast.error(copy("ID et Label sont obligatoires"));
             return;
         }
         setIsLoading(true);
@@ -88,12 +90,12 @@ export function FeatureDefinitionsManager({ definitions, onUpdate }: FeatureDefi
         });
         setIsLoading(false);
         if (result.success) {
-            toast.success("Feature créée");
+            toast.success(copy("Feature créée"));
             setNewFeature({ id: "", label: "", description: "", type: "text" });
             setShowAddForm(false);
             onUpdate();
         } else {
-            toast.error(result.error || "Erreur lors de la création");
+            toast.error(result.error || copy("Erreur lors de la création"));
         }
     };
 
@@ -106,10 +108,10 @@ export function FeatureDefinitionsManager({ definitions, onUpdate }: FeatureDefi
             setIsLoading(false);
             setDeletingId(null);
             if (result.success) {
-                toast.success("Feature supprimée");
+                toast.success(copy("Feature supprimée"));
                 onUpdate();
             } else {
-                toast.error(result.error || "Erreur lors de la suppression");
+                toast.error(result.error || copy("Erreur lors de la suppression"));
             }
         } else {
             // First click = arm confirmation
@@ -125,7 +127,7 @@ export function FeatureDefinitionsManager({ definitions, onUpdate }: FeatureDefi
                 <div className="flex items-center gap-3">
                     <Database className="size-4 text-neutral-500" />
                     <span className="text-xs font-bold uppercase tracking-widest text-neutral-400">
-                        Feature Registry
+                        {copy("Feature Registry")}
                     </span>
                     <Badge variant="secondary" className="text-[10px] font-mono">
                         {definitions.length}
@@ -141,7 +143,7 @@ export function FeatureDefinitionsManager({ definitions, onUpdate }: FeatureDefi
                             : "bg-amber-500 hover:bg-amber-600 text-black"
                     )}
                 >
-                    {showAddForm ? <><X className="size-3" /> ANNULER</> : <><Plus className="size-3" /> NEW_FEATURE</>}
+                    {showAddForm ? <><X className="size-3" /> {copy("ANNULER")}</> : <><Plus className="size-3" /> {copy("NEW_FEATURE")}</>}
                 </Button>
             </div>
 
@@ -150,19 +152,19 @@ export function FeatureDefinitionsManager({ definitions, onUpdate }: FeatureDefi
                 <div className="px-5 py-4 border-b border-amber-500/20 bg-amber-500/5 space-y-3">
                     <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                         <Input
-                            placeholder="feature_id"
+                            placeholder={copy("feature_id")}
                             value={newFeature.id}
                             onChange={(e) => setNewFeature({ ...newFeature, id: e.target.value })}
                             className="bg-black/50 border-white/10 font-mono text-xs h-9"
                         />
                         <Input
-                            placeholder="Label affiché"
+                            placeholder={copy("Label affiché")}
                             value={newFeature.label}
                             onChange={(e) => setNewFeature({ ...newFeature, label: e.target.value })}
                             className="bg-black/50 border-white/10 text-xs h-9"
                         />
                         <Input
-                            placeholder="Description (optionnel)"
+                            placeholder={copy("Description (optionnel)")}
                             value={newFeature.description}
                             onChange={(e) => setNewFeature({ ...newFeature, description: e.target.value })}
                             className="bg-black/50 border-white/10 text-xs h-9"
@@ -196,11 +198,11 @@ export function FeatureDefinitionsManager({ definitions, onUpdate }: FeatureDefi
                 <table className="w-full text-xs">
                     <thead>
                         <tr className="border-b border-white/5 text-neutral-600 uppercase tracking-widest">
-                            <th className="text-left px-5 py-3 font-bold">ID</th>
-                            <th className="text-left px-5 py-3 font-bold">Label</th>
-                            <th className="text-left px-5 py-3 font-bold hidden sm:table-cell">Description</th>
-                            <th className="text-left px-5 py-3 font-bold">Type</th>
-                            <th className="text-right px-5 py-3 font-bold">Actions</th>
+                            <th className="text-left px-5 py-3 font-bold">{copy("ID")}</th>
+                            <th className="text-left px-5 py-3 font-bold">{copy("Label")}</th>
+                            <th className="text-left px-5 py-3 font-bold hidden sm:table-cell">{copy("Description")}</th>
+                            <th className="text-left px-5 py-3 font-bold">{copy("Type")}</th>
+                            <th className="text-right px-5 py-3 font-bold">{copy("Actions")}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -295,7 +297,7 @@ export function FeatureDefinitionsManager({ definitions, onUpdate }: FeatureDefi
                                                             ? "text-red-400 bg-red-500/10 hover:bg-red-500/20 animate-pulse"
                                                             : "text-neutral-500 hover:text-red-400 hover:bg-red-500/5"
                                                     )}
-                                                    title={deletingId === def.id ? "Cliquez à nouveau pour confirmer" : "Supprimer"}
+                                                    title={deletingId === def.id ? copy("Cliquez à nouveau pour confirmer") : copy("Supprimer")}
                                                 >
                                                     <Trash2 className="size-3" />
                                                 </Button>
@@ -308,7 +310,7 @@ export function FeatureDefinitionsManager({ definitions, onUpdate }: FeatureDefi
                         {definitions.length === 0 && (
                             <tr>
                                 <td colSpan={5} className="px-5 py-8 text-center text-neutral-600 font-mono text-xs">
-                                    :: AUCUNE FEATURE DÉFINIE ::
+                                    {copy(":: AUCUNE FEATURE DÉFINIE ::")}
                                 </td>
                             </tr>
                         )}

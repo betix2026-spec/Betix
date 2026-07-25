@@ -1,14 +1,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BetixLogo } from "@/components/ui/betix-logo";
-import {
-    Accordion,
-    AccordionContent,
-    AccordionItem,
-    AccordionTrigger,
-} from "@/components/ui/accordion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
     Database,
@@ -16,16 +9,12 @@ import {
     BrainCircuit,
     ArrowRight,
     BarChart3,
-    Bot,
     CheckCircle2,
-    Clock,
-    LineChart,
     Shield,
     Sparkles,
     Star,
     Target,
     Zap,
-    Trophy,
     TrendingUp,
     Activity,
     Users,
@@ -40,12 +29,16 @@ import { BreathingGauge } from "@/components/ui/breathing-gauge";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/server";
 import { getDisplayFeatures } from "@/lib/plans";
+import { getServerLocale } from "@/lib/i18n-server";
+import { copy, t } from "@/lib/i18n";
+import type { FeatureDefinition, Plan } from "@/types/plans";
 
 /* ================================================================
    Landing Page — BETIX Premium (Refonte Wow)
    ================================================================ */
 
 export default async function LandingPage() {
+    const locale = await getServerLocale();
     const supabase = await createClient();
 
     // Fetch Plans for preview (Filter for 2 non-yearly active plans)
@@ -75,30 +68,30 @@ export default async function LandingPage() {
 
 
                     <h1 className="text-3xl sm:text-6xl md:text-7xl lg:text-8xl font-bold tracking-tighter leading-[1.1] mb-6 animate-slide-up">
-                        L'IA qui révolutionne
+                        {t(locale, "landingHeroLine1")}
                         <br />
                         <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-purple-500 to-emerald-400 animate-gradient-x">
-                            vos paris sportifs
+                            {t(locale, "landingHeroLine2")}
                         </span>
                     </h1>
 
                     <TextReveal
-                        words="Des milliers de statistiques analysées en temps réel pour des pronostics ultra-précis."
+                        words={t(locale, "landingHeroSubcopy")}
                         className="text-base sm:text-xl text-white max-w-2xl mx-auto mb-10"
                     />
 
                     {/* CTA Group */}
                     <div className="flex flex-col sm:flex-row gap-4 justify-center animate-slide-up w-full sm:w-auto" style={{ animationDelay: "0.2s" }}>
-                        <Link href="/signup">
+                        <Link href={`/${locale}/signup`}>
                             <Button size="lg" className="h-14 px-8 text-lg rounded-full w-full sm:w-auto gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white border-0 shadow-[0_0_20px_-5px_rgba(79,70,229,0.5)] transition-all hover:scale-105">
-                                Débuter maintenant
+                                {t(locale, "startNow")}
                                 <ArrowRight className="size-5" />
                             </Button>
                         </Link>
                         <Link href="#demo">
                             <Button size="lg" variant="outline" className="h-14 px-8 text-lg rounded-full w-full sm:w-auto gap-2 border-white/10 bg-white/5 backdrop-blur-sm hover:bg-white/10 transition-all hover:scale-105">
                                 <Target className="size-5" />
-                                Voir une démo
+                                {t(locale, "seeDemo")}
                             </Button>
                         </Link>
                     </div>
@@ -114,7 +107,7 @@ export default async function LandingPage() {
                             </div>
                             <span className="text-xl sm:text-2xl font-bold text-blue-400 ml-1">4.8</span>
                             <span className="text-muted-foreground text-sm flex items-center gap-1 lg:text-base ml-2 font-medium">
-                                Noté sur <span className="text-white">377 utilisateurs</span>
+                                {t(locale, "ratedBy")} <span className="text-white">377</span>
                             </span>
                         </div>
 
@@ -122,11 +115,11 @@ export default async function LandingPage() {
                         <div className="flex flex-wrap items-center justify-center gap-6 sm:gap-8 mt-1">
                             <div className="flex items-center gap-2">
                                 <Users className="size-5 sm:size-6 text-blue-500" />
-                                <span className="text-white/90 text-sm sm:text-base font-medium">+500 parieurs actifs</span>
+                                <span className="text-white/90 text-sm sm:text-base font-medium">{t(locale, "activeBettors")}</span>
                             </div>
                             <div className="flex items-center gap-2">
                                 <ShieldCheck className="size-5 sm:size-6 text-blue-500" />
-                                <span className="text-white/90 text-sm sm:text-base font-medium">Paiement sécurisé</span>
+                                <span className="text-white/90 text-sm sm:text-base font-medium">{t(locale, "securePayment")}</span>
                             </div>
                         </div>
                     </div>
@@ -137,21 +130,21 @@ export default async function LandingPage() {
                             <div className="flex gap-8 whitespace-nowrap animate-marquee text-xs font-mono text-muted-foreground/80 hover:text-foreground transition-colors">
                                 {/* Set 1 */}
                                 <div className="flex gap-8 items-center">
-                                    <span className="flex items-center gap-2"><TrendingUp className="size-3 text-safe" /> Alex vient de gagner 150€ (Cote 2.10)</span>
-                                    <span className="flex items-center gap-2"><CheckCircle2 className="size-3 text-value" /> Thomas a validé PSG +1.5 buts</span>
-                                    <span className="flex items-center gap-2"><BarChart3 className="size-3 text-primary" /> Taux de réussite hier : 87%</span>
-                                    <span className="flex items-center gap-2"><Activity className="size-3 text-red-400 animate-pulse" /> Live : Arsenal ouvre le score (14')</span>
-                                    <span className="flex items-center gap-2"><Zap className="size-3 text-yellow-400" /> Karim +45€ sur NBA</span>
-                                    <span className="flex items-center gap-2"><Sparkles className="size-3 text-indigo-400" /> Nouveau prono Value disponible</span>
+                                    <span className="flex items-center gap-2"><TrendingUp className="size-3 text-safe" /> {t(locale, "tickerWin")}</span>
+                                    <span className="flex items-center gap-2"><CheckCircle2 className="size-3 text-value" /> {t(locale, "tickerValidated")}</span>
+                                    <span className="flex items-center gap-2"><BarChart3 className="size-3 text-primary" /> {t(locale, "tickerSuccess")}</span>
+                                    <span className="flex items-center gap-2"><Activity className="size-3 text-red-400 animate-pulse" /> {t(locale, "tickerLiveGoal")}</span>
+                                    <span className="flex items-center gap-2"><Zap className="size-3 text-yellow-400" /> {t(locale, "tickerNbaWin")}</span>
+                                    <span className="flex items-center gap-2"><Sparkles className="size-3 text-indigo-400" /> {t(locale, "tickerNewValue")}</span>
                                 </div>
                                 {/* Set 2 (Duplicate for loop) */}
                                 <div className="flex gap-8 items-center">
-                                    <span className="flex items-center gap-2"><TrendingUp className="size-3 text-safe" /> Alex vient de gagner 150€ (Cote 2.10)</span>
-                                    <span className="flex items-center gap-2"><CheckCircle2 className="size-3 text-value" /> Thomas a validé PSG +1.5 buts</span>
-                                    <span className="flex items-center gap-2"><BarChart3 className="size-3 text-primary" /> Taux de réussite hier : 87%</span>
-                                    <span className="flex items-center gap-2"><Activity className="size-3 text-red-400 animate-pulse" /> Live : Arsenal ouvre le score (14')</span>
-                                    <span className="flex items-center gap-2"><Zap className="size-3 text-yellow-400" /> Karim +45€ sur NBA</span>
-                                    <span className="flex items-center gap-2"><Sparkles className="size-3 text-indigo-400" /> Nouveau prono Value disponible</span>
+                                    <span className="flex items-center gap-2"><TrendingUp className="size-3 text-safe" /> {t(locale, "tickerWin")}</span>
+                                    <span className="flex items-center gap-2"><CheckCircle2 className="size-3 text-value" /> {t(locale, "tickerValidated")}</span>
+                                    <span className="flex items-center gap-2"><BarChart3 className="size-3 text-primary" /> {t(locale, "tickerSuccess")}</span>
+                                    <span className="flex items-center gap-2"><Activity className="size-3 text-red-400 animate-pulse" /> {t(locale, "tickerLiveGoal")}</span>
+                                    <span className="flex items-center gap-2"><Zap className="size-3 text-yellow-400" /> {t(locale, "tickerNbaWin")}</span>
+                                    <span className="flex items-center gap-2"><Sparkles className="size-3 text-indigo-400" /> {t(locale, "tickerNewValue")}</span>
                                 </div>
                             </div>
                         </div>
@@ -165,18 +158,18 @@ export default async function LandingPage() {
                 <div className="container mx-auto max-w-6xl">
                     <div className="text-center mb-16">
                         <Badge variant="outline" className="mb-4 text-primary border-primary/20 bg-primary/5">
-                            <Zap className="size-3 mr-1.5" /> Intelligence Artificielle
+                            <Zap className="size-3 mr-1.5" /> {t(locale, "aiBadge")}
                         </Badge>
                         <h2 className="text-3xl sm:text-5xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-b from-white to-white/60">
-                            Bâti pour la performance.
+                            {t(locale, "builtForPerformance")}
                         </h2>
                     </div>
 
                     <BentoGrid>
                         {/* 1. Collecte de Données (Le Cerveau Connecté) */}
                         <BentoGridItem
-                            title="Collecte de Données Massive"
-                            description="Notre moteur ingère des millions de points de données : classements, forme, xG, absences, météo..."
+                            title={t(locale, "featureDataTitle")}
+                            description={t(locale, "featureDataDescription")}
                             header={
                                 <div className="flex-1 w-full h-full min-h-[12rem] md:min-h-full rounded-xl flex items-center justify-center p-4 relative overflow-hidden group">
                                     <div className="absolute inset-0 bg-grid-white/[0.02]" />
@@ -220,10 +213,10 @@ export default async function LandingPage() {
                             icon={<Database className="h-4 w-4 text-neutral-500" />}
                         />
 
-                        {/* 2. Haut Niveau de Sécurité (Le radar) */}
+                        {/* 2. High-level security radar */}
                         <BentoGridItem
-                            title="Haut Niveau de Sécurité"
-                            description="Transactions cryptées (Stripe) et protection absolue de vos données personnelles."
+                            title={t(locale, "featureSecurityTitle")}
+                            description={t(locale, "featureSecurityDescription")}
                             header={
                                 <div className="flex-1 w-full h-full min-h-[12rem] md:min-h-full rounded-xl flex items-center justify-center relative overflow-hidden group">
                                     {/* Radar Background */}
@@ -247,8 +240,8 @@ export default async function LandingPage() {
 
                         {/* 3. 3 Niveaux de Risque (Le Compteur) */}
                         <BentoGridItem
-                            title="3 Niveaux de Risque"
-                            description="Safe, Value, Risky. Choisissez votre stratégie selon votre profil de parieur."
+                            title={t(locale, "riskLevelsTitle")}
+                            description={t(locale, "riskLevelsDescription")}
                             header={
                                 <div className="flex-1 w-full h-full min-h-[12rem] md:min-h-full rounded-xl flex flex-col items-center justify-end pb-6 relative group overflow-hidden">
                                     <div className="relative w-32 h-16 overflow-hidden">
@@ -270,9 +263,9 @@ export default async function LandingPage() {
                                         <div className="absolute bottom-[-4px] left-1/2 size-3 bg-white rounded-full -translate-x-1/2 shadow-[0_0_10px_rgba(255,255,255,1)]" />
                                     </div>
                                     <div className="mt-4 flex gap-4 text-[10px] font-mono text-white/80 transition-colors">
-                                        <span className="text-safe">SAFE</span>
-                                        <span className="text-value">VALUE</span>
-                                        <span className="text-risky">RISKY</span>
+                                        <span className="text-safe">{copy(locale, "SAFE")}</span>
+                                        <span className="text-value">{copy(locale, "VALUE")}</span>
+                                        <span className="text-risky">{copy(locale, "RISKY")}</span>
                                     </div>
                                 </div>
                             }
@@ -282,8 +275,8 @@ export default async function LandingPage() {
 
                         {/* 4. Transparence Totale (Le Terminal IA) */}
                         <BentoGridItem
-                            title="Transparence Totale"
-                            description="Pas de boîte noire. Chaque prédiction est expliquée."
+                            title={t(locale, "transparencyTitle")}
+                            description={t(locale, "transparencyDescription")}
                             header={
                                 <div className="flex-1 w-full h-full min-h-[12rem] md:min-h-full rounded-xl flex flex-col overflow-hidden relative group">
                                     {/* Mac OS Header */}
@@ -309,31 +302,31 @@ export default async function LandingPage() {
                                                     <div>
                                                         <div className="flex items-center gap-2 mb-2">
                                                             <BrainCircuit className="size-4 text-purple-400" />
-                                                            <span className="text-purple-400">betix_ai_core ~ % analyzing</span>
+                                                            <span className="text-purple-400">betix_ai_core ~ % {copy(locale, "analyzing")}</span>
                                                         </div>
                                                         <div className="text-white/80">
                                                             {"{"}<br />
-                                                            &nbsp;&nbsp;<span className="text-blue-400">"confidence"</span>: <span className="text-green-400">0.89</span>,<br />
-                                                            &nbsp;&nbsp;<span className="text-blue-400">"reasoning"</span>: <span className="text-yellow-400">"xG delta favorable"</span><br />
+                                                            &nbsp;&nbsp;<span className="text-blue-400">{'"confidence"'}</span>: <span className="text-green-400">0.89</span>,<br />
+                                                            &nbsp;&nbsp;<span className="text-blue-400">{'"reasoning"'}</span>: <span className="text-yellow-400">{'"xG delta favorable"'}</span><br />
                                                             {"}"}
                                                         </div>
                                                     </div>
                                                     <div>
                                                         <div className="flex items-center gap-2 mb-2">
                                                             <Activity className="size-4 text-emerald-400" />
-                                                            <span className="text-emerald-400">betix_ai_core ~ % checking_injuries</span>
+                                                            <span className="text-emerald-400">betix_ai_core ~ % {copy(locale, "checking_injuries")}</span>
                                                         </div>
                                                         <div className="text-white/80">
-                                                            [<span className="text-emerald-400">OK</span>] 0 absents majeurs
+                                                            [<span className="text-emerald-400">OK</span>] {copy(locale, "0 absents majeurs")}
                                                         </div>
                                                     </div>
                                                     <div>
                                                         <div className="flex items-center gap-2 mb-2">
                                                             <Target className="size-4 text-blue-400" />
-                                                            <span className="text-blue-400">betix_ai_core ~ % calc_value</span>
+                                                            <span className="text-blue-400">betix_ai_core ~ % {copy(locale, "calc_value")}</span>
                                                         </div>
                                                         <div className="text-white/80">
-                                                            Value trouvée: <span className="text-green-400">+1.2%</span> EV+
+                                                            {t(locale, "valueFound")}: <span className="text-green-400">+1.2%</span> EV+
                                                         </div>
                                                     </div>
                                                 </div>
@@ -356,7 +349,7 @@ export default async function LandingPage() {
                 <div className="absolute inset-0 bg-grid-white/[0.02] bg-[size:60px_60px]" />
                 <div className="container mx-auto max-w-4xl relative z-10">
                     <Badge variant="outline" className="mb-4 text-primary border-primary/20 bg-primary/5">
-                        <Sparkles className="size-3 mr-1.5" /> Démo Interactive
+                        <Sparkles className="size-3 mr-1.5" /> {t(locale, "interactiveDemo")}
                     </Badge>
 
                     <Spotlight className="rounded-3xl border border-white/10 bg-black/50 backdrop-blur-xl p-0 overflow-hidden">
@@ -404,7 +397,7 @@ export default async function LandingPage() {
                                         outcome: "Plus de 1.5 buts",
                                         odds: "1.35",
                                         color: "text-safe",
-                                        analysis: "Les deux équipes ont une moyenne combinée de 3.2 buts par match cette saison. Arsenal marque à domicile dans 92% de ses matchs.",
+                                        analysis: t(locale, "demoAnalysisOne"),
                                     },
                                     {
                                         key: "value",
@@ -412,7 +405,7 @@ export default async function LandingPage() {
                                         outcome: "Les deux marquent",
                                         odds: "1.72",
                                         color: "text-value",
-                                        analysis: "Man City a marqué dans 85% de ses déplacements. Arsenal a encaissé dans 6 de ses 8 derniers matchs à domicile.",
+                                        analysis: t(locale, "demoAnalysisTwo"),
                                     },
                                     {
                                         key: "risky",
@@ -420,7 +413,7 @@ export default async function LandingPage() {
                                         outcome: "Arsenal gagne 2-1",
                                         odds: "8.50",
                                         color: "text-risky",
-                                        analysis: "Score exact plus risqué mais Arsenal a gagné 2-1 dans 3 de ses 5 derniers matchs à domicile face au Top 6.",
+                                        analysis: t(locale, "demoAnalysisThree"),
                                     },
                                 ].map((pred) => (
                                     <TabsContent key={pred.key} value={pred.key} className="mt-0 animate-fade-in shadow-none">
@@ -434,7 +427,7 @@ export default async function LandingPage() {
                                                 <div>
                                                     <h3 className="text-3xl font-bold mb-3">{pred.outcome}</h3>
                                                     <div className="inline-flex items-center px-3 py-1 rounded-full border border-white/10 bg-white/5 text-sm font-mono text-white/80">
-                                                        Cote médiane : <span className="text-white ml-2 font-bold">{pred.odds}</span>
+                                                        {t(locale, "medianOdds")} : <span className="text-white ml-2 font-bold">{pred.odds}</span>
                                                     </div>
                                                 </div>
                                                 <p className="text-neutral-400 leading-relaxed text-lg">
@@ -456,17 +449,17 @@ export default async function LandingPage() {
                     <div className="grid md:grid-cols-2 gap-12 items-center">
                         <div className="space-y-8">
                             <h2 className="text-4xl md:text-5xl font-bold tracking-tight">
-                                Tous vos sports.<br />
-                                <span className="text-muted-foreground">Une seule intelligence.</span>
+                                {copy(locale, "Tous vos sports.")}<br />
+                                <span className="text-muted-foreground">{copy(locale, "Une seule intelligence.")}</span>
                             </h2>
                             <p className="text-lg text-muted-foreground leading-relaxed">
-                                Que vous soyez expert du ballon rond ou passionné de la balle jaune, BETIX adapte ses algorithmes aux spécificités de chaque discipline.
+                                {t(locale, "sportsIntro")}
                             </p>
                             <div className="space-y-4">
                                 {[
-                                    { icon: <FootballIcon className="text-green-400" />, label: "Football : xG, Forme, Absences" },
-                                    { icon: <BasketballIcon className="text-orange-400" />, label: "Basketball : Pace, Efficacité, Matchups" },
-                                    { icon: <TennisIcon className="text-yellow-400" />, label: "Tennis : Surface, H2H, Fatigue" },
+                                    { icon: <FootballIcon className="text-green-400" />, label: copy(locale, "Football : xG, Forme, Absences") },
+                                    { icon: <BasketballIcon className="text-orange-400" />, label: t(locale, "basketballDataLabel") },
+                                    { icon: <TennisIcon className="text-yellow-400" />, label: copy(locale, "Tennis : Surface, H2H, Fatigue") },
                                 ].map((item, i) => (
                                     <div key={i} className="flex items-center gap-4 p-4 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 transition-colors">
                                         <div className="p-2 bg-white/5 rounded-lg">{item.icon}</div>
@@ -488,9 +481,9 @@ export default async function LandingPage() {
                                 <div className="flex justify-between items-center mb-auto">
                                     <div className="flex items-center gap-3 bg-white/5 border border-white/10 px-3 py-1.5 rounded-full backdrop-blur-md">
                                         <div className="size-2 rounded-full bg-red-500 animate-pulse" />
-                                        <span className="text-[10px] font-mono text-white/80 tracking-wider">LIVE FEED</span>
+                                        <span className="text-[10px] font-mono text-white/80 tracking-wider">{copy(locale, "LIVE FEED")}</span>
                                     </div>
-                                    <Badge variant="outline" className="text-[10px] font-mono border-white/10 bg-white/5 text-muted-foreground">SCANNING</Badge>
+                                    <Badge variant="outline" className="text-[10px] font-mono border-white/10 bg-white/5 text-muted-foreground">{copy(locale, "SCANNING")}</Badge>
                                 </div>
 
                                 {/* Abstract Radial Scanner */}
@@ -527,9 +520,9 @@ export default async function LandingPage() {
                                         `
                                     }} />
                                     {[
-                                        { label: "Analyse xG en cours", anim: "progress-1 6s infinite ease-in-out", color: "from-blue-500 to-cyan-400" },
-                                        { label: "Mise à jour des cotes en direct", anim: "progress-2 8s infinite ease-in-out", color: "from-emerald-500 to-green-400" },
-                                        { label: "Corrélation H2H", anim: "progress-3 5s infinite ease-in-out", color: "from-purple-500 to-indigo-400" }
+                                        { label: t(locale, "xgProgress"), anim: "progress-1 6s infinite ease-in-out", color: "from-blue-500 to-cyan-400" },
+                                        { label: t(locale, "oddsProgress"), anim: "progress-2 8s infinite ease-in-out", color: "from-emerald-500 to-green-400" },
+                                        { label: t(locale, "h2hProgress"), anim: "progress-3 5s infinite ease-in-out", color: "from-purple-500 to-indigo-400" }
                                     ].map((stat, i) => (
                                         <div key={i} className="bg-white/5 border border-white/10 rounded-xl p-3 flex flex-col gap-2 backdrop-blur-md">
                                             <div className="flex justify-between items-center text-[10px] sm:text-xs text-neutral-400 font-mono tracking-wider">
@@ -553,31 +546,31 @@ export default async function LandingPage() {
                 <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
                 <div className="container mx-auto max-w-4xl text-center">
                     <h2 className="text-3xl sm:text-5xl font-bold tracking-tight mb-6">
-                        Commencez petit. Gagnez gros.
+                        {t(locale, "pricingHeadline")}
                     </h2>
                     <p className="text-xl text-muted-foreground mb-12 max-w-2xl mx-auto">
-                        Pas de frais cachés. Annulable à tout moment. Investissez dans votre réussite.
+                        {t(locale, "pricingSubcopy")}
                     </p>
 
                     <div className="grid md:grid-cols-2 gap-6 max-w-3xl mx-auto text-left">
                         {(() => {
                             // Sort plans by price ascending before mapping
-                            const sortedPlans = [...(plans || [])].sort((a, b) => a.price - b.price);
+                            const sortedPlans = [...((plans || []) as Plan[])].sort((a, b) => a.price - b.price);
 
                             return sortedPlans.map((plan) => {
                                 const isPremium = plan.frequency !== 'free';
 
                                 // Use standard utility to get formatted features, just like /pricing page
-                                const allDisplayFeatures = getDisplayFeatures(plan as any, definitions || []);
+                                const allDisplayFeatures = getDisplayFeatures(plan, (definitions || []) as FeatureDefinition[]);
                                 // Take the first 2 included features
                                 const planFeatures = allDisplayFeatures.filter((f: { text: string, included: boolean }) => f.included).slice(0, 2);
 
                                 // Format frequency display
-                                let periodDisplay = plan.frequency;
-                                if (plan.frequency === 'monthly') periodDisplay = 'mois';
-                                else if (plan.frequency === 'semi_annual') periodDisplay = 'semestre';
-                                else if (plan.frequency === 'yearly') periodDisplay = 'an';
-                                else if (plan.frequency === 'weekly') periodDisplay = 'semaine';
+                                let periodDisplay: string = plan.frequency;
+                                if (plan.frequency === 'monthly') periodDisplay = t(locale, "periodMonth");
+                                else if (plan.frequency === 'semi_annual') periodDisplay = t(locale, "periodSemester");
+                                else if (plan.frequency === 'yearly') periodDisplay = t(locale, "periodYear");
+                                else if (plan.frequency === 'weekly') periodDisplay = t(locale, "periodWeek");
 
                                 return (
                                     <div
@@ -602,7 +595,7 @@ export default async function LandingPage() {
                                                 <div className="min-h-[28px] mb-4">
                                                     {plan.trial_days && plan.trial_days > 0 ? (
                                                         <Badge className="font-mono text-[10px] bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20">
-                                                            {plan.trial_days} jours d&apos;essai gratuit
+                                                            {plan.trial_days} {t(locale, "freeTrialDays")}
                                                         </Badge>
                                                     ) : <div className="h-full"></div>}
                                                 </div>
@@ -614,7 +607,7 @@ export default async function LandingPage() {
                                                         </span>
                                                     )}
                                                     <div className="text-4xl font-bold text-white">
-                                                        {plan.price === 0 ? "Gratuit" : `${plan.price}€`}
+                                                        {plan.price === 0 ? t(locale, "freePrice") : `${plan.price}€`}
                                                         {plan.frequency !== 'free' && (
                                                             <span className="text-base font-normal text-muted-foreground ml-1">
                                                                 /{periodDisplay}
@@ -624,7 +617,7 @@ export default async function LandingPage() {
                                                 </div>
 
                                                 <p className={cn("text-sm mt-2", isPremium ? "text-blue-200/60" : "text-muted-foreground")}>
-                                                    {plan.description || (isPremium ? "Accès illimité à l'intelligence artificielle." : "Pour tester la puissance de l'IA.")}
+                                                    {plan.description || (isPremium ? t(locale, "premiumPlanDescription") : t(locale, "freePlanDescription"))}
                                                 </p>
                                             </div>
 
@@ -639,7 +632,7 @@ export default async function LandingPage() {
                                                     ))}
                                                 </ul>
 
-                                                <Link href="/signup">
+                                                <Link href={`/${locale}/signup`}>
                                                     <Button
                                                         className={cn(
                                                             "w-full transition-all",
@@ -647,7 +640,7 @@ export default async function LandingPage() {
                                                         )}
                                                         variant={isPremium ? "default" : "outline"}
                                                     >
-                                                        Débuter
+                                                        {t(locale, "start")}
                                                     </Button>
                                                 </Link>
                                             </div>
@@ -659,9 +652,9 @@ export default async function LandingPage() {
                     </div>
 
                     <div className="mt-12 flex justify-center">
-                        <Link href="/pricing">
+                        <Link href={`/${locale}/pricing`}>
                             <Button size="lg" variant="outline" className="rounded-full gap-2 border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary transition-all hover:scale-105 px-8 h-12">
-                                Voir le détail des offres <ArrowRight className="size-4" />
+                                {t(locale, "seeOfferDetails")} <ArrowRight className="size-4" />
                             </Button>
                         </Link>
                     </div>
@@ -672,9 +665,9 @@ export default async function LandingPage() {
             < section className="py-12 md:py-24 px-4 bg-background relative overflow-hidden" >
                 <div className="container mx-auto max-w-2xl text-center relative z-10">
                     <h2 className="text-4xl sm:text-6xl font-bold tracking-tight mb-8">
-                        Ne pariez plus seul.
+                        {t(locale, "finalCtaHeadline")}
                     </h2>
-                    <Link href="/signup">
+                    <Link href={`/${locale}/signup`}>
                         <div className="relative inline-block w-full sm:w-auto group mt-8">
                             {/* Animated Glow */}
                             <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 via-purple-500 to-emerald-500 rounded-full blur-lg opacity-60 group-hover:opacity-100 group-hover:blur-xl transition-all duration-500 animate-gradient-x" />
@@ -684,7 +677,7 @@ export default async function LandingPage() {
                                 className="relative h-16 sm:h-20 px-10 sm:px-14 text-xl sm:text-2xl font-extrabold rounded-full w-full sm:w-auto gap-4 bg-white hover:bg-neutral-50 text-black border-0 transition-all duration-500 hover:scale-[1.02] shadow-[0_0_40px_-10px_rgba(255,255,255,0.8)]"
                             >
                                 <span className="relative z-10 flex items-center gap-3">
-                                    Rejoindre BETIX
+                                    {t(locale, "joinBetix")}
                                     <div className="bg-black text-white rounded-full p-1.5 group-hover:translate-x-2 transition-transform duration-300">
                                         <ArrowRight className="size-5 sm:size-6" />
                                     </div>

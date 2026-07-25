@@ -4,12 +4,14 @@ import { ActivityLog } from "@/types/admin";
 import { cn } from "@/lib/utils";
 import { Terminal, CreditCard, UserPlus, FileText, AlertTriangle, ShieldAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useI18n } from "@/lib/use-i18n";
 
 interface LiveTerminalProps {
     logs: ActivityLog[];
 }
 
 export function LiveTerminal({ logs }: LiveTerminalProps) {
+    const { copy } = useI18n();
     // Icons based on log type
     const icons: Record<string, React.ElementType> = {
         user: UserPlus,
@@ -25,7 +27,7 @@ export function LiveTerminal({ logs }: LiveTerminalProps) {
             <div className="flex items-center justify-between px-6 py-4 border-b border-white/5 bg-white/[0.02]">
                 <div className="flex items-center gap-2">
                     <Terminal className="size-4 text-neutral-500" />
-                    <span className="text-xs font-bold uppercase tracking-widest text-neutral-500">Flux d&apos;activité</span>
+                    <span className="text-xs font-bold uppercase tracking-widest text-neutral-500">{copy("Flux d'activité")}</span>
                 </div>
                 <div className="flex gap-1.5">
                     <div className="size-2 rounded-full bg-red-500/20 border border-red-500/30" />

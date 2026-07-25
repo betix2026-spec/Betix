@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Check, Star, Settings, Package, Shield, Zap, X, AlertTriangle } from "lucide-react";
 import { getDisplayFeatures, getMonthlyEquivalent } from "@/lib/plans";
+import { useI18n } from "@/lib/use-i18n";
 
 interface ArsenalGridProps {
     plans: Plan[];
@@ -14,12 +15,14 @@ interface ArsenalGridProps {
 }
 
 export function ArsenalGrid({ plans, definitions, onEditPlan }: ArsenalGridProps) {
+    const { copy } = useI18n();
+
     if (plans.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center p-12 border border-dashed border-white/10 rounded-3xl bg-white/5 text-neutral-400">
                 <AlertTriangle className="size-10 mb-4 text-amber-500" />
-                <h3 className="text-xl font-bold text-white">Aucun Plan Déployé</h3>
-                <p>Initialisez la base de données ou vérifiez la connexion.</p>
+                <h3 className="text-xl font-bold text-white">{copy("Aucun Plan Déployé")}</h3>
+                <p>{copy("Initialisez la base de données ou vérifiez la connexion.")}</p>
             </div>
         );
     }
@@ -62,7 +65,7 @@ export function ArsenalGrid({ plans, definitions, onEditPlan }: ArsenalGridProps
                                         </Badge>
                                         {plan.frequency === 'monthly' && (
                                             <Badge className="bg-amber-500 text-black font-bold text-[10px] uppercase gap-1">
-                                                <Star className="size-3 fill-current" /> Best Seller
+                                                <Star className="size-3 fill-current" /> {copy("Best Seller")}
                                             </Badge>
                                         )}
                                     </div>
@@ -91,21 +94,21 @@ export function ArsenalGrid({ plans, definitions, onEditPlan }: ArsenalGridProps
                                         </span>
                                     )}
                                     <span className="text-sm font-bold text-neutral-500 uppercase">
-                                        {plan.frequency === 'daily' ? '/jour' :
-                                            plan.frequency === 'weekly' ? '/semaine' :
-                                                plan.frequency === 'monthly' ? '/mois' :
-                                                    plan.frequency === 'quarterly' ? '/trimestre' :
-                                                        plan.frequency === 'semi_annual' ? '/semestre' :
-                                                            plan.frequency === 'yearly' ? '/an' : '/forever'}
+                                        {plan.frequency === 'daily' ? `/${copy('jour')}` :
+                                            plan.frequency === 'weekly' ? `/${copy('semaine')}` :
+                                                plan.frequency === 'monthly' ? `/${copy('mois')}` :
+                                                    plan.frequency === 'quarterly' ? `/${copy('trimestre')}` :
+                                                        plan.frequency === 'semi_annual' ? `/${copy('semestre')}` :
+                                                            plan.frequency === 'yearly' ? `/${copy('an')}` : `/${copy('forever')}`}
                                     </span>
                                 </div>
                                 {plan.trial_price != null && plan.trial_days != null && (
                                     <div className="mt-1 flex items-center gap-2">
                                         <Badge variant="outline" className="border-emerald-500/50 text-emerald-500 bg-emerald-500/10 text-[10px] font-bold uppercase">
-                                            OFFRE LANCEMENT
+                                            {copy("OFFRE LANCEMENT")}
                                         </Badge>
                                         <span className="text-[10px] font-mono text-neutral-400">
-                                            {plan.trial_price}€ × {plan.trial_days}j → puis {plan.price}€
+                                            {plan.trial_price}€ × {plan.trial_days}j {"->"} {copy("puis")} {plan.price}€
                                         </span>
                                     </div>
                                 )}
@@ -114,7 +117,7 @@ export function ArsenalGrid({ plans, definitions, onEditPlan }: ArsenalGridProps
                             {/* Status */}
                             <div className="mt-4 flex items-center gap-2 text-xs font-mono text-neutral-400">
                                 <Shield className="size-3" />
-                                Status: {plan.is_active ? <span className="text-emerald-500">ACTIF</span> : <span className="text-red-500">INACTIF</span>}
+                                {copy("Status")}: {plan.is_active ? <span className="text-emerald-500">{copy("ACTIF")}</span> : <span className="text-red-500">{copy("INACTIF")}</span>}
                             </div>
                         </div>
 
@@ -147,7 +150,7 @@ export function ArsenalGrid({ plans, definitions, onEditPlan }: ArsenalGridProps
                                 ))}
                                 {displayFeatures.length > 6 && (
                                     <p className="text-xs text-neutral-500 italic pl-7">
-                                        + {displayFeatures.length - 6} autres features...
+                                        + {displayFeatures.length - 6} {copy("autres features...")}
                                     </p>
                                 )}
                             </div>
@@ -159,7 +162,7 @@ export function ArsenalGrid({ plans, definitions, onEditPlan }: ArsenalGridProps
                                 onClick={() => onEditPlan(plan)}
                                 className={cn("w-full font-bold uppercase tracking-widest bg-white/5 hover:bg-white/10 border border-white/10 text-white")}
                             >
-                                <Settings className="size-4 mr-2" /> Configurer Loadout
+                                <Settings className="size-4 mr-2" /> {copy("Configurer Loadout")}
                             </Button>
                         </div>
 

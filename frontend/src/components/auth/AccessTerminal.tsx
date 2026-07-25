@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { ShieldCheck } from "lucide-react";
 import { AuroraBackground } from "@/components/ui/aurora-background";
+import { useI18n } from "@/lib/use-i18n";
 
 interface AccessTerminalProps {
     children: React.ReactNode;
@@ -13,22 +14,23 @@ interface AccessTerminalProps {
 
 export function AccessTerminal({ children, type }: AccessTerminalProps) {
     const isWide = type === "onboarding";
+    const { t } = useI18n();
 
     const getTitle = () => {
         switch (type) {
-            case "login": return "Connexion";
-            case "signup": return "Créer un compte";
-            case "reset": return "Mot de passe oublié";
-            case "onboarding": return "Configuration";
+            case "login": return t("authLoginTitle");
+            case "signup": return t("authSignupTitle");
+            case "reset": return t("authResetTitle");
+            case "onboarding": return t("authOnboardingTitle");
         }
     };
 
     const getDescription = () => {
         switch (type) {
-            case "login": return "Bienvenue. Connectez-vous à votre espace.";
-            case "signup": return "Rejoignez l'élite des parieurs sportifs.";
-            case "reset": return "Saisissez votre e-mail pour réinitialiser votre accès.";
-            case "onboarding": return "Personnalisez votre expérience.";
+            case "login": return t("authLoginDescription");
+            case "signup": return t("authSignupDescription");
+            case "reset": return t("authResetDescription");
+            case "onboarding": return t("authOnboardingDescription");
         }
     };
 
@@ -61,7 +63,7 @@ export function AccessTerminal({ children, type }: AccessTerminalProps) {
                 <div className="mt-5 sm:mt-8 pt-4 sm:pt-6 border-t border-white/5 text-center">
                     <p className="text-[10px] text-neutral-600 font-mono flex items-center justify-center gap-1.5 uppercase tracking-widest">
                         <ShieldCheck className="size-3" />
-                        Connexion sécurisée
+                        {t("secureConnection")}
                     </p>
                 </div>
             </div>

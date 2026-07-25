@@ -5,11 +5,24 @@
 
 import Stripe from 'stripe';
 
-if (!process.env.STRIPE_SECRET_KEY) {
-    throw new Error('[Stripe] Missing STRIPE_SECRET_KEY environment variable');
+let stripeClient: Stripe | null = null;
+
+export function getStripe(): Stripe {
+    if (stripeClient) return stripeClient;
+
+    if (!process.env.STRIPE_SECRET_KEY) {
+        throw new Error('[Stripe] Missing STRIPE_SECRET_KEY environment variable');
+    }
+
+    stripeClient = new Stripe(process.env.STRIPE_SECRET_KEY);
+    return stripeClient;
 }
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+export const stripe = new Proxy({} as Stripe, {
+    get(_target, property, receiver) {
+        return Reflect.get(getStripe(), property, receiver);
+    },
+});
 
 /**
  * Mappe la fréquence d'un plan BETIX vers les paramètres d'intervalle Stripe.
@@ -33,10 +46,19 @@ export function toStripeInterval(frequency: string): { interval: Stripe.Price.Re
  * du niveau racine de Subscription et l'a déplacé vers chaque SubscriptionItem.
  * Cette fonction gère les deux formats pour assurer la rétro-compatibilité.
  */
-export function getSubscriptionPeriodEnd(subscription: any): Date {
+type SubscriptionWithLegacyPeriod = Stripe.Subscription & {
+    current_period_end?: number | null;
+};
+
+type SubscriptionItemWithPeriod = Stripe.SubscriptionItem & {
+    current_period_end?: number | null;
+};
+
+export function getSubscriptionPeriodEnd(subscription: SubscriptionWithLegacyPeriod): Date {
     // SDK v20+ : current_period_end est sur les items
+    const firstItem = subscription.items?.data?.[0] as SubscriptionItemWithPeriod | undefined;
     const periodEnd =
-        subscription.items?.data?.[0]?.current_period_end
+        firstItem?.current_period_end
         ?? subscription.current_period_end; // fallback anciennes versions
 
     if (periodEnd == null) {

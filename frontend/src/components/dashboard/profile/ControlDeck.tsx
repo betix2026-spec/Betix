@@ -12,6 +12,7 @@ import { DeleteAccountDialog } from "./DeleteAccountDialog";
 import { SportsSelectionDialog } from "./SportsSelectionDialog";
 import { ContactSupportDialog } from "./ContactSupportDialog";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/use-i18n";
 
 import { MFASettings } from "./MFASettings";
 
@@ -20,6 +21,7 @@ interface ControlDeckProps {
 }
 
 export function ControlDeck({ profile }: ControlDeckProps) {
+    const { copy } = useI18n();
     const { signOut } = useAuth();
     const supabase = createClient();
 
@@ -38,10 +40,10 @@ export function ControlDeck({ profile }: ControlDeckProps) {
                 .eq('user_id', profile.id);
 
             if (error) throw error;
-            toast.success("Préférence sauvegardée");
+            toast.success(copy("Préférence sauvegardée"));
         } catch (err) {
             console.error(err);
-            toast.error("Erreur lors de la sauvegarde");
+            toast.error(copy("Erreur lors de la sauvegarde"));
             setter(!value); // Revert
         }
     };
@@ -71,7 +73,7 @@ export function ControlDeck({ profile }: ControlDeckProps) {
             <div className="space-y-6">
                 <div className="p-6 rounded-3xl bg-black/40 border border-white/10 backdrop-blur-xl">
                     <h3 className="text-sm font-bold uppercase tracking-widest text-neutral-500 mb-6 flex items-center gap-2">
-                        <Settings className="size-4" /> Préférences Système
+                        <Settings className="size-4" /> {copy("Préférences Système")}
                     </h3>
 
                     <div className="space-y-6">
@@ -82,8 +84,8 @@ export function ControlDeck({ profile }: ControlDeckProps) {
                                     <Bell className="size-5 text-neutral-300" />
                                 </div>
                                 <div>
-                                    <p className="font-medium text-white">Notifications Push</p>
-                                    <p className="text-xs text-neutral-500">Alertes de début de match</p>
+                                    <p className="font-medium text-white">{copy("Notifications Push")}</p>
+                                    <p className="text-xs text-neutral-500">{copy("Alertes de début de match")}</p>
                                 </div>
                             </div>
                             <Switch
@@ -99,8 +101,8 @@ export function ControlDeck({ profile }: ControlDeckProps) {
                                     <Mail className="size-5 text-neutral-300" />
                                 </div>
                                 <div>
-                                    <p className="font-medium text-white">Newsletter Hebdo</p>
-                                    <p className="text-xs text-neutral-500">Récapitulatif de vos stats</p>
+                                    <p className="font-medium text-white">{copy("Newsletter Hebdo")}</p>
+                                    <p className="text-xs text-neutral-500">{copy("Récapitulatif de vos stats")}</p>
                                 </div>
                             </div>
                             <Switch
@@ -110,14 +112,14 @@ export function ControlDeck({ profile }: ControlDeckProps) {
                         </div>
 
                         {/* Theme */}
-                        <div className="flex items-center justify-between group opacity-50 cursor-not-allowed" title="Thème Dark forcé">
+                        <div className="flex items-center justify-between group opacity-50 cursor-not-allowed" title={copy("Thème Dark forcé")}>
                             <div className="flex items-center gap-3">
                                 <div className="size-10 rounded-full bg-white/5 flex items-center justify-center">
                                     <Moon className="size-5 text-neutral-300" />
                                 </div>
                                 <div>
-                                    <p className="font-medium text-white">Mode Sombre</p>
-                                    <p className="text-xs text-neutral-500">Toujours activé sur Betix</p>
+                                    <p className="font-medium text-white">{copy("Mode Sombre")}</p>
+                                    <p className="text-xs text-neutral-500">{copy("Toujours activé sur Betix")}</p>
                                 </div>
                             </div>
                             <Switch checked={true} disabled />
@@ -136,13 +138,13 @@ export function ControlDeck({ profile }: ControlDeckProps) {
                 <div className="p-6 rounded-3xl bg-black/40 border border-white/10 backdrop-blur-xl">
                     <div className="flex items-center justify-between mb-6">
                         <h3 className="text-sm font-bold uppercase tracking-widest text-neutral-500 flex items-center gap-2">
-                            <Shield className="size-4" /> Sports Suivis
+                            <Shield className="size-4" /> {copy("Sports Suivis")}
                         </h3>
                         <SportsSelectionDialog
                             currentFavorites={profile.preferences.favoriteSports}
                             userId={profile.id}
                             trigger={
-                                <Button variant="ghost" size="sm" className="h-6 text-[10px] uppercase font-bold text-primary hover:text-primary/80">Modifier</Button>
+                                <Button variant="ghost" size="sm" className="h-6 text-[10px] uppercase font-bold text-primary hover:text-primary/80">{copy("Modifier")}</Button>
                             }
                         />
                     </div>
@@ -163,7 +165,7 @@ export function ControlDeck({ profile }: ControlDeckProps) {
                             userId={profile.id}
                             trigger={
                                 <Badge variant="outline" className="h-9 px-4 rounded-xl border-dashed border-white/10 text-neutral-500 hover:border-white/20 hover:text-white cursor-pointer transition-colors bg-transparent">
-                                    + Ajouter
+                                    {copy("+ Ajouter")}
                                 </Badge>
                             }
                         />
@@ -173,12 +175,12 @@ export function ControlDeck({ profile }: ControlDeckProps) {
                 {/* Support & Assistance */}
                 <div className="p-6 rounded-3xl bg-blue-500/5 border border-blue-500/10 backdrop-blur-xl">
                     <h3 className="text-sm font-bold uppercase tracking-widest text-blue-400 mb-4 flex items-center gap-2">
-                        Assistance
+                        {copy("Assistance")}
                     </h3>
                     <ContactSupportDialog
                         trigger={
                             <Button variant="outline" className="w-full border-blue-500/20 text-blue-400 hover:bg-blue-500/10 hover:text-blue-300 gap-2 h-12">
-                                <Mail className="size-4" /> Contacter le Support
+                                <Mail className="size-4" /> {copy("Contacter le Support")}
                             </Button>
                         }
                     />
@@ -187,7 +189,7 @@ export function ControlDeck({ profile }: ControlDeckProps) {
                 {/* Account Actions */}
                 <div className="p-6 rounded-3xl bg-red-500/5 border border-red-500/10 backdrop-blur-xl">
                     <h3 className="text-sm font-bold uppercase tracking-widest text-red-400 mb-4 flex items-center gap-2">
-                        Zone Critique
+                        {copy("Zone Critique")}
                     </h3>
                     <div className="flex gap-3">
                         <Button
@@ -195,13 +197,13 @@ export function ControlDeck({ profile }: ControlDeckProps) {
                             className="flex-1 border-red-500/20 text-red-400 hover:bg-red-500/10 hover:text-red-300"
                             onClick={() => signOut()}
                         >
-                            <LogOut className="size-4 mr-2" /> Déconnexion
+                            <LogOut className="size-4 mr-2" /> {copy("Déconnexion")}
                         </Button>
 
                         <DeleteAccountDialog
                             trigger={
                                 <Button variant="outline" className="flex-1 border-red-500/20 text-red-400 hover:bg-red-500/10 hover:text-red-300">
-                                    <Trash2 className="size-4 mr-2" /> Supprimer
+                                    <Trash2 className="size-4 mr-2" /> {copy("Supprimer")}
                                 </Button>
                             }
                         />

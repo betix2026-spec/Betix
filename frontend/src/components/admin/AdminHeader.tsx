@@ -10,8 +10,10 @@ import {
 } from "lucide-react";
 import { UserNav } from "@/components/auth/UserNav";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { useI18n } from "@/lib/use-i18n";
 
 export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
+    const { copy } = useI18n();
     const pathname = usePathname();
     const pathParts = pathname.split("/").filter(Boolean);
 
@@ -30,7 +32,7 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
                 )}
 
                 <div className="flex items-center gap-2 text-sm">
-                    <span className="text-muted-foreground">Admin</span>
+                    <span className="text-muted-foreground">{copy("Admin")}</span>
                     {pathParts.slice(1).map((part) => (
                         <div key={part} className="flex items-center gap-2">
                             <span className="text-muted-foreground opacity-30">/</span>

@@ -1,19 +1,19 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { AccessTerminal } from "@/components/auth/AccessTerminal";
 import { BiometricInput } from "@/components/auth/BiometricInput";
 import { SecurityScanner } from "@/components/auth/SecurityScanner";
 import { ShieldCheck, MessageSquare } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import { useI18n } from "@/lib/use-i18n";
 
 export default function MFAPage() {
+    const { locale, t, copy } = useI18n();
     const [isLoading, setIsLoading] = useState(false);
     const [code, setCode] = useState("");
     const [error, setError] = useState<string | null>(null);
-    const router = useRouter();
     const supabase = createClient();
 
     const handleVerify = async (e: React.FormEvent) => {
@@ -26,7 +26,7 @@ export default function MFAPage() {
             const factor = factors?.all?.find(f => f.status === 'verified');
 
             if (!factor) {
-                toast.error("Aucun facteur MFA trouvé");
+                toast.error(t("noMfaFactor"));
                 setIsLoading(false);
                 return;
             }
@@ -42,12 +42,13 @@ export default function MFAPage() {
 
             if (verify.error) throw verify.error;
 
-            toast.success("Sécurité validée", { description: "Accès au dashboard autorisé." });
-            window.location.replace("/dashboard");
-        } catch (err: any) {
+            toast.success(t("securityValidated"), { description: t("dashboardAccessGranted") });
+            window.location.replace(`/${locale}/dashboard`);
+        } catch (err: unknown) {
             console.error("MFA Error:", err);
-            setError(err.message || "Code invalide");
-            toast.error("Échec de la validation", { description: err.message });
+            const message = err instanceof Error ? err.message : t("invalidCode");
+            setError(message);
+            toast.error(t("validationFailed"), { description: message });
             setIsLoading(false);
         }
     };
@@ -58,15 +59,15 @@ export default function MFAPage() {
                 <div className="inline-flex items-center justify-center p-3 rounded-full bg-blue-500/10 border border-blue-500/20 mb-4">
                     <ShieldCheck className="size-8 text-blue-400" />
                 </div>
-                <h2 className="text-xl font-bold text-white tracking-tight uppercase">MFA Required</h2>
+                <h2 className="text-xl font-bold text-white tracking-tight uppercase">{copy("MFA Required")}</h2>
                 <p className="text-sm text-neutral-500 mt-2">
-                    Enter the code from your authenticator app to authorize session.
+                    {copy("Enter the code from your authenticator app to authorize session.")}
                 </p>
             </div>
 
             <form onSubmit={handleVerify} className="space-y-6">
                 <BiometricInput
-                    label="Verification Code"
+                    label={copy("Verification Code")}
                     type="text"
                     icon={MessageSquare}
                     placeholder="000000"
@@ -86,16 +87,16 @@ export default function MFAPage() {
                 <SecurityScanner
                     type="submit"
                     isLoading={isLoading}
-                    label="VERIFY CLEARANCE"
+                    label={copy("VERIFY CLEARANCE")}
                 />
             </form>
 
             <div className="text-center mt-8">
                 <button
-                    onClick={() => supabase.auth.signOut().then(() => router.push("/login"))}
+                    onClick={() => supabase.auth.signOut().then(() => window.location.replace(`/${locale}/login`))}
                     className="text-[10px] text-neutral-500 hover:text-white font-bold uppercase tracking-widest transition-colors"
                 >
-                    Cancel Authentication
+                    {t("backToLogin")}
                 </button>
             </div>
         </AccessTerminal>

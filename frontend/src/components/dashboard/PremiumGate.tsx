@@ -5,6 +5,7 @@ import { Lock, Sparkles, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/use-i18n";
 
 interface PremiumGateProps {
     children: React.ReactNode;
@@ -16,9 +17,13 @@ interface PremiumGateProps {
 export function PremiumGate({
     children,
     isActive,
-    title = "Contenu Premium Verrouillé",
-    description = "Débloquez l'accès complet aux analyses de l'IA et aux prédictions avancées avec un abonnement BETIX."
+    title,
+    description
 }: PremiumGateProps) {
+    const { copy, locale } = useI18n();
+    const resolvedTitle = copy(title || "Contenu Premium Verrouillé");
+    const resolvedDescription = copy(description || "Débloquez l'accès complet aux analyses de l'IA et aux prédictions avancées avec un abonnement BETIX.");
+
     if (isActive) {
         return <>{children}</>;
     }
@@ -46,22 +51,22 @@ export function PremiumGate({
                 <div className="space-y-2 max-w-sm">
                     <h3 className="text-xl font-black text-white uppercase tracking-tight flex items-center justify-center gap-2">
                         <Sparkles className="size-5 text-primary" />
-                        {title}
+                        {resolvedTitle}
                     </h3>
                     <p className="text-sm text-neutral-400 font-medium leading-relaxed">
-                        {description}
+                        {resolvedDescription}
                     </p>
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-3 pt-4">
-                    <Link href="/profile/subscription">
+                    <Link href={`/${locale}/profile/subscription`}>
                         <Button className="bg-primary hover:bg-primary/90 text-white font-bold h-12 px-8 shadow-[0_0_20px_-5px_rgba(37,99,235,0.5)]">
-                            Devenir Premium <ArrowRight className="size-4 ml-2" />
+                            {copy("Devenir Premium")} <ArrowRight className="size-4 ml-2" />
                         </Button>
                     </Link>
-                    <Link href="/profile/subscription">
+                    <Link href={`/${locale}/profile/subscription`}>
                         <Button variant="outline" className="border-white/10 hover:bg-white/5 text-neutral-300 font-bold h-12 px-8">
-                            Voir les plans
+                            {copy("Voir les plans")}
                         </Button>
                     </Link>
                 </div>
@@ -69,17 +74,17 @@ export function PremiumGate({
                 {/* Micro-indicators */}
                 <div className="pt-6 flex items-center gap-6">
                     <div className="flex flex-col items-center">
-                        <span className="text-[10px] font-black text-primary uppercase">Confiance</span>
+                        <span className="text-[10px] font-black text-primary uppercase">{copy("Confiance")}</span>
                         <span className="text-lg font-bold text-white/40">??%</span>
                     </div>
                     <div className="w-[1px] h-8 bg-white/5" />
                     <div className="flex flex-col items-center">
-                        <span className="text-[10px] font-black text-primary uppercase">Cote IA</span>
+                        <span className="text-[10px] font-black text-primary uppercase">{copy("Cote IA")}</span>
                         <span className="text-lg font-bold text-white/40">?.??</span>
                     </div>
                     <div className="w-[1px] h-8 bg-white/5" />
                     <div className="flex flex-col items-center">
-                        <span className="text-[10px] font-black text-primary uppercase">Value</span>
+                        <span className="text-[10px] font-black text-primary uppercase">{copy("Value")}</span>
                         <span className="text-lg font-bold text-white/40">??%</span>
                     </div>
                 </div>

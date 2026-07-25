@@ -2,36 +2,46 @@
  * BETIX — Stripe Checkout Route
  * POST /api/stripe/checkout
  *
- * Flux :
- * 1. Vérifie que l'utilisateur est authentifié
- * 2. Crée ou récupère un Customer Stripe
- * 3. Crée une Checkout Session (mode: subscription) avec trial si applicable
- * 4. Retourne l'URL de redirection vers Stripe Checkout
+ * Flow:
+ * 1. Verifies that the user is authenticated
+ * 2. Creates or retrieves a Stripe Customer
+ * 3. Creates a Checkout Session (mode: subscription) with a trial when applicable
+ * 4. Returns the redirect URL for Stripe Checkout
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { stripe } from '@/lib/stripe';
+import { copy } from '@/lib/i18n';
+import { getLocaleFromRequest } from '@/lib/i18n-server';
+import type Stripe from 'stripe';
+
+function getErrorMessage(error: unknown, fallback: string) {
+    return error instanceof Error ? error.message : fallback;
+}
 
 export async function POST(req: NextRequest) {
+    const locale = getLocaleFromRequest(req);
+    const localize = (source: string) => copy(locale, source);
+
     try {
-        // 1. Authentification
+        // 1. Authentication
         const supabase = await createClient();
         const { data: { user }, error: authError } = await supabase.auth.getUser();
 
         if (authError || !user) {
             return NextResponse.json(
-                { error: 'Non authentifié. Veuillez vous connecter.' },
+                { error: localize('Non authentifié. Veuillez vous connecter.') },
                 { status: 401 }
             );
         }
 
-        // 2. Récupérer le plan demandé
+        // 2. Retrieve the requested plan.
         const { planId } = await req.json();
         if (!planId) {
             return NextResponse.json(
-                { error: 'Plan ID manquant.' },
+                { error: localize('Plan ID manquant.') },
                 { status: 400 }
             );
         }
@@ -44,29 +54,41 @@ export async function POST(req: NextRequest) {
 
         if (planError || !plan) {
             return NextResponse.json(
-                { error: `Plan "${planId}" introuvable.` },
+                { error: localize('Plan "{planId}" introuvable.').replace('{planId}', planId) },
                 { status: 404 }
             );
         }
 
-        // Plan gratuit (0€) : activer directement sans passer par Stripe
+        // Free plan (0 EUR): activate directly without Stripe Checkout.
         if (plan.price <= 0 && (!plan.trial_price || plan.trial_price <= 0)) {
-            // Annuler un éventuel abonnement Stripe existant
+            // Cancel any existing Stripe subscription.
             const { data: existingSub } = await supabaseAdmin
                 .from('subscriptions')
-                .select('stripe_subscription_id')
+                .select('status, current_period_end, stripe_subscription_id')
                 .eq('user_id', user.id)
                 .single();
 
             if (existingSub?.stripe_subscription_id) {
                 try {
-                    await stripe.subscriptions.cancel(existingSub.stripe_subscription_id);
-                } catch (e: any) {
-                    console.warn(`[Stripe/Checkout] Could not cancel old subscription: ${e.message}`);
+                    if (existingSub.status === 'trialing') {
+                        await stripe.subscriptions.cancel(existingSub.stripe_subscription_id);
+                    } else {
+                        await stripe.subscriptions.update(existingSub.stripe_subscription_id, {
+                            cancel_at_period_end: true,
+                        });
+                        return NextResponse.json({
+                            free: true,
+                            scheduled: true,
+                            redirectUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/profile/subscription?status=scheduled_free`,
+                            message: localize('Votre abonnement payant est annulé. Vous gardez votre accès premium jusqu’à la fin de la période payée.'),
+                        });
+                    }
+                } catch (error: unknown) {
+                    console.warn(`[Stripe/Checkout] Could not cancel old subscription: ${getErrorMessage(error, 'Unknown error')}`);
                 }
             }
 
-            // Activer le plan gratuit directement en BDD
+            // Activate the free plan directly in the database.
             await supabaseAdmin
                 .from('subscriptions')
                 .upsert({
@@ -76,6 +98,10 @@ export async function POST(req: NextRequest) {
                     current_period_end: null,
                     source: 'stripe',
                     stripe_subscription_id: null,
+                    cancel_at_period_end: false,
+                    canceled_at: null,
+                    cancellation_reason: null,
+                    estimated_refund_amount: null,
                 });
 
             console.log(`[Stripe/Checkout] Free plan "${planId}" activated for user ${user.id}`);
@@ -87,7 +113,7 @@ export async function POST(req: NextRequest) {
             });
         }
 
-        // 3. Récupérer ou créer le Customer Stripe
+        // 3. Retrieve or create the Stripe Customer.
         const { data: profile } = await supabaseAdmin
             .from('profiles')
             .select('id, username, stripe_customer_id')
@@ -96,7 +122,7 @@ export async function POST(req: NextRequest) {
 
         let stripeCustomerId = profile?.stripe_customer_id;
 
-        // Si c'est un ancien ID Mollie (cst_...), on l'ignore pour forcer la création d'un client Stripe valide
+        // Ignore legacy Mollie IDs (cst_...) so Stripe creates a valid customer.
         if (stripeCustomerId && stripeCustomerId.startsWith('cst_')) {
             console.log(`[Stripe/Checkout] Ignoring old Mollie customer ID: ${stripeCustomerId}`);
             stripeCustomerId = null;
@@ -104,7 +130,7 @@ export async function POST(req: NextRequest) {
 
         if (!stripeCustomerId) {
             const customer = await stripe.customers.create({
-                name: profile?.username || user.email || 'Utilisateur BETIX',
+                name: profile?.username || user.email || localize('Utilisateur BETIX'),
                 email: user.email || '',
                 metadata: { supabase_user_id: user.id },
             });
@@ -117,22 +143,29 @@ export async function POST(req: NextRequest) {
                 .eq('id', user.id);
         }
 
-        // 4. Résoudre le Stripe Price ID
-        // Si le plan a un stripe_price_id en BDD, on l'utilise directement.
-        // Sinon, on crée un prix ad-hoc via l'API Stripe.
-        let priceId = plan.stripe_price_id;
+        // 4. Resolve the Stripe Price ID.
+        // If the plan has a stripe_price_id in the database, use it directly.
+        // Otherwise, create an ad-hoc price through the Stripe API.
+        const priceId = plan.stripe_price_id;
 
         if (!priceId) {
             return NextResponse.json(
-                { error: `Le plan "${planId}" n'a pas de stripe_price_id configuré. Configurez-le dans le dashboard Stripe puis mettez à jour la BDD.` },
+                { error: localize('Le plan "{planId}" n\'a pas de stripe_price_id configuré. Configurez-le dans le dashboard Stripe puis mettez à jour la BDD.').replace('{planId}', planId) },
                 { status: 400 }
             );
         }
 
-        // 5. Créer la Checkout Session
+        // 5. Create the Checkout Session.
         const publicUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
-        const sessionParams: any = {
+        const subscriptionData: Stripe.Checkout.SessionCreateParams.SubscriptionData = {
+            metadata: {
+                supabase_user_id: user.id,
+                plan_id: planId,
+            },
+        };
+
+        const sessionParams: Stripe.Checkout.SessionCreateParams = {
             customer: stripeCustomerId,
             mode: 'subscription' as const,
             line_items: [{ price: priceId, quantity: 1 }],
@@ -142,17 +175,12 @@ export async function POST(req: NextRequest) {
                 supabase_user_id: user.id,
                 plan_id: planId,
             },
-            subscription_data: {
-                metadata: {
-                    supabase_user_id: user.id,
-                    plan_id: planId,
-                },
-            },
+            subscription_data: subscriptionData,
         };
 
-        // Gestion des trials
+        // Trial handling.
         if (plan.trial_days && plan.trial_days > 0) {
-            sessionParams.subscription_data.trial_period_days = plan.trial_days;
+            subscriptionData.trial_period_days = plan.trial_days;
         }
 
         const session = await stripe.checkout.sessions.create(sessionParams);
@@ -161,10 +189,10 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({ checkoutUrl: session.url });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('[Stripe/Checkout] Error:', error);
         return NextResponse.json(
-            { error: error.message || 'Erreur interne' },
+            { error: getErrorMessage(error, localize('Erreur interne')) },
             { status: 500 }
         );
     }

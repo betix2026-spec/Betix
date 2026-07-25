@@ -8,12 +8,14 @@ import { ArrowRight, Bot, Sparkles } from "lucide-react";
 import { SportIcon } from "@/components/icons/SportIcons";
 import { Match } from "@/types/match";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/use-i18n";
 
 interface MatchCardProps {
     match: Match;
 }
 
 export function MatchCard({ match }: MatchCardProps) {
+    const { copy, locale } = useI18n();
     const league = match.league;
     const isLive = match.status === "live";
     const isFinished = match.status === "finished";
@@ -76,11 +78,11 @@ export function MatchCard({ match }: MatchCardProps) {
                                 </Badge>
                             ) : isFinished ? (
                                 <Badge variant="outline" className="bg-neutral-900/60 border-white/10 text-neutral-400 px-2 py-0 text-[9px] sm:text-[10px] font-black tracking-widest backdrop-blur-md">
-                                    TERMINÉ
+                                    {copy("TERMINÉ")}
                                 </Badge>
                             ) : (
                                 <Badge className="bg-blue-600/90 hover:bg-blue-600 text-white border-0 px-2 py-0 text-[9px] sm:text-[10px] font-black tracking-widest shadow-lg shadow-blue-500/20 backdrop-blur-md">
-                                    PROCHAINEMENT
+                                    {copy("PROCHAINEMENT")}
                                 </Badge>
                             )}
                         </div>
@@ -165,9 +167,9 @@ export function MatchCard({ match }: MatchCardProps) {
                                         tomorrowDate.setDate(now.getDate() + 1);
                                         const tomorrowStr = [tomorrowDate.getFullYear(), String(tomorrowDate.getMonth() + 1).padStart(2, '0'), String(tomorrowDate.getDate()).padStart(2, '0')].join('-');
 
-                                        if (matchDateStr === todayStr) return "Aujourd'hui";
-                                        if (matchDateStr === tomorrowStr) return "Demain";
-                                        return new Date(matchDateStr).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+                                        if (matchDateStr === todayStr) return copy("Aujourd'hui");
+                                        if (matchDateStr === tomorrowStr) return copy("Demain");
+                                        return new Date(matchDateStr).toLocaleDateString(locale, { day: 'numeric', month: 'short' });
                                     })()}
                                 </div>
                             </div>
@@ -206,7 +208,7 @@ export function MatchCard({ match }: MatchCardProps) {
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 text-xs text-muted-foreground group-hover:text-white transition-colors">
                         <Bot className="size-3.5 text-primary shrink-0" />
-                        <span className="font-medium">Analyse par Betix AI</span>
+                        <span className="font-medium">{copy("Analyse par Betix AI")}</span>
                     </div>
                     <div className="relative group/btn p-[1px] rounded-lg overflow-hidden transition-all duration-500">
                         {/* Animated gradient border background */}
@@ -226,8 +228,8 @@ export function MatchCard({ match }: MatchCardProps) {
                                 "relative z-10 hover:bg-neutral-950/80"
                             )}
                         >
-                            <Link href={`/dashboard/match/${match.id}?sport=${match.sport}`} className="gap-2 flex items-center">
-                                <span className="font-bold text-[11px] uppercase tracking-wider text-white/50 group-hover/btn:text-white transition-colors">Voir l'analyse</span>
+                            <Link href={`/${locale}/dashboard/match/${match.id}?sport=${match.sport}`} className="gap-2 flex items-center">
+                                <span className="font-bold text-[11px] uppercase tracking-wider text-white/50 group-hover/btn:text-white transition-colors">{copy("Voir l'analyse")}</span>
                                 <Sparkles className="size-3.5 text-primary animate-pulse group-hover/btn:scale-110 transition-transform" />
                             </Link>
                         </Button>

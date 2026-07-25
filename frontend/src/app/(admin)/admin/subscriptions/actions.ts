@@ -2,6 +2,8 @@
 
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { Plan, PlanFeatures, PlanPromo, FeatureDefinition } from "@/types/plans"; // Use new types
+import { copy } from "@/lib/i18n";
+import { getServerLocale } from "@/lib/i18n-server";
 import { revalidatePath } from "next/cache";
 
 export async function getAdminPlansAction(): Promise<{ success: boolean; data?: Plan[]; definitions?: FeatureDefinition[]; error?: string }> {
@@ -223,6 +225,7 @@ export async function updateFeatureDefinitionAction(
 export async function deleteFeatureDefinitionAction(id: string) {
     console.log(`[Admin Action] Deleting feature definition: ${id}`);
     try {
+        const locale = await getServerLocale();
         // Safety check: verify no plan uses this feature
         const { data: plans } = await supabaseAdmin
             .from('plans')
@@ -243,7 +246,7 @@ export async function deleteFeatureDefinitionAction(id: string) {
             if (usedBy.length > 0) {
                 return {
                     success: false,
-                    error: `Impossible de supprimer : cette feature est utilisée par ${usedBy.join(', ')}`
+                    error: `${copy(locale, 'Impossible de supprimer : cette feature est utilisée par')} ${usedBy.join(', ')}`
                 };
             }
         }

@@ -3,6 +3,7 @@
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { RadioTower, Settings, MessageSquare, ShieldAlert } from "lucide-react";
+import { useI18n } from "@/lib/use-i18n";
 
 interface SignalProcessorProps {
     filter: "all" | "system" | "user" | "critical";
@@ -11,11 +12,12 @@ interface SignalProcessorProps {
 }
 
 export function SignalProcessor({ filter, counts, onFilterChange }: SignalProcessorProps) {
+    const { copy } = useI18n();
     const frequencies = [
-        { id: "all", label: "ALL_FREQUENCIES", icon: RadioTower, color: "text-neutral-400" },
-        { id: "system", label: "SYSTEM_CORE", icon: Settings, color: "text-blue-400" },
-        { id: "user", label: "AGENT_COMMS", icon: MessageSquare, color: "text-emerald-400" },
-        { id: "critical", label: "CRITICAL_ALERTS", icon: ShieldAlert, color: "text-red-500" },
+        { id: "all", label: copy("ALL_FREQUENCIES"), icon: RadioTower, color: "text-neutral-400" },
+        { id: "system", label: copy("SYSTEM_CORE"), icon: Settings, color: "text-blue-400" },
+        { id: "user", label: copy("AGENT_COMMS"), icon: MessageSquare, color: "text-emerald-400" },
+        { id: "critical", label: copy("CRITICAL_ALERTS"), icon: ShieldAlert, color: "text-red-500" },
     ] as const;
 
     return (

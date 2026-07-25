@@ -12,8 +12,10 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { toast } from "sonner";
+import { useI18n } from "@/lib/use-i18n";
 
 export default function SignupPage() {
+    const { t, locale } = useI18n();
     const [isLoading, setIsLoading] = useState(false);
     const [formData, setFormData] = useState({
         email: "",
@@ -28,15 +30,15 @@ export default function SignupPage() {
 
         // Validation côté client
         if (formData.password !== formData.confirmPassword) {
-            toast.error("Les mots de passe ne correspondent pas", {
-                description: "Veuillez vérifier votre saisie.",
+            toast.error(t("passwordsDoNotMatch"), {
+                description: t("checkYourInput"),
             });
             return;
         }
 
         if (formData.password.length < 6) {
-            toast.error("Mot de passe trop court", {
-                description: "Le mot de passe doit contenir au moins 6 caractères.",
+            toast.error(t("passwordTooShort"), {
+                description: t("passwordMinLength"),
             });
             return;
         }
@@ -46,7 +48,7 @@ export default function SignupPage() {
         const { error, needsConfirmation } = await signUp(formData.email, formData.password);
 
         if (error) {
-            toast.error("Échec de l'inscription", {
+            toast.error(t("signupFailed"), {
                 description: error,
             });
             setIsLoading(false);
@@ -54,19 +56,19 @@ export default function SignupPage() {
         }
 
         if (needsConfirmation) {
-            toast.success("Vérifiez votre boîte e-mail", {
-                description: "Un lien de confirmation vous a été envoyé pour activer votre accès.",
+            toast.success(t("checkEmailTitle"), {
+                description: t("confirmationLinkSent"),
                 duration: 10000,
             });
             setIsLoading(false);
             return;
         }
 
-        toast.success("Accès créé avec succès", {
-            description: "Bienvenue chez BETIX !",
+        toast.success(t("accountCreated"), {
+            description: t("welcomeBetix"),
         });
 
-        router.push("/dashboard");
+        router.push(`/${locale}/dashboard`);
     };
 
     const passwordsMatch = formData.confirmPassword.length === 0 || formData.password === formData.confirmPassword;
@@ -81,10 +83,10 @@ export default function SignupPage() {
                     className="w-full h-10 sm:h-11 bg-white hover:bg-neutral-100 text-black border-0 rounded-xl transition-all duration-300 gap-3 font-medium text-sm"
                     onClick={async () => {
                         setIsLoading(true);
-                        toast.info("Initialisation de l'accès Google...");
+                        toast.info(t("googleStarting"));
                         const { error } = await signInWithGoogle();
                         if (error) {
-                            toast.error("Échec Google Registration", { description: error });
+                            toast.error(t("googleFailed"), { description: error });
                             setIsLoading(false);
                         }
                     }}
@@ -95,21 +97,21 @@ export default function SignupPage() {
                         <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
                         <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
                     </svg>
-                    Continuer avec Google
+                    {t("continueWithGoogle")}
                 </Button>
             </div>
 
             <div className="relative mb-5 sm:mb-8">
                 <Separator className="bg-white/10" />
                 <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-neutral-950 px-4 text-xs font-medium text-neutral-500">
-                    ou
+                    {t("or")}
                 </span>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
 
                 <BiometricInput
-                    label="Adresse e-mail"
+                    label={t("emailAddress")}
                     type="email"
                     placeholder="votre@email.com"
                     value={formData.email}
@@ -119,7 +121,7 @@ export default function SignupPage() {
 
                 <div className="space-y-2">
                     <BiometricInput
-                        label="Mot de passe"
+                        label={t("password")}
                         type="password"
                         placeholder="••••••••••••"
                         value={formData.password}
@@ -136,33 +138,33 @@ export default function SignupPage() {
                 </div>
 
                 <BiometricInput
-                    label="Confirmer le mot de passe"
+                    label={t("confirmPassword")}
                     type="password"
                     placeholder="••••••••••••"
                     value={formData.confirmPassword}
                     onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                    error={!passwordsMatch ? "Les mots de passe ne correspondent pas" : undefined}
+                    error={!passwordsMatch ? t("passwordsDoNotMatch") : undefined}
                     required
                 />
 
                 <div className="flex items-start gap-3 mt-4">
                     <Checkbox id="terms" className="mt-0.5 border-white/20 data-[state=checked]:bg-white data-[state=checked]:border-white data-[state=checked]:text-black" />
                     <Label htmlFor="terms" className="text-xs text-neutral-400 font-medium leading-relaxed">
-                        J&apos;accepte les <Link href="/cgu" className="text-white hover:underline transition-colors">Conditions d&apos;Utilisation</Link> et la <Link href="/privacy" className="text-white hover:underline transition-colors">Politique de Confidentialité</Link>.
+                        {t("acceptTerms")} <Link href={`/${locale}/cgu`} className="text-white hover:underline transition-colors">{t("terms")}</Link> {t("and")} <Link href={`/${locale}/privacy`} className="text-white hover:underline transition-colors">{t("privacy")}</Link>.
                     </Label>
                 </div>
 
                 <div className="pt-2">
-                    <SecurityScanner type="submit" isLoading={isLoading} label="Créer mon compte" />
+                    <SecurityScanner type="submit" isLoading={isLoading} label={t("createAccount")} />
                 </div>
 
             </form>
 
             <div className="text-center mt-5 sm:mt-8">
                 <p className="text-sm text-neutral-500">
-                    Déjà inscrit ?{" "}
-                    <Link href="/login" className="text-white hover:underline transition-colors ml-1 font-medium">
-                        Se connecter
+                    {t("alreadyRegistered")}{" "}
+                    <Link href={`/${locale}/login`} className="text-white hover:underline transition-colors ml-1 font-medium">
+                        {t("signIn")}
                     </Link>
                 </p>
             </div>

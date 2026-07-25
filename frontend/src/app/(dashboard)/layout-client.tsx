@@ -29,25 +29,26 @@ import {
     SheetTitle,
     SheetTrigger
 } from "@/components/ui/sheet";
-
-const sports = [
-    { id: "all", label: "Tous les Sports", icon: <AllSportsIcon size={18} /> },
-    { id: "football", label: "Football", icon: <FootballIcon size={18} /> },
-    { id: "basketball", label: "Basketball", icon: <BasketballIcon size={18} /> },
-    { id: "tennis", label: "Tennis", icon: <TennisIcon size={18} /> },
-];
+import { useI18n } from "@/lib/use-i18n";
 
 function DashboardNavbar() {
+    const { t, locale } = useI18n();
     const pathname = usePathname();
     const searchParams = useSearchParams();
     const currentSport = searchParams.get("sport") || "all";
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const sports = [
+        { id: "all", label: t("allSports"), icon: <AllSportsIcon size={18} /> },
+        { id: "football", label: "Football", icon: <FootballIcon size={18} /> },
+        { id: "basketball", label: "Basketball", icon: <BasketballIcon size={18} /> },
+        { id: "tennis", label: "Tennis", icon: <TennisIcon size={18} /> },
+    ];
 
     return (
         <nav className="sticky top-0 z-50 w-full border-b border-white/5 bg-black/80 backdrop-blur-xl">
             <div className="container mx-auto px-4 md:px-6 h-14 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3 sm:gap-6 min-w-0">
-                    <Link href="/dashboard" className="flex items-center gap-2 shrink-0">
+                    <Link href={`/${locale}/dashboard`} className="flex items-center gap-2 shrink-0">
                         <BetixLogo className="scale-90 sm:scale-100" />
                     </Link>
 
@@ -58,7 +59,7 @@ function DashboardNavbar() {
                             return (
                                 <Link
                                     key={sport.id}
-                                    href={`/dashboard?sport=${sport.id}`}
+                                    href={`/${locale}/dashboard?sport=${sport.id}`}
                                     className={cn(
                                         "h-9 px-3 sm:px-4 rounded-full flex items-center gap-2 text-sm font-bold transition-all duration-300 shrink-0",
                                         isActive
@@ -95,13 +96,13 @@ function DashboardNavbar() {
                                 </SheetTitle>
                             </SheetHeader>
                             <div className="flex flex-col gap-2">
-                                <span className="text-[10px] font-black uppercase tracking-widest text-neutral-500 px-2 mb-2">Choisir un sport</span>
+                                <span className="text-[10px] font-black uppercase tracking-widest text-neutral-500 px-2 mb-2">{t("chooseSport")}</span>
                                 {sports.map((sport) => {
                                     const isActive = currentSport === sport.id;
                                     return (
                                         <Link
                                             key={sport.id}
-                                            href={`/dashboard?sport=${sport.id}`}
+                                            href={`/${locale}/dashboard?sport=${sport.id}`}
                                             onClick={() => setMobileMenuOpen(false)}
                                             className={cn(
                                                 "w-full h-12 px-4 rounded-xl flex items-center gap-3 text-sm font-bold transition-all duration-300",
@@ -130,6 +131,7 @@ export default function DashboardLayoutClient({
     children: React.ReactNode;
 }) {
     const { isLoading, profile, subscription, isAdmin, assuranceLevel } = useAuth();
+    const { t } = useI18n();
     const router = useRouter();
     const pathname = usePathname();
 
@@ -171,7 +173,7 @@ export default function DashboardLayoutClient({
             {isLoading && !profile && (
                 <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black gap-4 text-white">
                     <Loader2 className="size-10 animate-spin text-blue-500" />
-                    <span className="text-sm font-black uppercase tracking-widest text-neutral-500">Chargement de votre univers...</span>
+                    <span className="text-sm font-black uppercase tracking-widest text-neutral-500">{t("loadingUniverse")}</span>
                 </div>
             )}
 

@@ -3,12 +3,14 @@
 import { cn } from "@/lib/utils";
 import { BrainCircuit, CheckCircle2, TrendingUp, AlertTriangle } from "lucide-react";
 import { Prediction, KeyFactor } from "@/types/match";
+import { useI18n } from "@/lib/use-i18n";
 
 interface ConfidenceGaugeProps {
     prediction: Prediction;
 }
 
 export function ConfidenceGauge({ prediction }: ConfidenceGaugeProps) {
+    const { copy } = useI18n();
     // Config colors based on level (The color signal)
     const levelConfigs: Record<string, { color: string, bg: string, glow: string }> = {
         safe: { color: "text-emerald-500", bg: "bg-emerald-500", glow: "shadow-emerald-500/20" },
@@ -82,8 +84,8 @@ export function ConfidenceGauge({ prediction }: ConfidenceGaugeProps) {
                                 <BrainCircuit className="size-4 text-primary" />
                             </div>
                             <div className="flex flex-col">
-                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500">Verdict Intelligent</span>
-                                <span className={cn("text-[11px] font-bold uppercase tracking-widest", levelConfig.color)}>Niveau : {prediction.level}</span>
+                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500">{copy("Verdict Intelligent")}</span>
+                                <span className={cn("text-[11px] font-bold uppercase tracking-widest", levelConfig.color)}>{copy("Niveau")} : {copy(prediction.level)}</span>
                             </div>
                         </div>
 

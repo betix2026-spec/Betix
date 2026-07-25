@@ -16,6 +16,7 @@ import {
     Clock,
     ArrowRight
 } from "lucide-react";
+import { useI18n } from "@/lib/use-i18n";
 
 interface HolographicStreamProps {
     notifications: AppNotification[];
@@ -23,14 +24,16 @@ interface HolographicStreamProps {
 }
 
 export function HolographicStream({ notifications, onMarkRead }: HolographicStreamProps) {
+    const { copy } = useI18n();
+
     if (notifications.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center py-20 bg-black/40 rounded-3xl border border-white/5 backdrop-blur-sm">
                 <div className="size-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
                     <Check className="size-8 text-neutral-500" />
                 </div>
-                <h3 className="text-lg font-bold text-white mb-1">ALL_CLEAR</h3>
-                <p className="text-sm font-mono text-neutral-500">No incoming transmissions.</p>
+                <h3 className="text-lg font-bold text-white mb-1">{copy("ALL_CLEAR")}</h3>
+                <p className="text-sm font-mono text-neutral-500">{copy("No incoming transmissions.")}</p>
             </div>
         );
     }
@@ -86,7 +89,7 @@ export function HolographicStream({ notifications, onMarkRead }: HolographicStre
                                     <div className="flex items-center gap-2">
                                         {isCritical && (
                                             <Badge variant="destructive" className="animate-pulse bg-red-500/20 text-red-500 border-red-500/50 uppercase tracking-wider text-[9px] h-5">
-                                                CRITICAL_ALERT
+                                                {copy("CRITICAL_ALERT")}
                                             </Badge>
                                         )}
                                         <h3 className={cn("text-base font-bold truncate", isCritical ? "text-red-400" : "text-white")}>
@@ -114,7 +117,7 @@ export function HolographicStream({ notifications, onMarkRead }: HolographicStre
                                                     "bg-white/5 border-white/10 text-white hover:bg-white/10"
                                             )}
                                         >
-                                            Voir les détails <ArrowRight className="size-3" />
+                                            {copy("Voir les détails")} <ArrowRight className="size-3" />
                                         </Button>
                                     )}
                                     {!notif.is_read && (
@@ -124,7 +127,7 @@ export function HolographicStream({ notifications, onMarkRead }: HolographicStre
                                             onClick={() => onMarkRead(notif.id)}
                                             className="h-7 text-[10px] text-neutral-500 hover:text-white uppercase tracking-wider"
                                         >
-                                            Ack_Receipt
+                                            {copy("Ack_Receipt")}
                                         </Button>
                                     )}
                                 </div>

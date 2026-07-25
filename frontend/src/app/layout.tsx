@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
+import { getServerLocale } from "@/lib/i18n-server";
 import "./globals.css";
 
 const inter = Inter({
@@ -88,13 +89,15 @@ export const metadata: Metadata = {
     ],
 };
 
-export default function RootLayout({
+export default async function RootLayout({
     children,
 }: Readonly<{
     children: React.ReactNode;
 }>) {
+    const locale = await getServerLocale();
+
     return (
-        <html lang="fr" className="dark">
+        <html lang={locale} className="dark">
             <body
                 className={`${inter.variable} ${geistMono.variable} ${montserrat.variable} ${spaceGrotesk.variable} ${dmSans.variable} ${poppins.variable} ${raleway.variable} ${outfit.variable} ${plusJakarta.variable} ${nunito.variable} antialiased min-h-screen`}
             >

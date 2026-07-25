@@ -6,8 +6,10 @@ import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Brain, Cpu, Zap, Thermometer } from "lucide-react";
+import { useI18n } from "@/lib/use-i18n";
 
 export function CortexConfig() {
+    const { copy } = useI18n();
     const [temperature, setTemperature] = useState([0.7]);
     const [tokens, setTokens] = useState([2048]);
 
@@ -27,10 +29,10 @@ export function CortexConfig() {
                         <Brain className="size-6" />
                     </div>
                     <div>
-                        <h2 className="text-xl font-black text-white uppercase tracking-tight">Cortex Configuration</h2>
+                        <h2 className="text-xl font-black text-white uppercase tracking-tight">{copy("Cortex Configuration")}</h2>
                         <div className="flex items-center gap-2 text-[10px] font-mono text-neutral-500">
-                            <span>NEURAL_ENGINE_V2.5</span>
-                            {isOverclocked && <span className="text-red-500 font-bold animate-pulse">:: OVERCLOCK ACTIVE ::</span>}
+                            <span>{copy("NEURAL_ENGINE_V2.5")}</span>
+                            {isOverclocked && <span className="text-red-500 font-bold animate-pulse">{copy(":: OVERCLOCK ACTIVE ::")}</span>}
                         </div>
                     </div>
                 </div>
@@ -58,7 +60,7 @@ export function CortexConfig() {
                 <div className="space-y-4">
                     <div className="flex items-center justify-between">
                         <Label className="text-xs font-bold uppercase tracking-widest text-neutral-400 flex items-center gap-2">
-                            <Thermometer className="size-3.5" /> Creativity Temp
+                            <Thermometer className="size-3.5" /> {copy("Creativity Temp")}
                         </Label>
                         <span className={cn("font-mono font-bold text-sm",
                             temperature[0] > 0.8 ? "text-red-500" : "text-blue-400"
@@ -68,9 +70,9 @@ export function CortexConfig() {
                     </div>
                     <div className="relative pt-2">
                         <div className="absolute top-0 w-full flex justify-between px-1 text-[8px] text-neutral-600 font-mono">
-                            <span>FACTUAL</span>
-                            <span>BALANCED</span>
-                            <span>CREATIVE</span>
+                            <span>{copy("FACTUAL")}</span>
+                            <span>{copy("BALANCED")}</span>
+                            <span>{copy("CREATIVE")}</span>
                         </div>
                         <Slider
                             value={temperature}
@@ -87,7 +89,7 @@ export function CortexConfig() {
                 <div className="space-y-4">
                     <div className="flex items-center justify-between">
                         <Label className="text-xs font-bold uppercase tracking-widest text-neutral-400 flex items-center gap-2">
-                            <Zap className="size-3.5" /> Max Output Tokens
+                            <Zap className="size-3.5" /> {copy("Max Output Tokens")}
                         </Label>
                         <span className="font-mono font-bold text-sm text-yellow-400">
                             {tokens[0]}
@@ -95,9 +97,9 @@ export function CortexConfig() {
                     </div>
                     <div className="relative pt-2">
                         <div className="absolute top-0 w-full flex justify-between px-1 text-[8px] text-neutral-600 font-mono">
-                            <span>ECO</span>
-                            <span>STD</span>
-                            <span>MAX</span>
+                            <span>{copy("ECO")}</span>
+                            <span>{copy("STD")}</span>
+                            <span>{copy("MAX")}</span>
                         </div>
                         <Slider
                             value={tokens}

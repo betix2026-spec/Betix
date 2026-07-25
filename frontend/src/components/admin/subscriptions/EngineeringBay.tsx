@@ -17,6 +17,7 @@ import { useRouter } from "next/navigation";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatFeatureValue } from "@/lib/plans";
 import { toast } from "sonner"; // Assuming sonner is installed
+import { useI18n } from "@/lib/use-i18n";
 
 interface EngineeringBayProps {
     plan: Plan | null;
@@ -27,6 +28,7 @@ interface EngineeringBayProps {
 }
 
 export function EngineeringBay({ plan, definitions, open, onClose, onSuccess }: EngineeringBayProps) {
+    const { copy } = useI18n();
     const [formData, setFormData] = useState<UpdatePlanData>({});
     const [isLoading, setIsLoading] = useState(false);
     const [activeTab, setActiveTab] = useState<keyof PlanFeatures>("core");
@@ -121,7 +123,7 @@ export function EngineeringBay({ plan, definitions, open, onClose, onSuccess }: 
         const def = definitions.find(d => d.id === defId);
         if (!def) return;
 
-        let initialValue: any = def.type === 'boolean' ? true : "Valeur here";
+        let initialValue: any = def.type === 'boolean' ? true : copy("Default value");
         updateFeature(category, defId, initialValue);
     };
 
@@ -131,8 +133,8 @@ export function EngineeringBay({ plan, definitions, open, onClose, onSuccess }: 
         <Sheet open={open} onOpenChange={onClose}>
             <SheetContent className="w-full sm:max-w-xl border-l border-white/10 bg-black/95 backdrop-blur-xl p-0 shadow-2xl flex flex-col">
                 <SheetHeader className="sr-only">
-                    <SheetTitle>{isCreating ? "Engineering Bay: NEW_SCHEMATIC" : `Engineering Bay: ${plan?.name}`}</SheetTitle>
-                    <SheetDescription>Configuration du plan</SheetDescription>
+                    <SheetTitle>{isCreating ? `${copy("Engineering Bay")}: ${copy("NEW SCHEMATIC")}` : `${copy("Engineering Bay")}: ${plan?.name}`}</SheetTitle>
+                    <SheetDescription>{copy("Configuration du plan")}</SheetDescription>
                 </SheetHeader>
 
                 {/* Header */}
@@ -145,15 +147,15 @@ export function EngineeringBay({ plan, definitions, open, onClose, onSuccess }: 
                             </div>
                             <div>
                                 <h2 className="text-lg font-black text-white uppercase tracking-widest">
-                                    {isCreating ? "NEW SCHEMATIC" : "Engineering Bay"}
+                                    {isCreating ? copy("NEW SCHEMATIC") : copy("Engineering Bay")}
                                 </h2>
                                 <p className="text-[10px] font-mono text-neutral-500">
-                                    {isCreating ? "INIT_SEQUENCE_STARTED" : "PLAN_CONFIG_MODULE_V3"}
+                                    {isCreating ? copy("INIT_SEQUENCE_STARTED") : copy("PLAN_CONFIG_MODULE_V3")}
                                 </p>
                             </div>
                         </div>
                         <Badge variant="outline" className="border-amber-500/50 text-amber-500 bg-amber-500/10 font-bold">
-                            {isCreating ? "CREATION MODE" : "EDIT MODE"}
+                            {isCreating ? copy("CREATION MODE") : copy("EDIT MODE")}
                         </Badge>
                     </div>
                 </div>
@@ -163,31 +165,31 @@ export function EngineeringBay({ plan, definitions, open, onClose, onSuccess }: 
                     {/* General Settings */}
                     <div className="space-y-4">
                         <h3 className="text-xs font-bold text-neutral-500 uppercase flex items-center gap-2">
-                            <Package className="size-3.5" /> Core Status
+                            <Package className="size-3.5" /> {copy("Core Status")}
                         </h3>
                         <div className="grid gap-4">
                             <div className="space-y-2">
-                                <Label className="text-xs font-mono text-neutral-400">PLAN_NAME <span className="text-red-500">*</span></Label>
+                                <Label className="text-xs font-mono text-neutral-400">{copy("PLAN_NAME")} <span className="text-red-500">*</span></Label>
                                 <Input
                                     value={formData.name || ''}
                                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                                     className="bg-white/5 border-white/10 text-white font-bold"
-                                    placeholder="ex: The Architect"
+                                    placeholder={copy("ex: The Architect")}
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label className="text-xs font-mono text-neutral-400">MARKETING_TAGLINE</Label>
+                                <Label className="text-xs font-mono text-neutral-400">{copy("MARKETING_TAGLINE")}</Label>
                                 <Input
                                     value={formData.description || ''}
                                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                                     className="bg-white/5 border-white/10 text-white text-xs"
-                                    placeholder="ex: Pour les experts de la data."
+                                    placeholder={copy("ex: Pour les experts de la data.")}
                                 />
                             </div>
                             <div className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/10">
                                 <div className="space-y-0.5">
-                                    <Label className="text-xs font-mono text-neutral-400">SYSTEM_ACTIVE</Label>
-                                    <p className="text-[10px] text-neutral-500">Enable public visibility</p>
+                                    <Label className="text-xs font-mono text-neutral-400">{copy("SYSTEM_ACTIVE")}</Label>
+                                    <p className="text-[10px] text-neutral-500">{copy("Enable public visibility")}</p>
                                 </div>
                                 <Switch
                                     checked={formData.is_active || false}
@@ -196,24 +198,24 @@ export function EngineeringBay({ plan, definitions, open, onClose, onSuccess }: 
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
-                                    <Label className="text-xs font-mono text-neutral-400">BADGE_TEXT</Label>
+                                    <Label className="text-xs font-mono text-neutral-400">{copy("BADGE_TEXT")}</Label>
                                     <Input
                                         value={formData.badge_text || ''}
                                         onChange={(e) => setFormData({ ...formData, badge_text: e.target.value || null })}
                                         className="bg-white/5 border-white/10 text-white text-xs"
-                                        placeholder="ex: POPULAIRE"
-                                    />
-                                    <p className="text-[9px] text-neutral-600">Texte du badge marketing (vide = pas de badge)</p>
+                                    placeholder={copy("ex: POPULAIRE")}
+                                />
+                                    <p className="text-[9px] text-neutral-600">{copy("Texte du badge marketing (vide = pas de badge)")}</p>
                                 </div>
                                 <div className="space-y-2">
-                                    <Label className="text-xs font-mono text-neutral-400">BADGE_COLOR</Label>
+                                    <Label className="text-xs font-mono text-neutral-400">{copy("BADGE_COLOR")}</Label>
                                     <Input
                                         value={formData.badge_color || ''}
                                         onChange={(e) => setFormData({ ...formData, badge_color: e.target.value || null })}
                                         className="bg-white/5 border-white/10 text-white text-xs"
                                         placeholder="ex: bg-amber-500 text-black"
                                     />
-                                    <p className="text-[9px] text-neutral-600">Classes Tailwind pour le style du badge</p>
+                                    <p className="text-[9px] text-neutral-600">{copy("Classes Tailwind pour le style du badge")}</p>
                                 </div>
                             </div>
                         </div>
@@ -224,11 +226,11 @@ export function EngineeringBay({ plan, definitions, open, onClose, onSuccess }: 
                     {/* Pricing */}
                     <div className="space-y-4">
                         <h3 className="text-xs font-bold text-neutral-500 uppercase flex items-center gap-2">
-                            <DollarSign className="size-3.5" /> Monetization
+                            <DollarSign className="size-3.5" /> {copy("Monetization")}
                         </h3>
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2 relative">
-                                <Label className="text-xs font-mono text-neutral-400">UNIT_PRICE <span className="text-red-500">*</span></Label>
+                                <Label className="text-xs font-mono text-neutral-400">{copy("UNIT_PRICE")} <span className="text-red-500">*</span></Label>
                                 <Input
                                     type="number"
                                     value={formData.price ?? ''}
@@ -241,7 +243,7 @@ export function EngineeringBay({ plan, definitions, open, onClose, onSuccess }: 
                                 <span className="absolute left-3 top-[29px] text-neutral-500 text-xs">€</span>
                             </div>
                             <div className="space-y-2">
-                                <Label className="text-xs font-mono text-neutral-400">FREQUENCY <span className="text-red-500">*</span></Label>
+                                <Label className="text-xs font-mono text-neutral-400">{copy("FREQUENCY")} <span className="text-red-500">*</span></Label>
                                 <Select
                                     value={formData.frequency}
                                     onValueChange={(v) => setFormData({ ...formData, frequency: v })}
@@ -250,19 +252,19 @@ export function EngineeringBay({ plan, definitions, open, onClose, onSuccess }: 
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent className="bg-neutral-900 border-white/10 text-white">
-                                        <SelectItem value="free">Free / Lifetime</SelectItem>
-                                        <SelectItem value="daily">Daily</SelectItem>
-                                        <SelectItem value="weekly">Weekly</SelectItem>
-                                        <SelectItem value="monthly">Monthly</SelectItem>
-                                        <SelectItem value="quarterly">Quarterly (3 mois)</SelectItem>
-                                        <SelectItem value="semi_annual">Semi-Annual (6 mois)</SelectItem>
-                                        <SelectItem value="yearly">Yearly (12 mois)</SelectItem>
+                                        <SelectItem value="free">{copy("Free / Lifetime")}</SelectItem>
+                                        <SelectItem value="daily">{copy("Daily")}</SelectItem>
+                                        <SelectItem value="weekly">{copy("Weekly")}</SelectItem>
+                                        <SelectItem value="monthly">{copy("Monthly")}</SelectItem>
+                                        <SelectItem value="quarterly">{copy("Quarterly")} (3 {copy("mois")})</SelectItem>
+                                        <SelectItem value="semi_annual">{copy("Semi-Annual")} (6 {copy("mois")})</SelectItem>
+                                        <SelectItem value="yearly">{copy("Yearly")} (12 {copy("mois")})</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
                         </div>
                         <div className="space-y-2 relative">
-                            <Label className="text-xs font-mono text-neutral-400">PRIX_BARRÉ (optionnel)</Label>
+                            <Label className="text-xs font-mono text-neutral-400">{copy("PRIX_BARRÉ (optionnel)")}</Label>
                             <Input
                                 type="number"
                                 step="0.01"
@@ -275,7 +277,7 @@ export function EngineeringBay({ plan, definitions, open, onClose, onSuccess }: 
                                 placeholder="ex: 99.99"
                             />
                             <span className="absolute left-3 top-[29px] text-neutral-500 text-xs">€</span>
-                            <p className="text-[9px] text-neutral-600">Ancien prix affiché barré à côté du vrai prix (marketing)</p>
+                            <p className="text-[9px] text-neutral-600">{copy("Ancien prix affiché barré à côté du vrai prix (marketing)")}</p>
                         </div>
                     </div>
 
@@ -285,7 +287,7 @@ export function EngineeringBay({ plan, definitions, open, onClose, onSuccess }: 
                     <div className="space-y-4 p-4 rounded-xl border border-white/10 bg-white/[0.02]">
                         <div className="flex items-center justify-between">
                             <h3 className="text-xs font-bold text-neutral-500 uppercase flex items-center gap-2">
-                                <Percent className="size-3.5" /> Offre de Lancement
+                                <Percent className="size-3.5" /> {copy("Offre de Lancement")}
                             </h3>
                             <Switch
                                 checked={formData.trial_price != null && formData.trial_days != null}
@@ -307,7 +309,7 @@ export function EngineeringBay({ plan, definitions, open, onClose, onSuccess }: 
                         {formData.trial_price != null && formData.trial_days != null && (
                             <div className="grid grid-cols-2 gap-3 p-4 rounded-xl bg-amber-500/5 border border-amber-500/20 animate-in slide-in-from-top-2">
                                 <div className="space-y-2">
-                                    <Label className="text-[10px] font-mono text-amber-500/70">TRIAL_PRICE (€)</Label>
+                                    <Label className="text-[10px] font-mono text-amber-500/70">{copy("TRIAL_PRICE")} (€)</Label>
                                     <Input
                                         type="number"
                                         step="0.01"
@@ -322,10 +324,10 @@ export function EngineeringBay({ plan, definitions, open, onClose, onSuccess }: 
                                         className="bg-black/50 border-amber-500/20 text-amber-500 font-bold h-8 text-xs"
                                         placeholder="ex: 14.99"
                                     />
-                                    <p className="text-[9px] text-neutral-600">Prix facturé au 1er paiement</p>
+                                    <p className="text-[9px] text-neutral-600">{copy("Prix facturé au 1er paiement")}</p>
                                 </div>
                                 <div className="space-y-2">
-                                    <Label className="text-[10px] font-mono text-amber-500/70">TRIAL_DAYS (jours)</Label>
+                                    <Label className="text-[10px] font-mono text-amber-500/70">{copy("TRIAL_DAYS (jours)")}</Label>
                                     <Input
                                         type="number"
                                         value={formData.trial_days ?? ''}
@@ -339,11 +341,11 @@ export function EngineeringBay({ plan, definitions, open, onClose, onSuccess }: 
                                         className="bg-black/50 border-amber-500/20 text-amber-500 font-bold h-8 text-xs"
                                         placeholder="ex: 7"
                                     />
-                                    <p className="text-[9px] text-neutral-600">Durée avant le prix normal</p>
+                                    <p className="text-[9px] text-neutral-600">{copy("Durée avant le prix normal")}</p>
                                 </div>
                                 <div className="col-span-2 pt-2 border-t border-amber-500/10">
                                     <p className="text-[10px] text-amber-500/60 font-mono">
-                                        PREVIEW: {formData.trial_price}€ pendant {formData.trial_days}j → puis {formData.price}€/{formData.frequency === 'monthly' ? 'mois' : formData.frequency === 'yearly' ? 'an' : formData.frequency}
+                                        {copy("PREVIEW")}: {formData.trial_price}€ {copy("pendant")} {formData.trial_days}j {"->"} {copy("puis")} {formData.price}€/{formData.frequency === 'monthly' ? copy('mois') : formData.frequency === 'yearly' ? copy('an') : formData.frequency}
                                     </p>
                                 </div>
                             </div>
@@ -355,14 +357,14 @@ export function EngineeringBay({ plan, definitions, open, onClose, onSuccess }: 
                     {/* Features Editor */}
                     <div className="space-y-4">
                         <h3 className="text-xs font-bold text-neutral-500 uppercase flex items-center gap-2">
-                            <Star className="size-3.5" /> Feature Configuration
+                            <Star className="size-3.5" /> {copy("Feature Configuration")}
                         </h3>
 
                         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as keyof PlanFeatures)} className="w-full">
                             <TabsList className="w-full bg-white/5 border border-white/10 p-1 mb-4 h-9">
-                                <TabsTrigger value="core" className="flex-1 text-xs h-7 data-[state=active]:bg-neutral-800">CORE</TabsTrigger>
-                                <TabsTrigger value="advanced" className="flex-1 text-xs h-7 data-[state=active]:bg-neutral-800">ADVANCED</TabsTrigger>
-                                <TabsTrigger value="vip" className="flex-1 text-xs h-7 data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-500">VIP</TabsTrigger>
+                                <TabsTrigger value="core" className="flex-1 text-xs h-7 data-[state=active]:bg-neutral-800">{copy("CORE")}</TabsTrigger>
+                                <TabsTrigger value="advanced" className="flex-1 text-xs h-7 data-[state=active]:bg-neutral-800">{copy("ADVANCED")}</TabsTrigger>
+                                <TabsTrigger value="vip" className="flex-1 text-xs h-7 data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-500">{copy("VIP")}</TabsTrigger>
                             </TabsList>
 
                             {(['core', 'advanced', 'vip'] as const).map(category => (
@@ -412,7 +414,7 @@ export function EngineeringBay({ plan, definitions, open, onClose, onSuccess }: 
                                     <div className="mt-4 pt-2 border-t border-dashed border-white/10">
                                         <Select onValueChange={(v) => addFeature(category, v)}>
                                             <SelectTrigger className="w-full h-8 text-xs bg-white/5 border-white/10 text-neutral-400 hover:text-white">
-                                                <SelectValue placeholder="+ Add Feature Module" />
+                                                <SelectValue placeholder={copy("+ Add Feature Module")} />
                                             </SelectTrigger>
                                             <SelectContent className="bg-neutral-900 border-white/10 max-h-60">
                                                 {definitions
@@ -437,7 +439,7 @@ export function EngineeringBay({ plan, definitions, open, onClose, onSuccess }: 
 
                 <div className="p-4 border-t border-white/10 bg-black/90 backdrop-blur-md flex gap-3 flex-shrink-0">
                     <Button variant="ghost" className="flex-1 text-neutral-400 hover:text-white hover:bg-white/5" onClick={onClose}>
-                        CANCEL
+                        {copy("CANCEL")}
                     </Button>
                     <Button
                         onClick={handleSave}
@@ -445,7 +447,7 @@ export function EngineeringBay({ plan, definitions, open, onClose, onSuccess }: 
                         className={cn("flex-1 text-black font-bold trigger-flash", isCreating ? "bg-emerald-500 hover:bg-emerald-600" : "bg-amber-500 hover:bg-amber-600")}
                     >
                         {isLoading ? <Loader2 className="size-4 mr-2 animate-spin" /> : isCreating ? <Rocket className="size-4 mr-2" /> : <Save className="size-4 mr-2" />}
-                        {isLoading ? "PROCESSING..." : isCreating ? "INITIALIZE DROP" : "DEPLOY PATCH"}
+                        {isLoading ? copy("PROCESSING...") : isCreating ? copy("INITIALIZE DROP") : copy("DEPLOY PATCH")}
                     </Button>
                 </div>
 

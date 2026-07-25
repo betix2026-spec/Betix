@@ -18,19 +18,21 @@ import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { PremiumGate } from "@/components/dashboard/PremiumGate";
 import { BreathingGauge } from "@/components/ui/breathing-gauge";
+import { useI18n } from "@/lib/use-i18n";
 
 function VerdictSection({ summary }: { summary: string }) {
+    const { copy } = useI18n();
     const [isExpanded, setIsExpanded] = useState(false);
 
-    // On coupe le texte pour le mode "Flash"
+    // Trim the text for flash mode.
     const flashText = summary.length > 150 ? summary.substring(0, 150) + "..." : summary;
 
     return (
         <div className="space-y-4 sm:space-y-6">
             <div className="flex flex-col gap-1">
-                <h3 className="text-[10px] sm:text-[12px] font-montserrat font-black uppercase tracking-[0.1em] sm:tracking-[0.2em] text-primary drop-shadow-[0_0_8px_rgba(255,255,255,0.3)] leading-snug">VERDICT DE L&apos;IA</h3>
+                <h3 className="text-[10px] sm:text-[12px] font-montserrat font-black uppercase tracking-[0.1em] sm:tracking-[0.2em] text-primary drop-shadow-[0_0_8px_rgba(255,255,255,0.3)] leading-snug">{copy("VERDICT DE L'IA")}</h3>
                 <div className="flex items-center gap-2">
-                    <span className="text-[9px] font-bold text-primary/60 uppercase tracking-widest">Analyse Synthétique</span>
+                    <span className="text-[9px] font-bold text-primary/60 uppercase tracking-widest">{copy("Analyse Synthétique")}</span>
                 </div>
             </div>
 
@@ -44,14 +46,14 @@ function VerdictSection({ summary }: { summary: string }) {
                             <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
                                 <Sparkles className="size-4" />
                             </div>
-                            <span className="text-[11px] font-bold text-white/60">Analyse de l&apos;algorithme</span>
+                            <span className="text-[11px] font-bold text-white/60">{copy("Analyse de l'algorithme")}</span>
                         </div>
                         {summary.length > 150 && (
                             <button
                                 onClick={() => setIsExpanded(!isExpanded)}
                                 className="text-[10px] font-bold uppercase tracking-widest text-primary/60 hover:text-primary transition-colors flex items-center gap-1"
                             >
-                                {isExpanded ? "Réduire" : "Développer l&apos;analyse"}
+                                {isExpanded ? copy("Réduire") : copy("Développer l'analyse")}
                                 {isExpanded ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
                             </button>
                         )}
@@ -70,6 +72,7 @@ function VerdictSection({ summary }: { summary: string }) {
 }
 
 export default function MatchAnalysisPage({ params }: { params: Promise<{ id: string }> }) {
+    const { copy, locale } = useI18n();
     // Unwrap params using React.use()
     const resolvedParams = use(params);
     const [match, setMatch] = useState<Match | null>(null);
@@ -107,15 +110,15 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                     // helper to localize betting terms
                     const localizeMarket = (m: string) => {
                         const dict: Record<string, string> = {
-                            "MATCH WINNER": "Résultat Final",
-                            "GOALS OVER/UNDER": "Plus/Moins Buts",
-                            "BOTH TEAMS SCORE": "Les deux équip. marquent",
+                            "MATCH WINNER": copy("Résultat Final"),
+                            "GOALS OVER/UNDER": copy("Plus/Moins Buts"),
+                            "BOTH TEAMS SCORE": copy("Les deux équip. marquent"),
                             "DOUBLE CHANCE": "Double Chance",
-                            "FIRST HALF WINNER": "Résultat 1ère Mi-temps",
-                            "ASIAN HANDICAP": "Handicap Asiatique",
-                            "HT/FT DOUBLE": "Mi-temps / Fin de match",
-                            "EXACT SCORE": "Score Exact",
-                            "DRAW NO BET": "Remboursé si Nul"
+                            "FIRST HALF WINNER": copy("Résultat 1ère Mi-temps"),
+                            "ASIAN HANDICAP": "Asian Handicap",
+                            "HT/FT DOUBLE": copy("Mi-temps / Fin de match"),
+                            "EXACT SCORE": "Exact Score",
+                            "DRAW NO BET": copy("Remboursé si Nul")
                         };
                         return dict[m.toUpperCase()] || m;
                     };
@@ -126,9 +129,9 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                         // Exact match replacements
                         if (val === "home") return home;
                         if (val === "away") return away;
-                        if (val === "draw") return "Match Nul";
-                        if (val === "yes") return "Oui";
-                        if (val === "no") return "Non";
+                        if (val === "draw") return copy("Match Nul");
+                        if (val === "yes") return copy("Oui");
+                        if (val === "no") return copy("Non");
 
                         // Handle combinations like Home/Draw or Home / Draw
                         if (val.includes("/") || val.includes(" ou ")) {
@@ -138,7 +141,7 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                             const localizedParts = parts.map(part => {
                                 if (part === "home") return home;
                                 if (part === "away") return away;
-                                if (part === "draw") return "Nul";
+                                if (part === "draw") return copy("Nul");
                                 return part;
                             });
 
@@ -146,12 +149,12 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                             const uniqueParts = [...new Set(localizedParts)];
                             if (uniqueParts.length === 1) return uniqueParts[0];
 
-                            return uniqueParts.join(" ou ");
+                            return uniqueParts.join(copy(" ou "));
                         }
 
                         // Handle Over/Under
-                        if (val.startsWith("over ")) return val.replace("over ", "Plus de ");
-                        if (val.startsWith("under ")) return val.replace("under ", "Moins de ");
+                        if (val.startsWith("over ")) return val.replace("over ", copy("Plus de "));
+                        if (val.startsWith("under ")) return val.replace("under ", copy("Moins de "));
 
                         // Handle Handicaps with Home/Away (ex: Home -1.5)
                         let result = s;
@@ -161,7 +164,7 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                         return result;
                     };
 
-                    // Nouveau parsing basé sur les catégories (high_confidence, medium_confidence, risky)
+                    // Parse categories from the AI audit.
                     const categories = analysis.categories || {};
                     const homeName = matchData.home_team.name;
                     const awayName = matchData.away_team.name;
@@ -177,7 +180,7 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                                 confidence: item.confidence_score || item.confidence || (level === "safe" ? 85 : level === "value" ? 65 : 45),
                                 level: level,
                                 rank: item.rank || 1,
-                                analysis: item.analysis || "Aucune analyse détaillée fournie.",
+                                analysis: item.analysis || copy("Aucune analyse détaillée fournie."),
                                 keyFactors: []
                             });
                         });
@@ -208,7 +211,7 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                         logo: matchData.away_team.logo
                     },
                     date: dateObj.toISOString().split('T')[0],
-                    time: dateObj.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+                    time: dateObj.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' }),
                     status: matchData.status,
                     statusShort: matchData.status_short,
                     homeScore: matchData.score?.home,
@@ -217,7 +220,7 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                     scoreDetails: matchData.score?.details,
                     venue: matchData.venue || "Stadium",
                     predictions: aiPredictions,
-                    aiSummary: auditData?.ai_analysis?.match_summary || auditData?.ai_analysis?.summary || (aiPredictions.length > 0 ? "Le modèle d'intelligence artificielle a analysé l'historique de performances, les expected goals (xG), la dynamique de possession et le différentiel de classement (ELO) pour proposer des verdicts mesurés sur cette rencontre. Retrouvez le détail de l'analyse ci-dessous." : undefined),
+                    aiSummary: auditData?.ai_analysis?.match_summary || auditData?.ai_analysis?.summary || (aiPredictions.length > 0 ? copy("Le modèle d'intelligence artificielle a analysé l'historique de performances, les expected goals (xG), la dynamique de possession et le différentiel de classement (ELO) pour proposer des verdicts mesurés sur cette rencontre. Retrouvez le détail de l'analyse ci-dessous.") : undefined),
                     aiAudit: auditData ? {
                         snapshot_at: auditData.snapshot_at,
                         odds: auditData.odds,
@@ -234,7 +237,7 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
         if (resolvedParams.id) {
             fetchData();
         }
-    }, [resolvedParams.id, supabase]);
+    }, [copy, locale, resolvedParams.id, supabase]);
 
     // Initial loading state for animation
     const [mounted, setMounted] = useState(false);
@@ -243,15 +246,15 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
     }, []);
 
     if (loading) {
-        return <div className="min-h-screen flex items-center justify-center text-white/50">Chargement de l'analyse...</div>;
+        return <div className="min-h-screen flex items-center justify-center text-white/50">{copy("Chargement de l'analyse...")}</div>;
     }
 
     if (!match) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
-                <h1 className="text-2xl font-bold text-white">Match introuvable</h1>
-                <Link href="/dashboard">
-                    <Button variant="outline">Retour au tableau de bord</Button>
+                <h1 className="text-2xl font-bold text-white">{copy("Match introuvable")}</h1>
+                <Link href={`/${locale}/dashboard`}>
+                    <Button variant="outline">{copy("Retour au tableau de bord")}</Button>
                 </Link>
             </div>
         );
@@ -278,7 +281,7 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                 className="inline-flex items-center gap-2 text-muted-foreground hover:text-white transition-colors group"
             >
                 <ArrowLeft className="size-4 group-hover:-translate-x-1 transition-transform" />
-                <span>Retour aux matchs</span>
+                <span>{copy("Retour aux matchs")}</span>
             </button>
 
             {/* 1. HERO SECTION (The Stadium) */}
@@ -316,7 +319,7 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                                 {/* Live dot */}
                                 <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-500/20 border border-red-500/30 backdrop-blur-sm">
                                     <div className="size-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
-                                    <span className="text-[9px] font-black text-red-400 uppercase tracking-[0.2em]">Live</span>
+                                    <span className="text-[9px] font-black text-red-400 uppercase tracking-[0.2em]">{copy("Live")}</span>
                                 </div>
                             </div>
                         </div>
@@ -324,22 +327,21 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                         {/* Title */}
                         <div className="space-y-4 max-w-2xl">
                             <h3 className="text-2xl sm:text-4xl lg:text-5xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-white/50 uppercase leading-tight">
-                                Analyse Live
+                                {copy("Analyse Live")}
                                 <br />
-                                <span className="text-primary/80">Bientôt Disponible</span>
+                                <span className="text-primary/80">{copy("Bientôt Disponible")}</span>
                             </h3>
                             <p className="text-sm sm:text-base text-zinc-500 font-medium max-w-lg mx-auto leading-relaxed">
-                                Nos algorithmes de prédiction en temps réel sont en cours de développement.
-                                Vous serez les premiers à bénéficier des analyses live pour saisir les meilleures opportunités pendant le match.
+                                {copy("Nos algorithmes de prédiction en temps réel sont en cours de développement. Vous serez les premiers à bénéficier des analyses live pour saisir les meilleures opportunités pendant le match.")}
                             </p>
                         </div>
 
                         {/* Feature pills */}
                         <div className="flex flex-wrap items-center justify-center gap-3 pt-4">
                             {[
-                                { icon: Activity, label: "Données temps réel" },
-                                { icon: TrendingUp, label: "Cotes dynamiques" },
-                                { icon: Sparkles, label: "IA prédictive" },
+                                { icon: Activity, label: copy("Données temps réel") },
+                                { icon: TrendingUp, label: copy("Cotes dynamiques") },
+                                { icon: Sparkles, label: copy("IA prédictive") },
                             ].map(({ icon: Icon, label }) => (
                                 <div key={label} className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.03] border border-white/10 text-xs font-medium text-zinc-400">
                                     <Icon className="size-3.5 text-primary/60" />
@@ -378,7 +380,7 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                             <CardHeader className="pb-4 sm:pb-6 border-b border-white/[0.03] bg-white/[0.01]">
                                 <CardTitle className="text-[10px] sm:text-[12px] font-montserrat font-black uppercase tracking-[0.1em] sm:tracking-[0.2em] text-primary/80 flex items-center gap-2 leading-snug">
                                     <TrendingUp className="size-3.5 sm:size-4 text-primary shrink-0" />
-                                    Intelligence Artificielle & Prédictions
+                                    {copy("Intelligence Artificielle & Prédictions")}
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-10 p-8 sm:p-10">
@@ -391,13 +393,13 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                             <h4 className="text-[10px] sm:text-[12px] font-montserrat font-black uppercase tracking-[0.1em] sm:tracking-[0.15em] text-primary/80 flex items-center gap-2 leading-relaxed">
                                                 <Sparkles className="size-3.5 sm:size-4 text-primary shrink-0 mt-0.5 sm:mt-0" />
-                                                <span>Ce que l’IA vous propose<br className="hidden sm:block" /> pour cette rencontre</span>
+                                                <span>{copy("Ce que l’IA vous propose pour cette rencontre")}</span>
                                             </h4>
 
                                             <Sheet>
                                                 <SheetTrigger asChild>
                                                     <Button variant="ghost" size="sm" className="text-[10px] uppercase font-black tracking-widest text-primary/60 hover:text-primary hover:bg-primary/5 gap-2 group">
-                                                        Voir plus de paris
+                                                        {copy("Voir plus de paris")}
                                                         <Plus className="size-3 group-hover:rotate-90 transition-transform duration-300" />
                                                     </Button>
                                                 </SheetTrigger>
@@ -405,10 +407,10 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                                                     <SheetHeader className="p-8 border-b border-white/5 bg-white/[0.02]">
                                                         <SheetTitle className="text-xl font-black tracking-tight text-white flex items-center gap-2">
                                                             <TrendingUp className="size-5 text-primary" />
-                                                            Explorateur de Paris IA
+                                                            {copy("Explorateur de Paris IA")}
                                                         </SheetTitle>
                                                         <SheetDescription className="text-zinc-500 text-xs font-medium">
-                                                            Retrouvez l&apos;intégralité des analyses et opportunités identifiées par notre algorithme.
+                                                            {copy("Retrouvez l'intégralité des analyses et opportunités identifiées par notre algorithme.")}
                                                         </SheetDescription>
                                                     </SheetHeader>
                                                     <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
@@ -467,7 +469,7 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                                                                                 )}
                                                                             </div>
                                                                             <div className="flex items-baseline gap-1.5">
-                                                                                <span className="text-[10px] font-black text-white/20 tracking-widest">COTE</span>
+                                                                                <span className="text-[10px] font-black text-white/20 tracking-widest">{copy("COTE")}</span>
                                                                                 <span className="text-[20px] font-black tracking-tighter text-white font-mono">
                                                                                     {pred.odds.toFixed(2)}
                                                                                 </span>
@@ -485,14 +487,14 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                                                                             </DialogTitle>
                                                                             <DialogDescription className="text-xs font-bold text-primary/70 uppercase tracking-[0.2em] flex items-center gap-2">
                                                                                 <TrendingUp className="size-3.5" />
-                                                                                Marché : {pred.type}
+                                                                                {copy("Marché")} : {pred.type}
                                                                             </DialogDescription>
                                                                         </div>
                                                                     </DialogHeader>
 
                                                                     <div className="p-6 sm:p-8 pt-6 relative z-10">
                                                                         <div className="prose prose-invert prose-p:leading-relaxed prose-p:text-[15px] prose-p:text-zinc-300 prose-strong:text-white max-w-none">
-                                                                            <p>{pred.analysis || "Le modèle n'a pas généré d'argumentaire détaillé pour cette sélection spécifique, mais a identifié un motif statistique favorable basé sur les historiques récents et la modélisation ELO."}</p>
+                                                                            <p>{pred.analysis || copy("Le modèle n'a pas généré d'argumentaire détaillé pour cette sélection spécifique, mais a identifié un motif statistique favorable basé sur les historiques récents et la modélisation ELO.")}</p>
                                                                         </div>
                                                                     </div>
                                                                 </DialogContent>
@@ -518,10 +520,10 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                                                         {/* Message */}
                                                         <div className="space-y-2 max-w-md">
                                                             <h4 className="text-lg font-bold text-zinc-300 tracking-tight">
-                                                                Analyse en préparation
+                                                                {copy("Analyse en préparation")}
                                                             </h4>
                                                             <p className="text-sm text-zinc-600 leading-relaxed">
-                                                                L&apos;analyse de ce match sera bientôt disponible. Nos algorithmes collectent les données nécessaires pour vous proposer les meilleures recommandations.
+                                                                {copy("L'analyse de ce match sera bientôt disponible. Nos algorithmes collectent les données nécessaires pour vous proposer les meilleures recommandations.")}
                                                             </p>
                                                         </div>
                                                     </div>
@@ -562,7 +564,7 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                                                                 const pct = typeof pred.confidence === 'number' ? pred.confidence : 0;
                                                                 const outcome = pred.bet;
                                                                 const odds = pred.odds.toFixed(2);
-                                                                const analysis = pred.analysis || "Le modèle n'a pas généré d'argumentaire détaillé pour cette sélection spécifique, mais a identifié un motif statistique favorable basé sur les historiques récents et la modélisation ELO.";
+                                                                const analysis = pred.analysis || copy("Le modèle n'a pas généré d'argumentaire détaillé pour cette sélection spécifique, mais a identifié un motif statistique favorable basé sur les historiques récents et la modélisation ELO.");
 
                                                                 return (
                                                                     <TabsContent key={pred.level} value={pred.level} className="mt-0 animate-fade-in shadow-none">
@@ -597,7 +599,7 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                                                                                     </div>
                                                                                     <h3 className="text-4xl sm:text-5xl font-black mb-4 text-white leading-tight drop-shadow-md">{outcome}</h3>
                                                                                     <div className="inline-flex items-center px-4 py-1.5 rounded-full border border-white/10 bg-white/5 text-sm font-mono text-white/80">
-                                                                                        Cote médiane : <span className="text-white ml-2 font-black">{odds}</span>
+                                                                                        {copy("Cote médiane")} : <span className="text-white ml-2 font-black">{odds}</span>
                                                                                     </div>
                                                                                 </div>
                                                                                 <p className="text-zinc-400 leading-relaxed text-[16px] sm:text-[18px]">
@@ -621,7 +623,7 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
 
                     {/* RIGHT COLUMN (H2H & Stats) - Spans 5 cols */}
                     <div className="lg:col-span-4 xl:col-span-3 space-y-4 sm:space-y-5 animate-in slide-in-from-bottom-8 duration-700 delay-500 flex flex-col">
-                        {/* TOP: H2H (désactivé temporairement pour basketball et tennis) */}
+                        {/* TOP: H2H temporarily disabled for basketball and tennis. */}
                         {match.sport === 'football' && (
                         <Card className="bg-black/20 border-white/5 backdrop-blur-sm overflow-hidden relative opacity-90 transition-opacity hover:opacity-100">
                             <div className="absolute inset-0 bg-gradient-to-br from-white/[0.02] to-transparent pointer-events-none" />
@@ -630,7 +632,7 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                                     <div className="p-1.5 rounded-md bg-blue-500/10 text-blue-400">
                                         <Trophy className="size-3.5" />
                                     </div>
-                                    Face-à-Face Historique
+                                    {copy("Face-à-Face Historique")}
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-6 pt-8 pb-10 px-8">
@@ -642,7 +644,7 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                                     if (noH2H) {
                                         return (
                                             <div className="py-12 flex items-center justify-center">
-                                                <span className="text-sm text-zinc-600 font-medium">Pas encore disponible</span>
+                                                <span className="text-sm text-zinc-600 font-medium">{copy("Pas encore disponible")}</span>
                                             </div>
                                         );
                                     }
@@ -658,7 +660,7 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
 
                                     if (totalMatches === 0) {
                                         return (
-                                            <div className="py-16 text-center text-muted-foreground">Données H2H non disponibles.</div>
+                                            <div className="py-16 text-center text-muted-foreground">{copy("Données H2H non disponibles.")}</div>
                                         );
                                     }
 
@@ -669,15 +671,15 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                                                 <div className="flex justify-between items-end text-sm font-medium">
                                                     <div className="flex flex-col items-start gap-1">
                                                         <span className="text-2xl font-bold text-white/80 drop-shadow-md">{homeWins}</span>
-                                                        <span className="text-[10px] uppercase tracking-widest text-cyan-400 font-bold">Victoires</span>
+                                                        <span className="text-[10px] uppercase tracking-widest text-cyan-400 font-bold">{copy("Victoires")}</span>
                                                     </div>
                                                     <div className="flex flex-col items-center gap-1">
                                                         <span className="text-lg font-medium text-white/50">{draws > 0 ? draws : totalMatches}</span>
-                                                        <span className="text-[10px] uppercase tracking-widest text-white/40">{draws > 0 ? 'Nuls' : 'Matchs'}</span>
+                                                        <span className="text-[10px] uppercase tracking-widest text-white/40">{draws > 0 ? copy('Nuls') : copy('Matchs')}</span>
                                                     </div>
                                                     <div className="flex flex-col items-end gap-1">
                                                         <span className="text-2xl font-bold text-white/80 drop-shadow-md">{awayWins}</span>
-                                                        <span className="text-[10px] uppercase tracking-widest text-rose-500 font-bold">Victoires</span>
+                                                        <span className="text-[10px] uppercase tracking-widest text-rose-500 font-bold">{copy("Victoires")}</span>
                                                     </div>
                                                 </div>
 
@@ -711,9 +713,9 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                                             {/* Moyennes de Buts */}
                                             {h2h.avg_goals_a !== undefined && (
                                                 <div className="space-y-2 pt-6 border-t border-white/5">
-                                                    <h4 className="text-xs font-bold uppercase tracking-[0.2em] text-white/30 mb-8 text-center">Confrontations Moyennes</h4>
+                                                    <h4 className="text-xs font-bold uppercase tracking-[0.2em] text-white/30 mb-8 text-center">{copy("Confrontations Moyennes")}</h4>
                                                     <StatBattle
-                                                        label="Buts Moyens"
+                                                        label={copy("Buts Moyens")}
                                                         homeValue={Number(isHomeA ? h2h.avg_goals_a : h2h.avg_goals_b) || 0}
                                                         awayValue={Number(isHomeA ? h2h.avg_goals_b : h2h.avg_goals_a) || 0}
                                                     />
@@ -735,10 +737,10 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                                         <div className="p-1.5 rounded-md bg-primary/10 text-primary">
                                             <Activity className="size-3.5" />
                                         </div>
-                                        Comparatif des Tendances
+                                        {copy("Comparatif des Tendances")}
                                     </div>
                                     <div className="flex flex-col items-end gap-0.5">
-                                        <span className="text-[8px] font-black text-muted-foreground uppercase tracking-[0.2em]">Période</span>
+                                        <span className="text-[8px] font-black text-muted-foreground uppercase tracking-[0.2em]">{copy("Période")}</span>
                                         <span className="text-[10px] font-bold text-white/50 px-1.5 py-0.5 rounded bg-white/5 border border-white/10 uppercase tracking-widest">Rolling L5 / L10</span>
                                     </div>
                                 </CardTitle>
@@ -748,18 +750,18 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                                     if (key === 'date') return null;
                                     // Human friendly labels for common stats
                                     const labels: Record<string, string> = {
-                                        'l5_points': 'Points Inscrits (L5)',
-                                        'l10_points': 'Points Inscrits (L10)',
+                                        'l5_points': copy('Points Inscrits (L5)'),
+                                        'l10_points': copy('Points Inscrits (L10)'),
                                         'l5_ortg': 'Offensive Rating (L5)',
                                         'l5_drtg': 'Defensive Rating (L5)',
                                         'l5_net_rtg': 'Net Rating (L5)',
-                                        'l5_goals_for': 'Buts marqués (L5)',
-                                        'l5_goals_against': 'Buts encaissés (L5)',
+                                        'l5_goals_for': copy('Buts marqués (L5)'),
+                                        'l5_goals_against': copy('Buts encaissés (L5)'),
                                         'l5_xg_for': 'Ex. Goals For (L5)',
                                         'l5_xg_against': 'Ex. Goals Against (L5)',
-                                        'l5_possession_avg': 'Possession Moyenne',
-                                        'l10_aces_avg': 'Aces Moy. (L10)',
-                                        'l10_first_serve_pct': '1er Service (L10)',
+                                        'l5_possession_avg': copy('Possession Moyenne'),
+                                        'l10_aces_avg': copy('Aces Moy. (L10)'),
+                                        'l10_first_serve_pct': copy('1er Service (L10)'),
                                         'l10_win_pct': 'Win Rate (L10)'
                                     };
 
@@ -775,7 +777,7 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                                 })}
                                 {Object.keys(homeStats).length === 0 && (
                                     <div className="py-12 flex items-center justify-center">
-                                        <span className="text-sm text-zinc-600 font-medium">Pas encore disponible</span>
+                                        <span className="text-sm text-zinc-600 font-medium">{copy("Pas encore disponible")}</span>
                                     </div>
                                 )}
                             </CardContent>
