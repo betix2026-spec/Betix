@@ -73,6 +73,9 @@ export interface UpdatePlanData {
     is_active?: boolean;
     position?: number;
     badge_text?: string | null;
+    badge_text_en?: string | null;
+    badge_text_es?: string | null;
+    badge_text_de?: string | null;
     badge_color?: string | null;
 }
 
@@ -99,6 +102,9 @@ export async function updatePlanAction(planId: string, data: UpdatePlanData) {
         if (data.is_active !== undefined) updates.is_active = data.is_active;
         if (data.position !== undefined) updates.position = data.position;
         if (data.badge_text !== undefined) updates.badge_text = data.badge_text;
+        if (data.badge_text_en !== undefined) updates.badge_text_en = data.badge_text_en;
+        if (data.badge_text_es !== undefined) updates.badge_text_es = data.badge_text_es;
+        if (data.badge_text_de !== undefined) updates.badge_text_de = data.badge_text_de;
         if (data.badge_color !== undefined) updates.badge_color = data.badge_color;
 
         const { error } = await supabaseAdmin
@@ -158,6 +164,9 @@ export async function createPlanAction(data: UpdatePlanData) {
                 trial_days: data.trial_days ?? null,
                 strikethrough_price: data.strikethrough_price ?? null,
                 badge_text: data.badge_text ?? null,
+                badge_text_en: data.badge_text_en ?? null,
+                badge_text_es: data.badge_text_es ?? null,
+                badge_text_de: data.badge_text_de ?? null,
                 badge_color: data.badge_color ?? null
             })
             .select()

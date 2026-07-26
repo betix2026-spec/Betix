@@ -57,7 +57,7 @@ export default function ResetPasswordPage() {
                     <BiometricInput
                         label={t("emailAddress")}
                         type="email"
-                        placeholder="votre@email.com"
+                        placeholder={t("emailPlaceholder")}
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         required

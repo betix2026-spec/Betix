@@ -111,9 +111,10 @@ export default function SubscriptionPage() {
         fetchData();
     }, [supabase]);
 
+    const dateLocale = { fr: "fr-FR", en: "en-US", es: "es-ES", de: "de-DE" }[locale];
+
     const formatDate = (dateString?: string | null) => {
         if (!dateString) return "N/A";
-        const dateLocale = { fr: "fr-FR", en: "en-US", es: "es-ES", de: "de-DE" }[locale];
         return new Date(dateString).toLocaleDateString(dateLocale, {
             year: 'numeric',
             month: 'long',
@@ -235,7 +236,7 @@ export default function SubscriptionPage() {
                             {subscription?.estimated_refund_amount != null && (
                                 <p className="text-sm text-amber-300 flex items-center gap-2">
                                     <AlertTriangle className="w-4 h-4" />
-                                    {t(locale, "estimatedAnnualRefund")} : {formatCurrency(Number(subscription.estimated_refund_amount))}
+                                    {t(locale, "estimatedAnnualRefund")} : {formatCurrency(Number(subscription.estimated_refund_amount), dateLocale)}
                                 </p>
                             )}
                         </div>
@@ -288,7 +289,7 @@ export default function SubscriptionPage() {
                                 </p>
                                 <p>
                                     {t(locale, "annualRefundEstimate")} :{" "}
-                                    <strong className="text-white">{formatCurrency(estimatedRefund ?? 0)}</strong>.
+                                    <strong className="text-white">{formatCurrency(estimatedRefund ?? 0, dateLocale)}</strong>.
                                     {" "}{t(locale, "finalRefundReviewed")}
                                 </p>
                             </div>
@@ -354,7 +355,9 @@ export default function SubscriptionPage() {
                             const priceDisplay = dbPlan.price.toString();
                             let cta = t(locale, "subscribe");
 
-                            const badge = dbPlan.badge_text || undefined;
+                            const badge = dbPlan.badge_text
+                                ? pickLocalized(locale, dbPlan.badge_text, { en: dbPlan.badge_text_en, es: dbPlan.badge_text_es, de: dbPlan.badge_text_de })
+                                : undefined;
                             const badgeColor = dbPlan.badge_color || undefined;
 
                             switch (dbPlan.frequency) {

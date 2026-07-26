@@ -109,74 +109,15 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                 if (auditData?.ai_analysis) {
                     const analysis = typeof auditData.ai_analysis === 'string' ? JSON.parse(auditData.ai_analysis) : auditData.ai_analysis;
 
-                    // helper to localize betting terms
-                    const localizeMarket = (m: string) => {
-                        const dict: Record<string, string> = {
-                            "MATCH WINNER": copy("Résultat Final"),
-                            "GOALS OVER/UNDER": copy("Plus/Moins Buts"),
-                            "BOTH TEAMS SCORE": copy("Les deux équip. marquent"),
-                            "DOUBLE CHANCE": "Double Chance",
-                            "FIRST HALF WINNER": copy("Résultat 1ère Mi-temps"),
-                            "ASIAN HANDICAP": "Asian Handicap",
-                            "HT/FT DOUBLE": copy("Mi-temps / Fin de match"),
-                            "EXACT SCORE": "Exact Score",
-                            "DRAW NO BET": copy("Remboursé si Nul")
-                        };
-                        return dict[m.toUpperCase()] || m;
-                    };
-
-                    const localizeSelection = (s: string, market: string, home: string, away: string) => {
-                        const val = s.toLowerCase();
-
-                        // Exact match replacements
-                        if (val === "home") return home;
-                        if (val === "away") return away;
-                        if (val === "draw") return copy("Match Nul");
-                        if (val === "yes") return copy("Oui");
-                        if (val === "no") return copy("Non");
-
-                        // Handle combinations like Home/Draw or Home / Draw
-                        if (val.includes("/") || val.includes(" ou ")) {
-                            const separator = val.includes("/") ? "/" : " ou ";
-                            const parts = val.split(separator).map(p => p.trim());
-
-                            const localizedParts = parts.map(part => {
-                                if (part === "home") return home;
-                                if (part === "away") return away;
-                                if (part === "draw") return copy("Nul");
-                                return part;
-                            });
-
-                            // Deduplicate (fix "PSG ou PSG")
-                            const uniqueParts = [...new Set(localizedParts)];
-                            if (uniqueParts.length === 1) return uniqueParts[0];
-
-                            return uniqueParts.join(copy(" ou "));
-                        }
-
-                        // Handle Over/Under
-                        if (val.startsWith("over ")) return val.replace("over ", copy("Plus de "));
-                        if (val.startsWith("under ")) return val.replace("under ", copy("Moins de "));
-
-                        // Handle Handicaps with Home/Away (ex: Home -1.5)
-                        let result = s;
-                        if (val.includes("home")) result = result.replace(/home/i, home);
-                        if (val.includes("away")) result = result.replace(/away/i, away);
-
-                        return result;
-                    };
-
                     // Parse categories from the AI audit.
                     const categories = analysis.categories || {};
-                    const homeName = matchData.home_team.name;
-                    const awayName = matchData.away_team.name;
 
                     const processCategory = (items: any[], level: "safe" | "value" | "risky") => {
                         if (!Array.isArray(items)) return;
                         items.forEach((item: any) => {
                             aiPredictions.push({
-                                type: localizeMarket(item.market || ""),
-                                bet: localizeSelection(item.selection || "", item.market || "", homeName, awayName),
+                                type: item.market ? localizeAnalysisText(item.market, locale) : "",
+                                bet: item.selection ? localizeAnalysisText(item.selection, locale) : "",
                                 odds: item.odds || 0,
                                 bookmaker: item.bookmaker || item.provider || "Standard",
                                 confidence: item.confidence_score || item.confidence || (level === "safe" ? 85 : level === "value" ? 65 : 45),

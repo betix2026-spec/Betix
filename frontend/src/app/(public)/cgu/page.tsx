@@ -2,10 +2,13 @@ import { Metadata } from "next";
 import { getServerLocale } from "@/lib/i18n-server";
 import { getTermsContent } from "@/lib/legal-content";
 
-export const metadata: Metadata = {
-    title: "Terms of Use | BETIX",
-    description: "Terms of Use for the BETIX platform.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+    const content = getTermsContent(await getServerLocale());
+    return {
+        title: `${content.title} | BETIX`,
+        description: content.title,
+    };
+}
 
 export default async function CGUPage() {
     const locale = await getServerLocale();

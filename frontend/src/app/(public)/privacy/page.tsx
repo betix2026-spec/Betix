@@ -2,10 +2,13 @@ import { Metadata } from "next";
 import { getServerLocale } from "@/lib/i18n-server";
 import { getPrivacyContent } from "@/lib/legal-content";
 
-export const metadata: Metadata = {
-    title: "Privacy Policy | BETIX",
-    description: "Privacy Policy and data handling for BETIX.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+    const content = getPrivacyContent(await getServerLocale());
+    return {
+        title: `${content.title} | BETIX`,
+        description: content.title,
+    };
+}
 
 export default async function PrivacyPage() {
     const locale = await getServerLocale();
