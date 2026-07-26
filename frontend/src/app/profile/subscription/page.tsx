@@ -305,22 +305,22 @@ export default function SubscriptionPage() {
                     <DialogFooter>
                         <Button
                             variant="outline"
-                            onClick={() => setCancelDialogOpen(false)}
-                            disabled={isCancelling}
-                            className="border-white/10 bg-white/5"
-                        >
-                            {t(locale, "keepSubscription")}
-                        </Button>
-                        <Button
                             onClick={handleCancelSubscription}
                             disabled={isCancelling}
-                            className="bg-red-600 hover:bg-red-500 text-white"
+                            className="border-white/10 bg-transparent text-red-400/80 hover:bg-red-500/10 hover:text-red-300"
                         >
                             {isCancelling ? (
                                 <><Loader2 className="size-4 mr-2 animate-spin" /> {t(locale, "confirmingCancellation")}</>
                             ) : (
                                 t(locale, "confirmCancellation")
                             )}
+                        </Button>
+                        <Button
+                            onClick={() => setCancelDialogOpen(false)}
+                            disabled={isCancelling}
+                            className="bg-blue-600 hover:bg-blue-500 text-white font-bold"
+                        >
+                            {t(locale, "keepSubscription")}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

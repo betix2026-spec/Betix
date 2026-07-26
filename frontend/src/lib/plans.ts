@@ -14,6 +14,22 @@ export function formatFeatureValue(value: string | number | boolean): string {
 }
 
 /**
+ * Resolves a PlanFeature's display text for the given locale. `display` is
+ * either a legacy plain string (shown as-is in every language) or the
+ * { fr, en, es, de } shape, which picks the right language and falls back to
+ * French, then to the raw `value` if no display override exists at all.
+ */
+export function resolveFeatureDisplay(
+    display: string | { en?: string; es?: string; de?: string } | undefined,
+    value: string | number | boolean,
+    locale?: Locale | null
+): string {
+    if (!display) return formatFeatureValue(value);
+    if (typeof display === "string") return display;
+    return pickLocalized(locale, formatFeatureValue(value), { en: display.en, es: display.es, de: display.de });
+}
+
+/**
  * Flattens the structured features (core, advanced, vip) into a simple list for display.
  * Uses feature_definitions to get the proper Label and Description.
  */
@@ -50,7 +66,7 @@ export function getDisplayFeatures(
                 // It's a complex PlanFeature object
                 const pf = value as PlanFeature;
                 included = pf.value !== false;
-                displayValue = pf.display || formatFeatureValue(pf.value);
+                displayValue = resolveFeatureDisplay(pf.display, pf.value, locale);
             } else {
                 // It's a simplistic value (string/boolean/number) directly
                 included = value !== false;
