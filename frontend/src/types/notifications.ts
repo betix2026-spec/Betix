@@ -14,14 +14,9 @@ export interface AppNotification {
     action_url: string | null;
     created_at: string;
 
-    // Relations (returned when joined with profiles)
+    // Relation (returned when joined with profiles via sender_id)
     sender?: {
-        name: string;
-        email: string;
-        avatar?: string;
-    };
-    recipient?: {
-        name: string;
-        email: string;
-    };
+        username: string;
+        avatar_url: string | null;
+    } | null;
 }

@@ -11,7 +11,12 @@ interface RevenueHoloChartProps {
 
 export function RevenueHoloChart({ data }: RevenueHoloChartProps) {
     const { copy, t } = useI18n();
-    const maxRevenue = Math.max(...data.map(d => d.revenue));
+    const maxRevenue = Math.max(...data.map(d => d.revenue), 1);
+    const prevRevenue = data[data.length - 2]?.revenue ?? 0;
+    const currRevenue = data[data.length - 1]?.revenue ?? 0;
+    const growthPct = prevRevenue > 0
+        ? Math.round(((currRevenue - prevRevenue) / prevRevenue) * 1000) / 10
+        : (currRevenue > 0 ? 100 : 0);
 
     return (
         <div className="relative overflow-hidden rounded-3xl bg-black border border-white/5 backdrop-blur-xl h-[400px] group">
@@ -33,9 +38,12 @@ export function RevenueHoloChart({ data }: RevenueHoloChartProps) {
                         </h3>
                         <p className="text-sm text-neutral-500 font-mono mt-1">{t("dashboardRevenueSubtitle")}</p>
                     </div>
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold uppercase tracking-wider">
-                        <TrendingUp className="size-3.5" />
-                        +15.2% Growth
+                    <div className={cn(
+                        "flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-bold uppercase tracking-wider",
+                        growthPct >= 0 ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" : "bg-red-500/10 border-red-500/20 text-red-400"
+                    )}>
+                        <TrendingUp className={cn("size-3.5", growthPct < 0 && "rotate-180")} />
+                        {growthPct > 0 ? "+" : ""}{growthPct}% {t("dashboardGrowthLabel")}
                     </div>
                 </div>
 
