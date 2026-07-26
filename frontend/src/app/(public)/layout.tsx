@@ -172,7 +172,7 @@ export default async function PublicLayout({
                         <div className="space-y-3">
                             <h4 className="text-sm font-semibold">{t(locale, "contact")}</h4>
                             <ul className="space-y-2">
-                                <li><a href="mailto:bet-ix@outlook.fr" className="text-sm text-muted-foreground hover:text-foreground transition-colors">bet-ix@outlook.fr</a></li>
+                                <li><a href="mailto:marcel@bet-ix.com" className="text-sm text-muted-foreground hover:text-foreground transition-colors">marcel@bet-ix.com</a></li>
                             </ul>
                         </div>
                     </div>

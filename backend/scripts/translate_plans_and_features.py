@@ -71,7 +71,14 @@ async def translate_texts(texts: dict[str, str]) -> dict[str, dict]:
     if not texts:
         return {}
 
-    ai = ChatModel(provider="claude", model_name="claude-haiku-4-5-20251001", temperature=0.3, max_tokens=4096)
+    settings = get_settings()
+    ai = ChatModel(
+        provider="claude",
+        api_key=getattr(settings, "ANTHROPIC_API_KEY", None),
+        model_name="claude-haiku-4-5-20251001",
+        temperature=0.3,
+        max_tokens=4096,
+    )
 
     prompt = (
         "Translate each of the following French SaaS pricing-page texts (plan names, plan "

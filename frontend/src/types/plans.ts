@@ -1,10 +1,19 @@
 export type PlanFrequency = 'free' | 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'semi_annual' | 'yearly';
 
+export interface PlanFeatureDisplay {
+    en?: string;
+    es?: string;
+    de?: string;
+}
+
 export interface PlanFeature {
-    // Defines a single feature value within a category (e.g. "20/j" or true)
+    // Defines a single feature value within a category (e.g. "20/j" or true).
+    // Doubles as the French/base display text for text-type features.
     value: string | number | boolean;
-    // Optional override for display text if different from value
-    display?: string;
+    // Optional override for display text if different from value.
+    // A plain string is legacy (pre-translation, shown as-is in every locale);
+    // the { en, es, de } shape picks the right language, falling back to `value`.
+    display?: string | PlanFeatureDisplay;
 }
 
 export interface PlanFeatures {

@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { formatFeatureValue } from "@/lib/plans";
 import { toast } from "sonner"; // Assuming sonner is installed
 import { useI18n } from "@/lib/use-i18n";
+import { LOCALE_LABELS } from "@/lib/i18n";
 
 interface EngineeringBayProps {
     plan: Plan | null;
@@ -120,6 +121,27 @@ export function EngineeringBay({ plan, definitions, open, onClose, onSuccess }: 
 
         newFeatures[category][key] = value;
         setFormData({ ...formData, features: newFeatures });
+    };
+
+    // Updates just the base (French) value of a text feature, preserving any
+    // per-locale display translations already entered.
+    const updateFeatureBaseValue = (category: keyof PlanFeatures, key: string, newValue: string) => {
+        const current = formData.features?.[category]?.[key];
+        const currentDisplay = typeof current === 'object' && current !== null ? (current as any).display : undefined;
+        updateFeature(category, key, { value: newValue, display: currentDisplay });
+    };
+
+    // Updates one language's translated display text for a text feature,
+    // preserving the base value and the other languages already entered.
+    const updateFeatureTranslation = (category: keyof PlanFeatures, key: string, lang: 'en' | 'es' | 'de', text: string) => {
+        const current = formData.features?.[category]?.[key];
+        const currentValue = typeof current === 'object' && current !== null && 'value' in (current as any)
+            ? (current as any).value
+            : (typeof current === 'string' ? current : '');
+        const currentDisplay = typeof current === 'object' && current !== null && typeof (current as any).display === 'object'
+            ? (current as any).display
+            : {};
+        updateFeature(category, key, { value: currentValue, display: { ...currentDisplay, [lang]: text } });
     };
 
     const removeFeature = (category: keyof PlanFeatures, key: string) => {
@@ -454,36 +476,64 @@ export function EngineeringBay({ plan, definitions, open, onClose, onSuccess }: 
                                         // Determine value type
                                         const isBoolean = typeof value === 'boolean' || (typeof value === 'object' && typeof (value as any).value === 'boolean');
                                         const stringValue = typeof value === 'object' ? (value as any).value : value;
+                                        const displayMap = (typeof value === 'object' && value !== null && typeof (value as any).display === 'object')
+                                            ? (value as any).display
+                                            : {};
 
                                         return (
-                                            <div key={key} className="flex items-center gap-3 p-2 rounded-lg bg-white/5 border border-white/5 group">
-                                                <div className="flex-1">
-                                                    <p className="text-xs font-bold text-neutral-300">{label}</p>
-                                                    <p className="text-[10px] text-neutral-500 font-mono">{key}</p>
+                                            <div key={key} className="rounded-lg bg-white/5 border border-white/5 group">
+                                                <div className="flex items-center gap-3 p-2">
+                                                    <div className="flex-1">
+                                                        <p className="text-xs font-bold text-neutral-300">{label}</p>
+                                                        <p className="text-[10px] text-neutral-500 font-mono">{key}</p>
+                                                    </div>
+
+                                                    {/* Edit Control */}
+                                                    {def?.type === 'boolean' ? (
+                                                        <Switch
+                                                            checked={stringValue as boolean}
+                                                            onCheckedChange={(c) => updateFeature(category, key, c)}
+                                                        />
+                                                    ) : (
+                                                        <Input
+                                                            value={stringValue as string}
+                                                            onChange={(e) => updateFeatureBaseValue(category, key, e.target.value)}
+                                                            className="h-7 w-24 text-xs bg-black/50 border-white/10"
+                                                        />
+                                                    )}
+
+                                                    <Button
+                                                        size="icon"
+                                                        variant="ghost"
+                                                        onClick={() => removeFeature(category, key)}
+                                                        className="h-7 w-7 text-neutral-600 hover:text-red-500 hover:bg-red-500/10"
+                                                    >
+                                                        <Archive className="size-3.5" />
+                                                    </Button>
                                                 </div>
 
-                                                {/* Edit Control */}
-                                                {def?.type === 'boolean' ? (
-                                                    <Switch
-                                                        checked={stringValue as boolean}
-                                                        onCheckedChange={(c) => updateFeature(category, key, c)}
-                                                    />
-                                                ) : (
-                                                    <Input
-                                                        value={stringValue as string}
-                                                        onChange={(e) => updateFeature(category, key, e.target.value)}
-                                                        className="h-7 w-24 text-xs bg-black/50 border-white/10"
-                                                    />
+                                                {!isBoolean && (
+                                                    <div className="grid grid-cols-3 gap-2 px-2 pb-2">
+                                                        <Input
+                                                            value={displayMap.en || ''}
+                                                            onChange={(e) => updateFeatureTranslation(category, key, 'en', e.target.value)}
+                                                            placeholder={LOCALE_LABELS.en}
+                                                            className="h-6 text-[10px] bg-black/50 border-white/10"
+                                                        />
+                                                        <Input
+                                                            value={displayMap.es || ''}
+                                                            onChange={(e) => updateFeatureTranslation(category, key, 'es', e.target.value)}
+                                                            placeholder={LOCALE_LABELS.es}
+                                                            className="h-6 text-[10px] bg-black/50 border-white/10"
+                                                        />
+                                                        <Input
+                                                            value={displayMap.de || ''}
+                                                            onChange={(e) => updateFeatureTranslation(category, key, 'de', e.target.value)}
+                                                            placeholder={LOCALE_LABELS.de}
+                                                            className="h-6 text-[10px] bg-black/50 border-white/10"
+                                                        />
+                                                    </div>
                                                 )}
-
-                                                <Button
-                                                    size="icon"
-                                                    variant="ghost"
-                                                    onClick={() => removeFeature(category, key)}
-                                                    className="h-7 w-7 text-neutral-600 hover:text-red-500 hover:bg-red-500/10"
-                                                >
-                                                    <Archive className="size-3.5" />
-                                                </Button>
                                             </div>
                                         );
                                     })}

@@ -73,7 +73,7 @@ function VerdictSection({ summary }: { summary: string }) {
 }
 
 export default function MatchAnalysisPage({ params }: { params: Promise<{ id: string }> }) {
-    const { copy, locale } = useI18n();
+    const { copy, t, locale } = useI18n();
     // Unwrap params using React.use()
     const resolvedParams = use(params);
     const [match, setMatch] = useState<Match | null>(null);
@@ -584,7 +584,7 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
 
                                                                             {/* Gauge */}
                                                                             <div className="shrink-0 scale-125 md:scale-150 py-8 md:pl-8 relative z-10 w-[120px] flex justify-center">
-                                                                                <BreathingGauge value={pct} />
+                                                                                <BreathingGauge value={pct} label={t("aiConfidenceLabel")} />
                                                                             </div>
 
                                                                             {/* Content */}

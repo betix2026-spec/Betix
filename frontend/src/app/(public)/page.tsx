@@ -394,7 +394,7 @@ export default async function LandingPage() {
                                     {
                                         key: "safe",
                                         pct: 89,
-                                        outcome: "Plus de 1.5 buts",
+                                        outcome: t(locale, "demoOutcomeOne"),
                                         odds: "1.35",
                                         color: "text-safe",
                                         analysis: t(locale, "demoAnalysisOne"),
@@ -402,7 +402,7 @@ export default async function LandingPage() {
                                     {
                                         key: "value",
                                         pct: 68,
-                                        outcome: "Les deux marquent",
+                                        outcome: t(locale, "demoOutcomeTwo"),
                                         odds: "1.72",
                                         color: "text-value",
                                         analysis: t(locale, "demoAnalysisTwo"),
@@ -410,7 +410,7 @@ export default async function LandingPage() {
                                     {
                                         key: "risky",
                                         pct: 42,
-                                        outcome: "Arsenal gagne 2-1",
+                                        outcome: t(locale, "demoOutcomeThree"),
                                         odds: "8.50",
                                         color: "text-risky",
                                         analysis: t(locale, "demoAnalysisThree"),
@@ -420,7 +420,7 @@ export default async function LandingPage() {
                                         <div className="flex flex-col md:flex-row items-center justify-center gap-12 md:gap-20">
                                             {/* Breathing Gauge */}
                                             <div className="shrink-0 scale-125 md:scale-150 pl-4 py-8">
-                                                <BreathingGauge value={pred.pct} />
+                                                <BreathingGauge value={pred.pct} label={t(locale, "aiConfidenceLabel")} />
                                             </div>
 
                                             <div className="flex-1 text-center md:text-left space-y-5 max-w-md">
