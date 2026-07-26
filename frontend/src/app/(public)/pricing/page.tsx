@@ -119,7 +119,9 @@ export default function PricingPage() {
         }
 
         // Badge from DB (admin-configurable)
-        badge = dbPlan.badge_text || undefined;
+        badge = dbPlan.badge_text
+            ? pickLocalized(locale, dbPlan.badge_text, { en: dbPlan.badge_text_en, es: dbPlan.badge_text_es, de: dbPlan.badge_text_de })
+            : undefined;
         badgeColor = dbPlan.badge_color || undefined;
 
         return {

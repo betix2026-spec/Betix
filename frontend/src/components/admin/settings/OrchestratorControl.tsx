@@ -173,9 +173,9 @@ export function OrchestratorControl() {
                 </CardHeader>
                 {isEnabled("orch_live.enabled") && (
                     <CardContent className="space-y-3 pt-0">
-                        <ConfigRow label="Cycle principal" unit="s" configKey="orch_live.monitor_interval_s" value={cfg} onSave={save} />
-                        <ConfigRow label="Mark Live (toutes les N iter.)" configKey="orch_live.mark_live_every_n" value={cfg} onSave={save} />
-                        <ConfigRow label="Mark Imminent (toutes les N iter.)" configKey="orch_live.mark_imminent_every_n" value={cfg} onSave={save} />
+                        <ConfigRow label={copy("Cycle principal")} unit="s" configKey="orch_live.monitor_interval_s" value={cfg} onSave={save} />
+                        <ConfigRow label={copy("Mark Live (toutes les N iter.)")} configKey="orch_live.mark_live_every_n" value={cfg} onSave={save} />
+                        <ConfigRow label={copy("Mark Imminent (toutes les N iter.)")} configKey="orch_live.mark_imminent_every_n" value={cfg} onSave={save} />
                     </CardContent>
                 )}
             </Card>
@@ -207,10 +207,10 @@ export function OrchestratorControl() {
                 </CardHeader>
                 {isEnabled("orch_data.enabled") && (
                     <CardContent className="space-y-3 pt-0">
-                        <ConfigRow label="Cycle principal" unit="s" configKey="orch_data.sleep_interval_s" value={cfg} onSave={save} />
-                        <ConfigRow label="Discovery + Cotes (toutes les N iter.)" configKey="orch_data.discovery_every_n" value={cfg} onSave={save} />
-                        <ConfigRow label="Cleanup/Stats (toutes les N iter.)" configKey="orch_data.cleanup_every_n" value={cfg} onSave={save} />
-                        <ConfigRow label="Fenetre Discovery" unit="j" configKey="orch_data.discovery_days" value={cfg} onSave={save} />
+                        <ConfigRow label={copy("Cycle principal")} unit="s" configKey="orch_data.sleep_interval_s" value={cfg} onSave={save} />
+                        <ConfigRow label={copy("Discovery + Cotes (toutes les N iter.)")} configKey="orch_data.discovery_every_n" value={cfg} onSave={save} />
+                        <ConfigRow label={copy("Cleanup/Stats (toutes les N iter.)")} configKey="orch_data.cleanup_every_n" value={cfg} onSave={save} />
+                        <ConfigRow label={copy("Fenetre Discovery")} unit="j" configKey="orch_data.discovery_days" value={cfg} onSave={save} />
                     </CardContent>
                 )}
             </Card>

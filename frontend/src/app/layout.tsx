@@ -68,26 +68,45 @@ const nunito = Nunito({
     display: "swap",
 });
 
-export const metadata: Metadata = {
-    title: {
-        default: "BETIX",
-        template: "%s | BETIX",
+const METADATA_BY_LOCALE: Record<string, { description: string; keywords: string[] }> = {
+    fr: {
+        description:
+            "Plateforme SaaS premium de pronostics sportifs propulsée par l'Intelligence Artificielle. Football, Basketball, Tennis.",
+        keywords: ["pronostics sportifs", "IA", "paris sportifs", "football", "basketball", "tennis", "intelligence artificielle"],
     },
-    description:
-        "Plateforme SaaS premium de pronostics sportifs propulsée par l'Intelligence Artificielle. Football, Basketball, Tennis.",
-    icons: {
-        icon: "https://pklyygllmbfbdmfmozxq.supabase.co/storage/v1/object/public/logos/betix_logo2.png",
+    en: {
+        description:
+            "Premium SaaS platform for sports predictions powered by Artificial Intelligence. Football, Basketball, Tennis.",
+        keywords: ["sports predictions", "AI", "sports betting", "football", "basketball", "tennis", "artificial intelligence"],
     },
-    keywords: [
-        "pronostics sportifs",
-        "IA",
-        "paris sportifs",
-        "football",
-        "basketball",
-        "tennis",
-        "intelligence artificielle",
-    ],
+    es: {
+        description:
+            "Plataforma SaaS premium de pronósticos deportivos impulsada por Inteligencia Artificial. Fútbol, Baloncesto, Tenis.",
+        keywords: ["pronósticos deportivos", "IA", "apuestas deportivas", "fútbol", "baloncesto", "tenis", "inteligencia artificial"],
+    },
+    de: {
+        description:
+            "Premium-SaaS-Plattform für Sportvorhersagen mit künstlicher Intelligenz. Fußball, Basketball, Tennis.",
+        keywords: ["Sportvorhersagen", "KI", "Sportwetten", "Fußball", "Basketball", "Tennis", "künstliche Intelligenz"],
+    },
 };
+
+export async function generateMetadata(): Promise<Metadata> {
+    const locale = await getServerLocale();
+    const { description, keywords } = METADATA_BY_LOCALE[locale] ?? METADATA_BY_LOCALE.en;
+
+    return {
+        title: {
+            default: "BETIX",
+            template: "%s | BETIX",
+        },
+        description,
+        icons: {
+            icon: "https://pklyygllmbfbdmfmozxq.supabase.co/storage/v1/object/public/logos/betix_logo2.png",
+        },
+        keywords,
+    };
+}
 
 export default async function RootLayout({
     children,

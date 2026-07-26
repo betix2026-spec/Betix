@@ -110,21 +110,23 @@ export function SubscriptionWall() {
                             {plans.map((dbPlan) => {
                                 const featuresList = getDisplayFeatures(dbPlan, definitions, locale);
 
-                                let period = "/mois";
+                                let period = t("periodMonth");
                                 let variant: PricingVariant = "monthly";
                                 let cta = t("subscribe");
 
-                                const badge = dbPlan.badge_text || undefined;
+                                const badge = dbPlan.badge_text
+                                    ? pickLocalized(locale, dbPlan.badge_text, { en: dbPlan.badge_text_en, es: dbPlan.badge_text_es, de: dbPlan.badge_text_de })
+                                    : undefined;
                                 const badgeColor = dbPlan.badge_color || undefined;
 
                                 switch (dbPlan.frequency) {
-                                    case "free": period = "/forever"; variant = "free"; cta = t("startFree"); break;
-                                    case "daily": period = "/jour"; break;
-                                    case "weekly": period = "/semaine"; break;
-                                    case "monthly": period = "/mois"; break;
-                                    case "quarterly": period = "/trimestre"; variant = "semi_annual"; break;
-                                    case "semi_annual": period = "/semestre"; variant = "semi_annual"; break;
-                                    case "yearly": period = "/an"; variant = "yearly"; break;
+                                    case "free": period = t("periodForever"); variant = "free"; cta = t("startFree"); break;
+                                    case "daily": period = t("periodDay"); break;
+                                    case "weekly": period = t("periodWeek"); break;
+                                    case "monthly": period = t("periodMonth"); break;
+                                    case "quarterly": period = t("periodQuarter"); variant = "semi_annual"; break;
+                                    case "semi_annual": period = t("periodSemester"); variant = "semi_annual"; break;
+                                    case "yearly": period = t("periodYear"); variant = "yearly"; break;
                                 }
 
                                 const planProps = {

@@ -85,8 +85,15 @@ async def translate_analysis_texts(ai: ChatModel, analysis: Dict[str, Any]) -> D
     et transforme chaque champ texte concerné en { fr, en, es, de } au lieu
     d'une simple chaîne. Un seul appel IA pour tout traduire (moins cher qu'une
     génération complète par langue).
+
+    Couvre match_summary et, pour chaque sélection : market, selection, et
+    analysis. Le prompt IA produit ces trois champs en français (voir
+    prompt_builder.py) — market/selection ne sont PAS des codes anglais fixes,
+    ce sont des libellés rédigés par le modèle, donc ils ont besoin de la même
+    traduction que le texte d'analyse.
     """
     cat_keys = ["high_confidence", "medium_confidence", "risky"]
+    item_fields = ["market", "selection", "analysis"]
     texts_to_translate: Dict[str, str] = {}
 
     if analysis.get("match_summary"):
@@ -94,16 +101,19 @@ async def translate_analysis_texts(ai: ChatModel, analysis: Dict[str, Any]) -> D
 
     for cat in cat_keys:
         for idx, item in enumerate(analysis.get("categories", {}).get(cat, [])):
-            if item.get("analysis"):
-                texts_to_translate[f"{cat}.{idx}"] = item["analysis"]
+            for field in item_fields:
+                if item.get(field):
+                    texts_to_translate[f"{cat}.{idx}.{field}"] = item[field]
 
     if not texts_to_translate:
         return analysis
 
     translation_prompt = (
-        "Translate each of the following French sports-betting analysis texts into "
-        "English, Spanish, and German. Preserve the meaning, tone, and level of detail — "
-        "these are natural-language explanations, not literal word-for-word translations. "
+        "Translate each of the following French sports-betting texts into "
+        "English, Spanish, and German. Some are short betting-market or selection "
+        "labels (e.g. a market name or a pick like a team name or an over/under line), "
+        "others are full analysis paragraphs — translate each appropriately to its "
+        "length, preserving meaning and tone; keep team/player names unchanged. "
         "Respond with ONLY a JSON object, no markdown, no commentary, in this exact shape:\n"
         '{ "<key>": { "en": "...", "es": "...", "de": "..." }, ... }\n\n'
         f"Texts to translate:\n{json.dumps(texts_to_translate, ensure_ascii=False, indent=2)}"
@@ -139,17 +149,18 @@ async def translate_analysis_texts(ai: ChatModel, analysis: Dict[str, Any]) -> D
 
     for cat in cat_keys:
         for idx, item in enumerate(analysis.get("categories", {}).get(cat, [])):
-            key = f"{cat}.{idx}"
-            if key not in texts_to_translate:
-                continue
-            fr_text = texts_to_translate[key]
-            t = translated.get(key, {}) or {}
-            item["analysis"] = {
-                "fr": fr_text,
-                "en": t.get("en") or fr_text,
-                "es": t.get("es") or fr_text,
-                "de": t.get("de") or fr_text,
-            }
+            for field in item_fields:
+                key = f"{cat}.{idx}.{field}"
+                if key not in texts_to_translate:
+                    continue
+                fr_text = texts_to_translate[key]
+                t = translated.get(key, {}) or {}
+                item[field] = {
+                    "fr": fr_text,
+                    "en": t.get("en") or fr_text,
+                    "es": t.get("es") or fr_text,
+                    "de": t.get("de") or fr_text,
+                }
 
     return analysis
 

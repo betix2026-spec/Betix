@@ -61,6 +61,9 @@ export function EngineeringBay({ plan, definitions, open, onClose, onSuccess }: 
                     trial_days: plan.trial_days,
                     strikethrough_price: plan.strikethrough_price,
                     badge_text: plan.badge_text,
+                    badge_text_en: plan.badge_text_en || "",
+                    badge_text_es: plan.badge_text_es || "",
+                    badge_text_de: plan.badge_text_de || "",
                     badge_color: plan.badge_color
                 });
             } else {
@@ -85,6 +88,9 @@ export function EngineeringBay({ plan, definitions, open, onClose, onSuccess }: 
                     trial_days: null,
                     strikethrough_price: null,
                     badge_text: null,
+                    badge_text_en: "",
+                    badge_text_es: "",
+                    badge_text_de: "",
                     badge_color: null
                 });
             }
@@ -240,6 +246,26 @@ export function EngineeringBay({ plan, definitions, open, onClose, onSuccess }: 
                                     placeholder={copy("ex: POPULAIRE")}
                                 />
                                     <p className="text-[9px] text-neutral-600">{copy("Texte du badge marketing (vide = pas de badge)")}</p>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        <Input
+                                            value={formData.badge_text_en || ''}
+                                            onChange={(e) => setFormData({ ...formData, badge_text_en: e.target.value || null })}
+                                            placeholder={LOCALE_LABELS.en}
+                                            className="h-7 text-[10px] bg-black/50 border-white/10"
+                                        />
+                                        <Input
+                                            value={formData.badge_text_es || ''}
+                                            onChange={(e) => setFormData({ ...formData, badge_text_es: e.target.value || null })}
+                                            placeholder={LOCALE_LABELS.es}
+                                            className="h-7 text-[10px] bg-black/50 border-white/10"
+                                        />
+                                        <Input
+                                            value={formData.badge_text_de || ''}
+                                            onChange={(e) => setFormData({ ...formData, badge_text_de: e.target.value || null })}
+                                            placeholder={LOCALE_LABELS.de}
+                                            className="h-7 text-[10px] bg-black/50 border-white/10"
+                                        />
+                                    </div>
                                 </div>
                                 <div className="space-y-2">
                                     <Label className="text-xs font-mono text-neutral-400">{t("planEditorBadgeColorLabel")}</Label>

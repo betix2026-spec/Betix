@@ -172,7 +172,7 @@ export function PricingCard({ plan, variant, isCurrentPlan, subscriptionStatus }
                     {/* Current Plan Badge */}
                     {isCurrentPlan && (
                         <Badge className="text-[10px] uppercase font-bold tracking-widest border-0 bg-green-500 text-black">
-                            Actif
+                            {t("active")}
                         </Badge>
                     )}
                 </div>
@@ -228,7 +228,7 @@ export function PricingCard({ plan, variant, isCurrentPlan, subscriptionStatus }
                                         {plan.trial_price}€
                                     </span>
                                     <span className="text-[10px] lg:text-[11px] font-bold text-green-400 uppercase tracking-wider bg-green-500/10 px-2 lg:px-2.5 py-1 rounded-md border border-green-500/20 self-center mb-1">
-                                        {plan.trial_days} jours
+                                        {plan.trial_days} {t("trialDaysSuffix")}
                                     </span>
                                 </div>
                                 {/* Followed-by pricing inset */}

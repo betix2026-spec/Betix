@@ -5,13 +5,16 @@ import { Badge } from "@/components/ui/badge";
 import { MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SportIcon } from "@/components/icons/SportIcons";
+import { useI18n } from "@/lib/use-i18n";
 
 interface MatchHeroProps {
     match: Match;
 }
 
 export function MatchHero({ match }: MatchHeroProps) {
+    const { locale } = useI18n();
     const isLive = match.status === "live";
+    const dateLocale = { fr: "fr-FR", en: "en-US", es: "es-ES", de: "de-DE" }[locale];
 
     // Premium Dark Theme - Deep blue-black base for all sports
     const themeGradient = "from-neutral-900/80 via-black to-black";
@@ -158,7 +161,7 @@ export function MatchHero({ match }: MatchHeroProps) {
 
                 {/* Footer Time */}
                 <div className="text-[11px] sm:text-[13px] font-bold text-neutral-600 uppercase tracking-[0.4em] animate-in fade-in slide-in-from-bottom-4 duration-1000">
-                    {new Date(match.date).toLocaleDateString("fr-FR", { weekday: 'long', day: 'numeric', month: 'long' })}
+                    {new Date(match.date).toLocaleDateString(dateLocale, { weekday: 'long', day: 'numeric', month: 'long' })}
                 </div>
             </div>
         </div>

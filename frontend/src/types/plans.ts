@@ -51,6 +51,9 @@ export interface Plan {
     is_active: boolean;
     position: number;
     badge_text: string | null;
+    badge_text_en?: string | null;
+    badge_text_es?: string | null;
+    badge_text_de?: string | null;
     badge_color: string | null;
     created_at?: string;
 }

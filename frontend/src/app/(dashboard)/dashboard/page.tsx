@@ -14,7 +14,7 @@ import { Match } from "@/types/match";
 import { useI18n } from "@/lib/use-i18n";
 
 export default function DashboardPage() {
-    const { copy } = useI18n();
+    const { copy, t, locale } = useI18n();
     const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
     const [visibleCount, setVisibleCount] = useState(6);
     const [searchTeamA, setSearchTeamA] = useState("");
@@ -31,6 +31,7 @@ export default function DashboardPage() {
     // Transform a single DB row into the UI Match type
     const transformMatch = useCallback((m: any): Match => {
         const dateObj = new Date(m.date_time);
+        const timeLocale = { fr: "fr-FR", en: "en-US", es: "es-ES", de: "de-DE" }[locale];
         return {
             id: m.id,
             sport: m.sport,
@@ -54,7 +55,7 @@ export default function DashboardPage() {
                 String(dateObj.getMonth() + 1).padStart(2, '0'),
                 String(dateObj.getDate()).padStart(2, '0')
             ].join('-'),
-            time: dateObj.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+            time: dateObj.toLocaleTimeString(timeLocale, { hour: '2-digit', minute: '2-digit' }),
             status: m.status,
             statusShort: m.status_short,
             homeScore: m.score?.home,
@@ -64,7 +65,7 @@ export default function DashboardPage() {
             venue: m.venue || "Stadium",
             predictions: []
         };
-    }, []);
+    }, [locale]);
 
     // Initial fetch — only shows loading skeleton on first load
     const fetchMatches = useCallback(async () => {
@@ -134,7 +135,8 @@ export default function DashboardPage() {
         setSelectedLeague(null);
     }, [currentSport]);
 
-    const today = new Date().toLocaleDateString("fr-FR", {
+    const dateLocale = { fr: "fr-FR", en: "en-US", es: "es-ES", de: "de-DE" }[locale];
+    const today = new Date().toLocaleDateString(dateLocale, {
         weekday: "long",
         day: "numeric",
         month: "long",
@@ -240,7 +242,7 @@ export default function DashboardPage() {
                             <span className="capitalize hidden sm:block">{today}</span>
                             <span className="hidden sm:block text-white/10">&middot;</span>
                             <span className="text-emerald-400 font-medium whitespace-nowrap">
-                                {loading ? "..." : `${filtered.length} matchs`}
+                                {loading ? "..." : `${filtered.length} ${t("matchesCountSuffix")}`}
                             </span>
                         </div>
                     </div>

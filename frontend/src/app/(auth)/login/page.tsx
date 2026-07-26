@@ -104,7 +104,7 @@ function LoginForm() {
                 <BiometricInput
                     label={t("emailAddress")}
                     type="email"
-                    placeholder="votre@email.com"
+                    placeholder={t("emailPlaceholder")}
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     required

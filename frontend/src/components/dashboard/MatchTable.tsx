@@ -98,9 +98,10 @@ export function MatchTable({ items }: MatchTableProps) {
                                                         tomorrowDate.setDate(now.getDate() + 1);
                                                         const tomorrowStr = tomorrowDate.toISOString().split('T')[0];
 
-                                                        if (matchDateStr === todayStr) return "Aujourd'hui";
-                                                        if (matchDateStr === tomorrowStr) return "Demain";
-                                                        return new Date(matchDateStr).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+                                                        if (matchDateStr === todayStr) return copy("Aujourd'hui");
+                                                        if (matchDateStr === tomorrowStr) return copy("Demain");
+                                                        const shortDateLocale = { fr: "fr-FR", en: "en-US", es: "es-ES", de: "de-DE" }[locale];
+                                                        return new Date(matchDateStr).toLocaleDateString(shortDateLocale, { day: 'numeric', month: 'short' });
                                                     })()}
                                                 </span>
                                             </div>
