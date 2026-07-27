@@ -8,7 +8,7 @@ import { CommsConfig } from "@/components/admin/notifications/CommsConfig";
 import { Button } from "@/components/ui/button";
 import { Check, Settings, Shield, Radio } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { adminMarkNotificationAsReadAction } from "@/app/actions/notifications";
+import { adminMarkNotificationAsReadAction, getAdminNotificationsAction } from "@/app/actions/notifications";
 import { toast } from "sonner";
 import { AppNotification } from "@/types/notifications";
 import { useI18n } from "@/lib/use-i18n";
@@ -23,19 +23,13 @@ export default function AdminNotificationsPage() {
 
     const fetchAdminNotifications = useCallback(async () => {
         try {
-            const { data, error } = await supabase
-                .from('notifications')
-                .select('*, sender:profiles!sender_id(username, avatar_url)')
-                .eq('is_for_admin', true)
-                .order('created_at', { ascending: false })
-                .limit(50);
-
-            if (error) throw error;
-            setNotifications(data as AppNotification[]);
+            const result = await getAdminNotificationsAction();
+            if (!result.success) throw new Error(result.error);
+            setNotifications((result.data || []) as AppNotification[]);
         } catch (error) {
             console.error("Error fetching admin comms:", error);
         }
-    }, [supabase]);
+    }, []);
 
     useEffect(() => {
         fetchAdminNotifications();

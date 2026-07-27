@@ -20,9 +20,11 @@ export interface AppNotification {
     action_url: string | null;
     created_at: string;
 
-    // Relation (returned when joined with profiles via sender_id)
+    // Relation (returned when joined with profiles via sender_id, email attached
+    // server-side from auth.users since profiles doesn't store it)
     sender?: {
         username: string;
         avatar_url: string | null;
+        email?: string | null;
     } | null;
 }

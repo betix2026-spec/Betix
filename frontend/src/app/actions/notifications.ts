@@ -128,7 +128,43 @@ export async function markNotificationAsReadAction(notificationId: string) {
 // ============================================================================
 
 /**
- * 4. Admin marks a notification as read
+ * 4. Admin fetches their inbox (messages/requests sent to admin), with the
+ * sender's email attached. Email lives in auth.users, not public.profiles,
+ * so it can't come from the client-side embedded select the page used before —
+ * this runs with the service role and looks it up per distinct sender.
+ */
+export async function getAdminNotificationsAction() {
+    try {
+        const { data, error } = await supabaseAdmin
+            .from('notifications')
+            .select('*, sender:profiles!sender_id(username, avatar_url)')
+            .eq('is_for_admin', true)
+            .order('created_at', { ascending: false })
+            .limit(50);
+
+        if (error) throw error;
+
+        const senderIds = Array.from(new Set((data || []).map((n: any) => n.sender_id).filter(Boolean)));
+        const emailBySenderId = new Map<string, string>();
+        await Promise.all(senderIds.map(async (id: string) => {
+            const { data: userData } = await supabaseAdmin.auth.admin.getUserById(id);
+            if (userData?.user?.email) emailBySenderId.set(id, userData.user.email);
+        }));
+
+        const enriched = (data || []).map((n: any) => ({
+            ...n,
+            sender: n.sender ? { ...n.sender, email: n.sender_id ? emailBySenderId.get(n.sender_id) : undefined } : null,
+        }));
+
+        return { success: true, data: enriched };
+    } catch (error: any) {
+        console.error("[Notification Action] getAdminNotifications Error:", error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * 5. Admin marks a notification as read
  */
 export async function adminMarkNotificationAsReadAction(notificationId: string | 'all') {
     console.log(`[Notification Action] Admin marking notification(s) as read: ${notificationId}`);
@@ -154,7 +190,7 @@ export async function adminMarkNotificationAsReadAction(notificationId: string |
 }
 
 /**
- * 5. Admin sends a broadcast or targeted message
+ * 6. Admin sends a broadcast or targeted message
  */
 export async function adminSendNotificationAction(data: {
     title: string;
@@ -201,7 +237,7 @@ export async function adminSendNotificationAction(data: {
 }
 
 /**
- * 6. Admin generates AI-drafted en/es/de translations for a French title/message,
+ * 7. Admin generates AI-drafted en/es/de translations for a French title/message,
  * to review and edit before sending (does not persist anything).
  */
 export async function translateNotificationDraftAction(title: string, message: string) {

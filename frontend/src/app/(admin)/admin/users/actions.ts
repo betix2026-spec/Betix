@@ -1,6 +1,7 @@
 'use server';
 
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { createClient } from "@/lib/supabase/server";
 import { getSubscriptionPeriodEnd, stripe } from "@/lib/stripe";
 import { copy } from "@/lib/i18n";
 import { getServerLocale } from "@/lib/i18n-server";
@@ -17,6 +18,78 @@ export async function getPlansAction() {
         return { success: true, data: plans };
     } catch (error: any) {
         console.error("[Admin Action] Error fetching plans:", error);
+        return { success: false, error: error.message };
+    }
+}
+
+export interface GetAdminUsersParams {
+    search?: string;
+    role?: string | null;
+    status?: string | null;
+    plan?: string | null;
+    sortBy?: string;
+    sortDir?: "asc" | "desc";
+    page?: number;
+    pageSize?: number;
+    userId?: string | null; // when set, ignores paging/filters and returns just this one user
+}
+
+/**
+ * Paginated, filterable, sortable admin user list. Replaces the old
+ * "fetch all 900+ users in one call" approach — get_admin_users_v2 does the
+ * search/filter/sort/paging in SQL and returns a total_count column for the
+ * pager.
+ *
+ * IMPORTANT: this must use the session-scoped client (the caller's own
+ * cookies/JWT), not supabaseAdmin. The RPC checks auth.uid() internally to
+ * confirm the caller is an admin — called with the service role there is no
+ * auth.uid(), so the check always fails. The RPC is SECURITY DEFINER, so it
+ * still runs with elevated privileges once that check passes.
+ */
+export async function getAdminUsersAction(params: GetAdminUsersParams = {}) {
+    try {
+        const supabase = await createClient();
+        const { data, error } = await supabase.rpc('get_admin_users_v2', {
+            p_search: params.search || null,
+            p_role: params.role || null,
+            p_status: params.status || null,
+            p_plan: params.plan || null,
+            p_sort_by: params.sortBy || 'created_at',
+            p_sort_dir: params.sortDir || 'desc',
+            p_limit: params.pageSize || 25,
+            p_offset: ((params.page || 1) - 1) * (params.pageSize || 25),
+            p_user_id: params.userId || null,
+        });
+
+        if (error) throw new Error(error.message);
+
+        const rows = data || [];
+        const totalCount = rows.length > 0 ? Number(rows[0].total_count) : 0;
+
+        return { success: true, data: rows, totalCount };
+    } catch (error: any) {
+        console.error("[Admin Action] Error fetching users:", error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Saves a free-text admin note against a user's profile. Replaces the old
+ * hardcoded placeholder paragraph that showed the same fake text for every user.
+ */
+export async function updateAdminNotesAction(userId: string, notes: string) {
+    try {
+        const { error } = await supabaseAdmin
+            .from('profiles')
+            .update({ admin_notes: notes })
+            .eq('id', userId);
+
+        if (error) throw new Error(error.message);
+
+        revalidatePath('/admin/users');
+        return { success: true };
+    } catch (error: any) {
+        console.error("[Admin Action] Update Notes Error:", error);
         return { success: false, error: error.message };
     }
 }
