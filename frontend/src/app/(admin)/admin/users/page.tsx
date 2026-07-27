@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { HolographicGrid } from "@/components/admin/users/HolographicGrid";
 import { MissionDossier } from "@/components/admin/users/MissionDossier";
@@ -16,6 +17,8 @@ import { useI18n } from "@/lib/use-i18n";
 
 export default function AdminUsersPage() {
     const { copy, locale } = useI18n();
+    const searchParams = useSearchParams();
+    const deepLinkUserId = searchParams.get("userId");
     const [search, setSearch] = useState("");
     const [users, setUsers] = useState<AdminUser[]>([]);
     const [loading, setLoading] = useState(true);
@@ -62,6 +65,17 @@ export default function AdminUsersPage() {
     useEffect(() => {
         fetchUsers();
     }, [fetchUsers]);
+
+    // Deep link support: /admin/users?userId=... opens that user's profile directly
+    // (e.g. clicking a sender's name from the admin notifications inbox)
+    useEffect(() => {
+        if (!deepLinkUserId || users.length === 0) return;
+        const match = users.find((u) => u.id === deepLinkUserId);
+        if (match) {
+            setSelectedUser(match);
+            setIsDossierOpen(true);
+        }
+    }, [deepLinkUserId, users]);
 
     const filtered = users.filter(
         (u) =>

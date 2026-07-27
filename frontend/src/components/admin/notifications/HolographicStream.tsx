@@ -135,9 +135,15 @@ export function HolographicStream({ notifications, onMarkRead }: HolographicStre
                                 </div>
 
                                 {!isSystem && notif.sender?.username && (
-                                    <p className="text-xs font-mono text-blue-400 mb-1.5">
+                                    <Link
+                                        href={`/admin/users?userId=${notif.sender_id}`}
+                                        className="inline-flex items-center gap-1.5 text-xs font-mono text-blue-400 hover:text-blue-300 hover:underline mb-1.5"
+                                    >
                                         {t("notifFromLabel")} @{notif.sender.username}
-                                    </p>
+                                        {notif.sender.email && (
+                                            <span className="text-neutral-500">({notif.sender.email})</span>
+                                        )}
+                                    </Link>
                                 )}
 
                                 <p className="text-sm text-neutral-400 font-medium leading-relaxed mb-3">
