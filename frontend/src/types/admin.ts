@@ -78,4 +78,19 @@ export interface AdminUser {
     win_rate?: number;
     favoriteSport: string;
     status: string;
+    admin_notes?: string | null;
+}
+
+export type AdminUserSortField = "created_at" | "username" | "last_active" | "total_predictions" | "win_rate" | "status";
+export type SortDirection = "asc" | "desc";
+
+export interface AdminUserFilters {
+    search: string;
+    role: string | null;
+    status: string | null;
+    plan: string | null;
+    sortBy: AdminUserSortField;
+    sortDir: SortDirection;
+    page: number;
+    pageSize: number;
 }

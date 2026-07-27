@@ -1,6 +1,6 @@
 "use client";
 
-import { AdminUser } from "@/types/admin";
+import { AdminUser, AdminUserSortField, SortDirection } from "@/types/admin";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,10 +11,10 @@ import {
     Edit,
     Crown,
     Ban,
-    Trash2,
-    Search,
-    Shield,
-    Eye
+    Eye,
+    ChevronUp,
+    ChevronDown,
+    ChevronsUpDown
 } from "lucide-react";
 import {
     DropdownMenu,
@@ -23,17 +23,47 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useState } from "react";
 import { useI18n } from "@/lib/use-i18n";
 
 interface HolographicGridProps {
     users: AdminUser[];
+    sortBy?: AdminUserSortField;
+    sortDir?: SortDirection;
+    onSort?: (field: AdminUserSortField) => void;
     onSelectUser: (user: AdminUser) => void;
     onEditUser: (user: AdminUser) => void;
     onCancelSubscription?: (user: AdminUser) => void;
+    onSuspendUser?: (user: AdminUser) => void;
 }
 
-export function HolographicGrid({ users, onSelectUser, onEditUser, onCancelSubscription }: HolographicGridProps) {
+interface SortHeaderProps {
+    field: AdminUserSortField;
+    activeField?: AdminUserSortField;
+    dir?: SortDirection;
+    onSort?: (field: AdminUserSortField) => void;
+    children: React.ReactNode;
+    className?: string;
+}
+
+function SortHeader({ field, activeField, dir, onSort, children, className }: SortHeaderProps) {
+    const isActive = activeField === field;
+    return (
+        <button
+            type="button"
+            onClick={() => onSort?.(field)}
+            className={cn("flex items-center gap-1 hover:text-white transition-colors", className)}
+        >
+            {children}
+            {isActive ? (
+                dir === "asc" ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />
+            ) : (
+                <ChevronsUpDown className="size-3 opacity-30" />
+            )}
+        </button>
+    );
+}
+
+export function HolographicGrid({ users, sortBy, sortDir, onSort, onSelectUser, onEditUser, onCancelSubscription, onSuspendUser }: HolographicGridProps) {
     const { copy, t } = useI18n();
     const roleConfig: Record<string, any> = {
         free: { color: "text-neutral-400", border: "border-neutral-700", bg: "bg-neutral-500/10", label: "FREE" },
@@ -57,16 +87,27 @@ export function HolographicGrid({ users, onSelectUser, onEditUser, onCancelSubsc
         <div className="rounded-3xl border border-white/10 bg-black/40 backdrop-blur-xl overflow-hidden shadow-2xl">
             {/* Header / Legend */}
             <div className="grid grid-cols-12 gap-4 px-6 py-3 border-b border-white/5 bg-white/[0.02] text-[10px] uppercase font-bold tracking-widest text-neutral-500">
-                <div className="col-span-4 sm:col-span-3">{t("adminGridUserHeader")}</div>
+                <div className="col-span-4 sm:col-span-3">
+                    <SortHeader field="username" activeField={sortBy} dir={sortDir} onSort={onSort}>{t("adminGridUserHeader")}</SortHeader>
+                </div>
                 <div className="col-span-2 hidden sm:block">{t("adminGridPlanHeader")}</div>
-                <div className="col-span-2 hidden md:block">{copy("Status")}</div>
+                <div className="col-span-2 hidden md:block">
+                    <SortHeader field="status" activeField={sortBy} dir={sortDir} onSort={onSort}>{copy("Status")}</SortHeader>
+                </div>
                 <div className="col-span-2 hidden lg:block">{t("adminGridSportHeader")}</div>
-                <div className="col-span-2 hidden xl:block text-right">{t("adminGridPredictionsHeader")}</div>
+                <div className="col-span-2 hidden xl:block text-right justify-end">
+                    <SortHeader field="total_predictions" activeField={sortBy} dir={sortDir} onSort={onSort} className="justify-end">{t("adminGridPredictionsHeader")}</SortHeader>
+                </div>
                 <div className="col-span-1 text-right">{copy("Actions")}</div>
             </div>
 
             {/* Grid Body */}
             <div className="divide-y divide-white/5">
+                {users.length === 0 && (
+                    <div className="px-6 py-12 text-center text-sm text-neutral-500">
+                        {t("adminNoUsersFound")}
+                    </div>
+                )}
                 {users.map((user) => {
                     // Decide classification based on role or plan_id
                     const classificationKey = (user.role === 'admin' || user.role === 'super_admin')
@@ -140,7 +181,17 @@ export function HolographicGrid({ users, onSelectUser, onEditUser, onCancelSubsc
                             {/* Actions (Floating on Hover) */}
                             <div className="col-span-8 sm:col-span-1 flex justify-end relative z-20">
                                 <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 mr-2 absolute right-8 top-1/2 -translate-y-1/2 bg-black/80 backdrop-blur-md rounded-lg p-1 border border-white/10">
-                                    <Button size="icon-xs" variant="ghost" className="h-7 w-7 hover:text-blue-400 hover:bg-blue-400/10"><Eye className="size-3.5" /></Button>
+                                    <Button
+                                        size="icon-xs"
+                                        variant="ghost"
+                                        className="h-7 w-7 hover:text-blue-400 hover:bg-blue-400/10"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onSelectUser(user);
+                                        }}
+                                    >
+                                        <Eye className="size-3.5" />
+                                    </Button>
                                     <Button
                                         size="icon-xs"
                                         variant="ghost"
@@ -153,17 +204,37 @@ export function HolographicGrid({ users, onSelectUser, onEditUser, onCancelSubsc
                                         <Edit className="size-3.5" />
                                     </Button>
                                     <div className="w-[1px] h-4 bg-white/10 mx-1" />
-                                    <Button size="icon-xs" variant="ghost" className="h-7 w-7 hover:text-red-500 hover:bg-red-500/10"><Ban className="size-3.5" /></Button>
+                                    {user.status !== 'suspended' && (
+                                        <Button
+                                            size="icon-xs"
+                                            variant="ghost"
+                                            className="h-7 w-7 hover:text-red-500 hover:bg-red-500/10"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onSuspendUser?.(user);
+                                            }}
+                                        >
+                                            <Ban className="size-3.5" />
+                                        </Button>
+                                    )}
                                 </div>
 
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="icon-xs" className="h-8 w-8 text-neutral-500 hover:text-white">
+                                        <Button variant="ghost" size="icon-xs" className="h-8 w-8 text-neutral-500 hover:text-white" onClick={(e) => e.stopPropagation()}>
                                             <MoreVertical className="size-4" />
                                         </Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end" className="w-48 bg-black/90 border-white/10 backdrop-blur-xl">
-                                        <DropdownMenuItem className="gap-2 text-xs font-medium"><User className="size-3.5" /> {t("adminViewDetails")}</DropdownMenuItem>
+                                        <DropdownMenuItem
+                                            className="gap-2 text-xs font-medium"
+                                            onSelect={(e) => {
+                                                e.preventDefault();
+                                                onSelectUser(user);
+                                            }}
+                                        >
+                                            <User className="size-3.5" /> {t("adminViewDetails")}
+                                        </DropdownMenuItem>
                                         <DropdownMenuItem
                                             className="gap-2 text-xs font-medium"
                                             onSelect={(e) => {
@@ -173,7 +244,15 @@ export function HolographicGrid({ users, onSelectUser, onEditUser, onCancelSubsc
                                         >
                                             <Edit className="size-3.5" /> {t("adminEditAccess")}
                                         </DropdownMenuItem>
-                                        <DropdownMenuItem className="gap-2 text-xs font-medium"><Crown className="size-3.5 text-amber-500" /> {t("adminGiftPremium")}</DropdownMenuItem>
+                                        <DropdownMenuItem
+                                            className="gap-2 text-xs font-medium"
+                                            onSelect={(e) => {
+                                                e.preventDefault();
+                                                onEditUser(user);
+                                            }}
+                                        >
+                                            <Crown className="size-3.5 text-amber-500" /> {t("adminGiftPremium")}
+                                        </DropdownMenuItem>
                                         {(user.status === 'active' || user.status === 'past_due' || user.status === 'trialing') && (
                                             <DropdownMenuItem
                                                 className="text-orange-400 focus:text-orange-400 gap-2 text-xs font-medium"
@@ -185,10 +264,20 @@ export function HolographicGrid({ users, onSelectUser, onEditUser, onCancelSubsc
                                                 <Ban className="size-3.5" /> {t("cancelSubscription")}
                                             </DropdownMenuItem>
                                         )}
-                                        <DropdownMenuSeparator className="bg-white/10" />
-                                        <DropdownMenuItem className="text-red-400 focus:text-red-400 gap-2 text-xs font-medium">
-                                            <Ban className="size-3.5" /> {t("adminSuspendUser")}
-                                        </DropdownMenuItem>
+                                        {user.status !== 'suspended' && (
+                                            <>
+                                                <DropdownMenuSeparator className="bg-white/10" />
+                                                <DropdownMenuItem
+                                                    className="text-red-400 focus:text-red-400 gap-2 text-xs font-medium"
+                                                    onSelect={(e) => {
+                                                        e.preventDefault();
+                                                        onSuspendUser?.(user);
+                                                    }}
+                                                >
+                                                    <Ban className="size-3.5" /> {t("adminSuspendUser")}
+                                                </DropdownMenuItem>
+                                            </>
+                                        )}
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             </div>

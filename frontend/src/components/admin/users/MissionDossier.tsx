@@ -6,7 +6,15 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
     Activity,
     Calendar,
@@ -14,28 +22,43 @@ import {
     Mail,
     TrendingUp,
     ShieldCheck,
-    MessageSquare,
-    MoreVertical,
     Shield,
-    User,
     Wifi,
     CreditCard,
     XCircle,
     Loader2,
-    AlertTriangle
+    AlertTriangle,
+    ChevronDown,
+    Ban,
+    Send,
+    Languages,
+    Save,
+    Check
 } from "lucide-react";
-import { getPlansAction, cancelSubscriptionAction, getSubscriptionDetailsAction } from "@/app/(admin)/admin/users/actions";
+import { getPlansAction, cancelSubscriptionAction, getSubscriptionDetailsAction, updateAgentAction, updateAdminNotesAction } from "@/app/(admin)/admin/users/actions";
+import { adminSendNotificationAction, translateNotificationDraftAction } from "@/app/actions/notifications";
 import { useState, useEffect } from "react";
 import { useI18n } from "@/lib/use-i18n";
+import { LOCALE_LABELS } from "@/lib/i18n";
 
 interface MissionDossierProps {
     user: AdminUser | null;
     open: boolean;
     onClose: () => void;
-    onSubscriptionCancelled?: () => void;
+    onUserUpdated?: () => void;
 }
 
-export function MissionDossier({ user, open, onClose, onSubscriptionCancelled }: MissionDossierProps) {
+type MessageTranslations = {
+    title: { en: string; es: string; de: string };
+    message: { en: string; es: string; de: string };
+};
+
+const EMPTY_TRANSLATIONS: MessageTranslations = {
+    title: { en: "", es: "", de: "" },
+    message: { en: "", es: "", de: "" },
+};
+
+export function MissionDossier({ user, open, onClose, onUserUpdated }: MissionDossierProps) {
     const { copy, t, locale } = useI18n();
     const [plans, setPlans] = useState<any[]>([]);
     const [cancelConfirm, setCancelConfirm] = useState(false);
@@ -43,6 +66,29 @@ export function MissionDossier({ user, open, onClose, onSubscriptionCancelled }:
     const [cancelResult, setCancelResult] = useState<{ success: boolean; message: string } | null>(null);
     const [billingInfo, setBillingInfo] = useState<any>(null);
     const [billingLoading, setBillingLoading] = useState(false);
+
+    // Suspend account
+    const [suspendConfirm, setSuspendConfirm] = useState(false);
+    const [suspending, setSuspending] = useState(false);
+    const [suspendResult, setSuspendResult] = useState<{ success: boolean; message: string } | null>(null);
+
+    // Promote to admin
+    const [promoteConfirm, setPromoteConfirm] = useState(false);
+    const [promoting, setPromoting] = useState(false);
+    const [promoteResult, setPromoteResult] = useState<{ success: boolean; message: string } | null>(null);
+
+    // Message composer
+    const [messageOpen, setMessageOpen] = useState(false);
+    const [messageForm, setMessageForm] = useState({ title: "", message: "" });
+    const [messageTranslations, setMessageTranslations] = useState<MessageTranslations | null>(null);
+    const [isTranslatingMessage, setIsTranslatingMessage] = useState(false);
+    const [isSendingMessage, setIsSendingMessage] = useState(false);
+    const [messageSent, setMessageSent] = useState(false);
+
+    // Admin notes (real, per-user, saved to the database)
+    const [notesValue, setNotesValue] = useState("");
+    const [notesSaving, setNotesSaving] = useState(false);
+    const [notesSaved, setNotesSaved] = useState(false);
 
     useEffect(() => {
         if (open && user?.id) {
@@ -53,6 +99,16 @@ export function MissionDossier({ user, open, onClose, onSubscriptionCancelled }:
             });
             setCancelConfirm(false);
             setCancelResult(null);
+            setSuspendConfirm(false);
+            setSuspendResult(null);
+            setPromoteConfirm(false);
+            setPromoteResult(null);
+            setMessageOpen(false);
+            setMessageForm({ title: "", message: "" });
+            setMessageTranslations(null);
+            setMessageSent(false);
+            setNotesValue(user.admin_notes || "");
+            setNotesSaved(false);
 
             // Fetch Stripe billing details
             setBillingInfo(null);
@@ -63,12 +119,14 @@ export function MissionDossier({ user, open, onClose, onSubscriptionCancelled }:
                 }
             }).finally(() => setBillingLoading(false));
         }
-    }, [open, user?.id]);
+    }, [open, user?.id, user?.admin_notes]);
 
     if (!user) return null;
 
     const canCancel = (user.status === 'active' || user.status === 'past_due' || user.status === 'trialing')
         && user.plan_id !== 'no_subscription';
+    const canSuspend = user.status !== 'suspended';
+    const canPromote = user.role !== 'admin' && user.role !== 'super_admin';
 
     const handleCancelSubscription = async () => {
         setCancelling(true);
@@ -83,7 +141,7 @@ export function MissionDossier({ user, open, onClose, onSubscriptionCancelled }:
             });
             if (result.success) {
                 setCancelConfirm(false);
-                onSubscriptionCancelled?.();
+                onUserUpdated?.();
             }
         } catch {
             setCancelResult({ success: false, message: copy('Erreur réseau.') });
@@ -92,12 +150,107 @@ export function MissionDossier({ user, open, onClose, onSubscriptionCancelled }:
         }
     };
 
+    const handleSuspend = async () => {
+        setSuspending(true);
+        setSuspendResult(null);
+        try {
+            const result = await updateAgentAction(user.id, { subscription_status: 'suspended' });
+            setSuspendResult({
+                success: result.success,
+                message: result.success ? t("adminSuspendSuccess") : (result.error || copy('Erreur inconnue.')),
+            });
+            if (result.success) {
+                setSuspendConfirm(false);
+                onUserUpdated?.();
+            }
+        } catch {
+            setSuspendResult({ success: false, message: copy('Erreur réseau.') });
+        } finally {
+            setSuspending(false);
+        }
+    };
+
+    const handlePromote = async () => {
+        setPromoting(true);
+        setPromoteResult(null);
+        try {
+            const result = await updateAgentAction(user.id, { role: 'admin' });
+            setPromoteResult({
+                success: result.success,
+                message: result.success ? t("adminPromoteSuccess") : (result.error || copy('Erreur inconnue.')),
+            });
+            if (result.success) {
+                setPromoteConfirm(false);
+                onUserUpdated?.();
+            }
+        } catch {
+            setPromoteResult({ success: false, message: copy('Erreur réseau.') });
+        } finally {
+            setPromoting(false);
+        }
+    };
+
+    const handleGenerateMessageTranslations = async () => {
+        if (!messageForm.title.trim() || !messageForm.message.trim()) return;
+        setIsTranslatingMessage(true);
+        try {
+            const result = await translateNotificationDraftAction(messageForm.title, messageForm.message);
+            if (!result.success) throw new Error(result.error);
+            setMessageTranslations({
+                title: { en: result.title?.en || "", es: result.title?.es || "", de: result.title?.de || "" },
+                message: { en: result.message?.en || "", es: result.message?.es || "", de: result.message?.de || "" },
+            });
+        } catch {
+            // Non-fatal: admin can still send in French only
+        } finally {
+            setIsTranslatingMessage(false);
+        }
+    };
+
+    const handleSendMessage = async () => {
+        if (!messageForm.title.trim() || !messageForm.message.trim()) return;
+        setIsSendingMessage(true);
+        try {
+            const draft = messageTranslations || EMPTY_TRANSLATIONS;
+            const result = await adminSendNotificationAction({
+                title: messageForm.title,
+                message: messageForm.message,
+                title_en: draft.title.en || null,
+                title_es: draft.title.es || null,
+                title_de: draft.title.de || null,
+                message_en: draft.message.en || null,
+                message_es: draft.message.es || null,
+                message_de: draft.message.de || null,
+                targetUserId: user.id,
+                severity: 'info',
+            });
+            if (result.success) {
+                setMessageSent(true);
+                setMessageForm({ title: "", message: "" });
+                setMessageTranslations(null);
+            }
+        } finally {
+            setIsSendingMessage(false);
+        }
+    };
+
+    const handleSaveNotes = async () => {
+        setNotesSaving(true);
+        setNotesSaved(false);
+        try {
+            const result = await updateAdminNotesAction(user.id, notesValue);
+            if (result.success) setNotesSaved(true);
+        } finally {
+            setNotesSaving(false);
+        }
+    };
+
     const riskLevel = user.status === "churned" ? "CRITICAL" : user.status === "suspended" ? "HIGH" : "LOW";
     const riskColor = riskLevel === "CRITICAL" ? "text-red-500" : riskLevel === "HIGH" ? "text-amber-500" : "text-emerald-500";
 
     return (
         <Sheet open={open} onOpenChange={onClose}>
-            <SheetContent className="w-full sm:max-w-xl border-l border-white/10 bg-black/95 backdrop-blur-xl p-0 shadow-2xl">
+            <SheetContent className="w-full sm:max-w-xl border-l border-white/10 bg-black/95 backdrop-blur-xl p-0 shadow-2xl overflow-y-auto">
                 <SheetHeader className="sr-only">
                     <SheetTitle>{t("adminUserDetailsTitle")}: {user.name}</SheetTitle>
                     <SheetDescription>{t("adminUserDetailsDescription")}: {user.name}</SheetDescription>
@@ -128,12 +281,36 @@ export function MissionDossier({ user, open, onClose, onSubscriptionCancelled }:
                             </AvatarFallback>
                         </Avatar>
                         <div className="mb-2 space-x-2">
-                            <Button size="sm" variant="outline" className="h-8 border-white/10 bg-white/5 hover:bg-white/10 text-xs">
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 border-white/10 bg-white/5 hover:bg-white/10 text-xs"
+                                onClick={() => setMessageOpen((v) => !v)}
+                            >
                                 <Mail className="size-3.5 mr-2" /> {copy("Message")}
                             </Button>
-                            <Button size="sm" className="h-8 bg-blue-600 hover:bg-blue-700 text-xs font-bold">
-                                <Shield className="size-3.5 mr-2" /> {copy("Actions")}
-                            </Button>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button size="sm" className="h-8 bg-blue-600 hover:bg-blue-700 text-xs font-bold">
+                                        <Shield className="size-3.5 mr-2" /> {copy("Actions")} <ChevronDown className="size-3 ml-1" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-52 bg-black/90 border-white/10 backdrop-blur-xl">
+                                    <DropdownMenuItem className="gap-2 text-xs font-medium" onSelect={(e) => { e.preventDefault(); setMessageOpen(true); }}>
+                                        <Mail className="size-3.5" /> {copy("Message")}
+                                    </DropdownMenuItem>
+                                    {canPromote && (
+                                        <DropdownMenuItem className="gap-2 text-xs font-medium" onSelect={(e) => { e.preventDefault(); setPromoteConfirm(true); }}>
+                                            <Crown className="size-3.5 text-amber-500" /> {t("adminPromoteToAdmin")}
+                                        </DropdownMenuItem>
+                                    )}
+                                    {canSuspend && (
+                                        <DropdownMenuItem className="text-red-400 focus:text-red-400 gap-2 text-xs font-medium" onSelect={(e) => { e.preventDefault(); setSuspendConfirm(true); }}>
+                                            <Ban className="size-3.5" /> {t("adminSuspendUser")}
+                                        </DropdownMenuItem>
+                                    )}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                         </div>
                     </div>
 
@@ -145,6 +322,87 @@ export function MissionDossier({ user, open, onClose, onSubscriptionCancelled }:
                             <span className="flex items-center gap-1.5"><Calendar className="size-3.5" /> {copy("Depuis le")} {user.joinDate}</span>
                         </div>
                     </div>
+
+                    {/* Message Composer */}
+                    {messageOpen && (
+                        <div className="mt-4 p-4 rounded-xl border border-blue-500/20 bg-blue-500/5 space-y-3">
+                            {messageSent ? (
+                                <p className="text-xs font-mono text-emerald-400 flex items-center gap-2">
+                                    <Check className="size-3.5" /> {t("notifReplySentToast")}
+                                </p>
+                            ) : (
+                                <>
+                                    <Input
+                                        placeholder={copy("Titre de l'alerte")}
+                                        value={messageForm.title}
+                                        onChange={(e) => { setMessageForm(p => ({ ...p, title: e.target.value })); setMessageTranslations(null); }}
+                                        className="h-8 text-xs bg-black/50 border-white/10"
+                                    />
+                                    <Textarea
+                                        placeholder={copy("Contenu...")}
+                                        value={messageForm.message}
+                                        onChange={(e) => { setMessageForm(p => ({ ...p, message: e.target.value })); setMessageTranslations(null); }}
+                                        className="min-h-[60px] text-xs bg-black/50 border-white/10 resize-none"
+                                    />
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        disabled={!messageForm.title.trim() || !messageForm.message.trim() || isTranslatingMessage}
+                                        onClick={handleGenerateMessageTranslations}
+                                        className="w-full h-7 text-[10px] font-bold uppercase gap-1.5 border-white/10 text-neutral-300 hover:text-white hover:bg-white/5"
+                                    >
+                                        {isTranslatingMessage ? (
+                                            <><Loader2 className="size-3 animate-spin" /> {t("commsTranslatingLabel")}</>
+                                        ) : (
+                                            <><Languages className="size-3" /> {t("commsGenerateTranslations")}</>
+                                        )}
+                                    </Button>
+                                    {messageTranslations && (
+                                        <div className="space-y-2 p-3 rounded-lg border border-white/10 bg-black/40">
+                                            <p className="text-[9px] text-neutral-500 italic">{t("commsTranslationsHint")}</p>
+                                            <div className="grid grid-cols-3 gap-2">
+                                                {(["en", "es", "de"] as const).map(lang => (
+                                                    <Input
+                                                        key={`title-${lang}`}
+                                                        value={messageTranslations.title[lang]}
+                                                        onChange={e => setMessageTranslations(prev => prev && ({ ...prev, title: { ...prev.title, [lang]: e.target.value } }))}
+                                                        placeholder={LOCALE_LABELS[lang]}
+                                                        className="h-7 text-[10px] bg-black/50 border-white/10"
+                                                    />
+                                                ))}
+                                            </div>
+                                            <div className="grid grid-cols-3 gap-2">
+                                                {(["en", "es", "de"] as const).map(lang => (
+                                                    <Textarea
+                                                        key={`message-${lang}`}
+                                                        value={messageTranslations.message[lang]}
+                                                        onChange={e => setMessageTranslations(prev => prev && ({ ...prev, message: { ...prev.message, [lang]: e.target.value } }))}
+                                                        placeholder={LOCALE_LABELS[lang]}
+                                                        className="min-h-[44px] text-[10px] bg-black/50 border-white/10 resize-none"
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                    <div className="flex justify-end gap-2">
+                                        <Button size="sm" variant="ghost" onClick={() => setMessageOpen(false)} className="h-7 text-[10px] text-neutral-500 hover:text-white uppercase tracking-wider">
+                                            {t("adminCancelButton")}
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            onClick={handleSendMessage}
+                                            disabled={isSendingMessage || !messageForm.title.trim() || !messageForm.message.trim()}
+                                            className="h-7 text-[10px] font-bold uppercase gap-1 bg-blue-600 hover:bg-blue-500 text-white"
+                                        >
+                                            {isSendingMessage ? <Loader2 className="size-3 animate-spin" /> : <Send className="size-3" />}
+                                            {t("notifReplySendButton")}
+                                        </Button>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    )}
 
                     {/* Status Grid */}
                     <div className="grid grid-cols-3 gap-3 mt-8">
@@ -307,6 +565,90 @@ export function MissionDossier({ user, open, onClose, onSubscriptionCancelled }:
                                 {cancelResult.message}
                             </div>
                         )}
+
+                        {/* Suspend Account */}
+                        {suspendConfirm && (
+                            <div className="mt-3 p-3 rounded-xl bg-red-500/5 border border-red-500/20 space-y-3">
+                                <div className="flex items-start gap-2">
+                                    <AlertTriangle className="size-4 text-red-400 mt-0.5 shrink-0" />
+                                    <p className="text-xs text-red-300 leading-relaxed">
+                                        {t("adminSuspendConfirmText")} <strong>{user.name}</strong>?
+                                    </p>
+                                </div>
+                                <div className="flex gap-2">
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="flex-1 h-8 border-white/10 text-neutral-400 hover:bg-white/5 text-xs"
+                                        onClick={() => setSuspendConfirm(false)}
+                                        disabled={suspending}
+                                    >
+                                        {t("adminCancelButton")}
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        className="flex-1 h-8 bg-red-600 hover:bg-red-700 text-white text-xs font-bold gap-2"
+                                        onClick={handleSuspend}
+                                        disabled={suspending}
+                                    >
+                                        {suspending ? <Loader2 className="size-3.5 animate-spin" /> : <Ban className="size-3.5" />}
+                                        {copy("Confirmer")}
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+
+                        {suspendResult && (
+                            <div className={cn("mt-2 p-2 rounded-lg text-xs font-mono",
+                                suspendResult.success
+                                    ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"
+                                    : "bg-red-500/10 border border-red-500/20 text-red-400"
+                            )}>
+                                {suspendResult.message}
+                            </div>
+                        )}
+
+                        {/* Promote to Admin */}
+                        {promoteConfirm && (
+                            <div className="mt-3 p-3 rounded-xl bg-amber-500/5 border border-amber-500/20 space-y-3">
+                                <div className="flex items-start gap-2">
+                                    <AlertTriangle className="size-4 text-amber-400 mt-0.5 shrink-0" />
+                                    <p className="text-xs text-amber-300 leading-relaxed">
+                                        {t("adminPromoteConfirmText")} <strong>{user.name}</strong>?
+                                    </p>
+                                </div>
+                                <div className="flex gap-2">
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="flex-1 h-8 border-white/10 text-neutral-400 hover:bg-white/5 text-xs"
+                                        onClick={() => setPromoteConfirm(false)}
+                                        disabled={promoting}
+                                    >
+                                        {t("adminCancelButton")}
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        className="flex-1 h-8 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold gap-2"
+                                        onClick={handlePromote}
+                                        disabled={promoting}
+                                    >
+                                        {promoting ? <Loader2 className="size-3.5 animate-spin" /> : <Crown className="size-3.5" />}
+                                        {copy("Confirmer")}
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+
+                        {promoteResult && (
+                            <div className={cn("mt-2 p-2 rounded-lg text-xs font-mono",
+                                promoteResult.success
+                                    ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"
+                                    : "bg-red-500/10 border border-red-500/20 text-red-400"
+                            )}>
+                                {promoteResult.message}
+                            </div>
+                        )}
                     </div>
 
                     <Separator className="my-8 bg-white/10" />
@@ -328,7 +670,6 @@ export function MissionDossier({ user, open, onClose, onSubscriptionCancelled }:
                                         <p className="text-xs text-neutral-500">{user.lastActive}</p>
                                     </div>
                                 </div>
-                                <span className="text-xs font-mono text-neutral-600">IP: 192.168.1.x</span>
                             </div>
 
                             {/* Detailed Stats — Only for Users, not Admins */}
@@ -344,7 +685,7 @@ export function MissionDossier({ user, open, onClose, onSubscriptionCancelled }:
                                                 <p className="text-xs text-neutral-500">{copy("Basé sur")} {user.totalPredictions} {copy("pronostics")}</p>
                                             </div>
                                         </div>
-                                        <span className="text-xl font-black text-white tracking-tighter">{user.win_rate !== undefined ? `${user.win_rate}%` : "68%"}</span>
+                                        <span className="text-xl font-black text-white tracking-tighter">{user.win_rate !== undefined ? `${user.win_rate}%` : "0%"}</span>
                                     </div>
 
                                     <div className="flex items-center justify-between group">
@@ -374,12 +715,32 @@ export function MissionDossier({ user, open, onClose, onSubscriptionCancelled }:
                         </div>
                     </div>
 
-                    {/* Admin Notes */}
+                    {/* Admin Notes — real, per-user, saved to the database */}
                     <div className="mt-8 p-4 rounded-xl bg-yellow-500/5 border border-yellow-500/10">
                         <h4 className="text-xs font-bold text-yellow-500 mb-2 uppercase tracking-wide">{copy("Admin Notes")}</h4>
-                        <p className="text-xs text-neutral-400 leading-relaxed">
-                            {copy("Utilisateur actif et engagé. A contacté le support 2 fois pour des questions sur l'API. Potentiel upgrade vers plan Annuel si on lui propose une offre.")}
-                        </p>
+                        <Textarea
+                            value={notesValue}
+                            onChange={(e) => { setNotesValue(e.target.value); setNotesSaved(false); }}
+                            placeholder={t("adminNotesPlaceholder")}
+                            className="min-h-[80px] text-xs bg-black/40 border-white/10 text-neutral-300 resize-none"
+                        />
+                        <div className="flex items-center justify-end gap-2 mt-2">
+                            {notesSaved && (
+                                <span className="text-[10px] font-mono text-emerald-400 flex items-center gap-1">
+                                    <Check className="size-3" /> {t("adminNotesSavedLabel")}
+                                </span>
+                            )}
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-[10px] border-white/10 text-neutral-300 hover:text-white hover:bg-white/5 gap-1.5"
+                                onClick={handleSaveNotes}
+                                disabled={notesSaving || notesValue === (user.admin_notes || "")}
+                            >
+                                {notesSaving ? <Loader2 className="size-3 animate-spin" /> : <Save className="size-3" />}
+                                {t("adminNotesSaveButton")}
+                            </Button>
+                        </div>
                     </div>
 
                 </div>

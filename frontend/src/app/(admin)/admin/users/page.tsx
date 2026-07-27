@@ -2,102 +2,157 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import { HolographicGrid } from "@/components/admin/users/HolographicGrid";
 import { MissionDossier } from "@/components/admin/users/MissionDossier";
 import { EditAgentModal } from "@/components/admin/users/EditAgentModal";
 import { CreateAgentModal } from "@/components/admin/users/CreateAgentModal";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Download, Search, UserPlus, Filter, Loader2 } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Download, Search, UserPlus, Filter, Loader2, ChevronLeft, ChevronRight, X } from "lucide-react";
 
-import { AdminUser } from "@/types/admin";
-import { cancelSubscriptionAction } from "@/app/(admin)/admin/users/actions";
+import { AdminUser, AdminUserSortField, SortDirection } from "@/types/admin";
+import { getAdminUsersAction, getPlansAction } from "@/app/(admin)/admin/users/actions";
 import { useI18n } from "@/lib/use-i18n";
 
+const PAGE_SIZE = 25;
+
 export default function AdminUsersPage() {
-    const { copy, locale } = useI18n();
+    const { copy, t, locale } = useI18n();
     const searchParams = useSearchParams();
     const deepLinkUserId = searchParams.get("userId");
+
+    const [searchInput, setSearchInput] = useState("");
     const [search, setSearch] = useState("");
+    const [role, setRole] = useState<string | null>(null);
+    const [status, setStatus] = useState<string | null>(null);
+    const [plan, setPlan] = useState<string | null>(null);
+    const [sortBy, setSortBy] = useState<AdminUserSortField>("created_at");
+    const [sortDir, setSortDir] = useState<SortDirection>("desc");
+    const [page, setPage] = useState(1);
+
     const [users, setUsers] = useState<AdminUser[]>([]);
+    const [totalCount, setTotalCount] = useState(0);
+    const [plans, setPlans] = useState<{ id: string; name: string }[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [selectedUser, setSelectedUser] = useState<any | null>(null);
-    const [editingUser, setEditingUser] = useState<any | null>(null);
+    const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
+    const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
     const [isDossierOpen, setIsDossierOpen] = useState(false);
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
+    const [filtersOpen, setFiltersOpen] = useState(false);
 
-    const supabase = createClient();
+    // Debounce free-text search before it hits the server
+    useEffect(() => {
+        const handle = setTimeout(() => {
+            setSearch(searchInput);
+            setPage(1);
+        }, 400);
+        return () => clearTimeout(handle);
+    }, [searchInput]);
+
+    useEffect(() => {
+        getPlansAction().then((result) => {
+            if (result.success && result.data) setPlans(result.data);
+        });
+    }, []);
+
+    const mapUser = useCallback((u: any): AdminUser => ({
+        ...u,
+        name: u.username || copy("Utilisateur inconnu"),
+        avatar: u.avatar_url,
+        joinDate: u.created_at ? new Date(u.created_at).toLocaleDateString(locale) : "N/A",
+        lastActive: u.last_active ? new Date(u.last_active).toLocaleString(locale) : copy("Jamais"),
+        totalPredictions: u.total_predictions || 0,
+        favoriteSport: u.favorite_sport || "N/A",
+    }), [copy, locale]);
 
     const fetchUsers = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
-            const { data, error: rpcError } = await supabase.rpc('get_admin_users_v1');
+            const result = await getAdminUsersAction({
+                search, role, status, plan, sortBy, sortDir, page, pageSize: PAGE_SIZE,
+            });
 
-            if (rpcError) {
-                console.error("RPC Error Details:", rpcError);
-                throw new Error(rpcError.message || "Failed to fetch users via RPC");
-            }
+            if (!result.success) throw new Error(result.error || "Failed to fetch users");
 
-            // Map DB names to UI names if necessary
-            const mappedUsers = (data || []).map((u: any) => ({
-                ...u,
-                name: u.username || copy("Utilisateur inconnu"),
-                avatar: u.avatar_url,
-                joinDate: u.created_at ? new Date(u.created_at).toLocaleDateString(locale) : "N/A",
-                lastActive: u.last_active ? new Date(u.last_active).toLocaleString(locale) : copy("Jamais"),
-                totalPredictions: u.total_predictions || 0,
-                favoriteSport: u.favorite_sport || "N/A",
-            }));
-
-            setUsers(mappedUsers as AdminUser[]);
+            setUsers((result.data || []).map(mapUser));
+            setTotalCount(result.totalCount || 0);
         } catch (err: any) {
             console.error("Error fetching admin users:", err);
             setError(err.message || copy("Une erreur inconnue est survenue."));
         } finally {
             setLoading(false);
         }
-    }, [copy, locale, supabase]);
+    }, [search, role, status, plan, sortBy, sortDir, page, mapUser, copy]);
 
     useEffect(() => {
         fetchUsers();
     }, [fetchUsers]);
 
     // Deep link support: /admin/users?userId=... opens that user's profile directly
-    // (e.g. clicking a sender's name from the admin notifications inbox)
+    // (e.g. clicking a sender's name from the admin notifications inbox). This is
+    // independent of the paginated/filtered list above — the linked user might not
+    // be on the current page at all.
     useEffect(() => {
-        if (!deepLinkUserId || users.length === 0) return;
-        const match = users.find((u) => u.id === deepLinkUserId);
-        if (match) {
-            setSelectedUser(match);
-            setIsDossierOpen(true);
-        }
-    }, [deepLinkUserId, users]);
+        if (!deepLinkUserId) return;
+        getAdminUsersAction({ userId: deepLinkUserId }).then((result) => {
+            if (result.success && result.data && result.data.length > 0) {
+                setSelectedUser(mapUser(result.data[0]));
+                setIsDossierOpen(true);
+            }
+        });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [deepLinkUserId]);
 
-    const filtered = users.filter(
-        (u) =>
-            u.username?.toLowerCase().includes(search.toLowerCase()) ||
-            u.email?.toLowerCase().includes(search.toLowerCase())
-    );
-
-    const handleUserSelect = (user: any) => {
+    const handleUserSelect = (user: AdminUser) => {
         setSelectedUser(user);
         setIsDossierOpen(true);
     };
 
-    const handleEditUser = (user: any) => {
+    const handleEditUser = (user: AdminUser) => {
         setEditingUser(user);
         setIsEditOpen(true);
     };
 
+    // Cancel-subscription and suspend both work the same way: open the dossier
+    // on this user so the actual confirm step is visible in full context,
+    // rather than a silent one-click action from the row.
     const handleCancelSubscription = (user: AdminUser) => {
-        // Open the dossier on the user so the cancel UI is visible
         setSelectedUser(user);
         setIsDossierOpen(true);
     };
+
+    const handleSuspendUser = (user: AdminUser) => {
+        setSelectedUser(user);
+        setIsDossierOpen(true);
+    };
+
+    const handleSort = (field: AdminUserSortField) => {
+        if (sortBy === field) {
+            setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
+        } else {
+            setSortBy(field);
+            setSortDir("desc");
+        }
+        setPage(1);
+    };
+
+    const activeFilterCount = [role, status, plan].filter(Boolean).length;
+
+    const clearFilters = () => {
+        setRole(null);
+        setStatus(null);
+        setPlan(null);
+        setPage(1);
+    };
+
+    const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+    const rangeStart = totalCount === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+    const rangeEnd = Math.min(page * PAGE_SIZE, totalCount);
 
     if (loading && users.length === 0) {
         return (
@@ -137,14 +192,78 @@ export default function AdminUsersPage() {
                     <Input
                         placeholder={copy("Rechercher un utilisateur par nom ou e-mail...")}
                         className="pl-9 bg-transparent border-none text-white placeholder:text-neutral-600 focus-visible:ring-0 font-mono text-sm h-10"
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
+                        value={searchInput}
+                        onChange={(e) => setSearchInput(e.target.value)}
                     />
                 </div>
                 <div className="w-[1px] h-6 bg-white/10" />
-                <Button variant="ghost" size="sm" className="text-neutral-400 hover:text-white gap-2 font-mono text-xs">
-                    <Filter className="size-3.5" /> {copy("Filtres")}
-                </Button>
+                <Popover open={filtersOpen} onOpenChange={setFiltersOpen}>
+                    <PopoverTrigger asChild>
+                        <Button variant="ghost" size="sm" className="text-neutral-400 hover:text-white gap-2 font-mono text-xs relative">
+                            <Filter className="size-3.5" /> {copy("Filtres")}
+                            {activeFilterCount > 0 && (
+                                <span className="ml-1 size-4 rounded-full bg-blue-500 text-white text-[9px] font-bold flex items-center justify-center">
+                                    {activeFilterCount}
+                                </span>
+                            )}
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent align="end" className="w-72 bg-neutral-950/95 border-white/10 backdrop-blur-xl p-4 space-y-4">
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] uppercase font-bold tracking-widest text-neutral-500">{t("adminFilterRoleLabel")}</label>
+                            <Select value={role || "all"} onValueChange={(v) => { setRole(v === "all" ? null : v); setPage(1); }}>
+                                <SelectTrigger className="bg-white/5 border-white/10 text-white h-9 text-xs">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">{t("adminFilterAllOption")}</SelectItem>
+                                    <SelectItem value="user">{t("adminRoleUser")}</SelectItem>
+                                    <SelectItem value="admin">{t("adminRoleAdmin")}</SelectItem>
+                                    <SelectItem value="super_admin">{t("adminRoleSuperAdmin")}</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] uppercase font-bold tracking-widest text-neutral-500">{t("adminFilterStatusLabel")}</label>
+                            <Select value={status || "all"} onValueChange={(v) => { setStatus(v === "all" ? null : v); setPage(1); }}>
+                                <SelectTrigger className="bg-white/5 border-white/10 text-white h-9 text-xs">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">{t("adminFilterAllOption")}</SelectItem>
+                                    <SelectItem value="active">{copy("Active")}</SelectItem>
+                                    <SelectItem value="trialing">{copy("Trialing")}</SelectItem>
+                                    <SelectItem value="past_due">{copy("Past Due")}</SelectItem>
+                                    <SelectItem value="canceled">{copy("Canceled")}</SelectItem>
+                                    <SelectItem value="suspended">{copy("Suspended")}</SelectItem>
+                                    <SelectItem value="inactive">{copy("Inactive")}</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] uppercase font-bold tracking-widest text-neutral-500">{t("adminFilterPlanLabel")}</label>
+                            <Select value={plan || "all"} onValueChange={(v) => { setPlan(v === "all" ? null : v); setPage(1); }}>
+                                <SelectTrigger className="bg-white/5 border-white/10 text-white h-9 text-xs">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">{t("adminFilterAllOption")}</SelectItem>
+                                    {plans.map((p) => (
+                                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {activeFilterCount > 0 && (
+                            <Button variant="ghost" size="sm" onClick={clearFilters} className="w-full h-8 text-xs text-neutral-400 hover:text-white gap-1.5">
+                                <X className="size-3" /> {t("adminClearFiltersButton")}
+                            </Button>
+                        )}
+                    </PopoverContent>
+                </Popover>
             </div>
 
             {error ? (
@@ -167,18 +286,50 @@ export default function AdminUsersPage() {
                 <>
                     {/* The Grid */}
                     <HolographicGrid
-                        users={filtered}
+                        users={users}
+                        sortBy={sortBy}
+                        sortDir={sortDir}
+                        onSort={handleSort}
                         onSelectUser={handleUserSelect}
                         onEditUser={handleEditUser}
                         onCancelSubscription={handleCancelSubscription}
+                        onSuspendUser={handleSuspendUser}
                     />
+
+                    {/* Pagination */}
+                    <div className="flex items-center justify-between px-2">
+                        <p className="text-[11px] font-mono text-neutral-500">
+                            {rangeStart}–{rangeEnd} {t("adminPaginationOf")} {totalCount}
+                        </p>
+                        <div className="flex items-center gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 border-white/10 text-neutral-400 hover:text-white hover:bg-white/5 gap-1 text-xs"
+                                disabled={page <= 1 || loading}
+                                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                            >
+                                <ChevronLeft className="size-3.5" /> {t("adminPaginationPrev")}
+                            </Button>
+                            <span className="text-[11px] font-mono text-neutral-500 px-2">{page} / {totalPages}</span>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 border-white/10 text-neutral-400 hover:text-white hover:bg-white/5 gap-1 text-xs"
+                                disabled={page >= totalPages || loading}
+                                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                            >
+                                {t("adminPaginationNext")} <ChevronRight className="size-3.5" />
+                            </Button>
+                        </div>
+                    </div>
 
                     {/* Side Panel */}
                     <MissionDossier
                         user={selectedUser}
                         open={isDossierOpen}
                         onClose={() => setIsDossierOpen(false)}
-                        onSubscriptionCancelled={fetchUsers}
+                        onUserUpdated={fetchUsers}
                     />
 
                     {/* Edit Modal */}
