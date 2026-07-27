@@ -159,6 +159,12 @@ export async function adminMarkNotificationAsReadAction(notificationId: string |
 export async function adminSendNotificationAction(data: {
     title: string;
     message: string;
+    title_en?: string | null;
+    title_es?: string | null;
+    title_de?: string | null;
+    message_en?: string | null;
+    message_es?: string | null;
+    message_de?: string | null;
     targetUserId?: string | null; // null = broadcast to everyone
     severity?: 'info' | 'warning' | 'critical';
     actionUrl?: string;
@@ -174,6 +180,12 @@ export async function adminSendNotificationAction(data: {
                 type: data.targetUserId ? 'system' : 'broadcast',
                 title: data.title,
                 message: data.message,
+                title_en: data.title_en || null,
+                title_es: data.title_es || null,
+                title_de: data.title_de || null,
+                message_en: data.message_en || null,
+                message_es: data.message_es || null,
+                message_de: data.message_de || null,
                 severity: data.severity || 'info',
                 action_url: data.actionUrl || null
             });
@@ -184,6 +196,41 @@ export async function adminSendNotificationAction(data: {
         return { success: true };
     } catch (error: any) {
         console.error("[Notification Action] Error:", error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * 6. Admin generates AI-drafted en/es/de translations for a French title/message,
+ * to review and edit before sending (does not persist anything).
+ */
+export async function translateNotificationDraftAction(title: string, message: string) {
+    try {
+        const backendBase = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api").replace(/\/api\/?$/, "");
+        // NOTE: the backend's system router is double-prefixed (registered at /api/system
+        // AND declares its own /system prefix internally), so the real path has "system" twice.
+        const res = await fetch(`${backendBase}/api/system/system/translate`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ texts: { title, message } }),
+            signal: AbortSignal.timeout(20000),
+        });
+
+        if (!res.ok) {
+            const detail = await res.text().catch(() => "");
+            throw new Error(`Translation service error (${res.status}): ${detail}`);
+        }
+
+        const data = await res.json();
+        const translations = data.translations || {};
+
+        return {
+            success: true,
+            title: translations.title || {},
+            message: translations.message || {},
+        };
+    } catch (error: any) {
+        console.error("[Notification Action] Translation Error:", error);
         return { success: false, error: error.message };
     }
 }

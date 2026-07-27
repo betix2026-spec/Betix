@@ -164,7 +164,7 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                     awayScore: matchData.score?.away,
                     scoreDisplay: matchData.score?.display,
                     scoreDetails: matchData.score?.details,
-                    venue: matchData.venue || "Stadium",
+                    venue: matchData.venue || t("genericVenueFallback"),
                     predictions: aiPredictions,
                     aiSummary: aiSummaryText || (aiPredictions.length > 0 ? copy("Le modèle d'intelligence artificielle a analysé l'historique de performances, les expected goals (xG), la dynamique de possession et le différentiel de classement (ELO) pour proposer des verdicts mesurés sur cette rencontre. Retrouvez le détail de l'analyse ci-dessous.") : undefined),
                     aiAudit: auditData ? {
@@ -183,7 +183,7 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
         if (resolvedParams.id) {
             fetchData();
         }
-    }, [copy, locale, resolvedParams.id, supabase]);
+    }, [copy, t, locale, resolvedParams.id, supabase]);
 
     // Initial loading state for animation
     const [mounted, setMounted] = useState(false);

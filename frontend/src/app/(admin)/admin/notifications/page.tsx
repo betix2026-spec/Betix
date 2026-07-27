@@ -25,7 +25,7 @@ export default function AdminNotificationsPage() {
         try {
             const { data, error } = await supabase
                 .from('notifications')
-                .select('*')
+                .select('*, sender:profiles!sender_id(username, avatar_url)')
                 .eq('is_for_admin', true)
                 .order('created_at', { ascending: false })
                 .limit(50);

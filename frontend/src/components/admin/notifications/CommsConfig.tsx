@@ -7,21 +7,66 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { RadioTower, Bell, Mail, Smartphone, Volume2, Save } from "lucide-react";
+import { RadioTower, Bell, Mail, Smartphone, Volume2, Save, Languages, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { adminSendNotificationAction } from "@/app/actions/notifications";
+import { adminSendNotificationAction, translateNotificationDraftAction } from "@/app/actions/notifications";
 import { useI18n } from "@/lib/use-i18n";
+import { LOCALE_LABELS } from "@/lib/i18n";
 
 interface CommsConfigProps {
     open: boolean;
     onClose: () => void;
 }
 
+type DraftTranslations = {
+    title: { en: string; es: string; de: string };
+    message: { en: string; es: string; de: string };
+};
+
+const EMPTY_TRANSLATIONS: DraftTranslations = {
+    title: { en: "", es: "", de: "" },
+    message: { en: "", es: "", de: "" },
+};
+
 export function CommsConfig({ open, onClose }: CommsConfigProps) {
     const { copy, t } = useI18n();
     const [isSending, setIsSending] = useState(false);
+    const [isTranslating, setIsTranslating] = useState(false);
     const [sendForm, setSendForm] = useState({ title: "", message: "", targetUserId: "" });
+    const [translations, setTranslations] = useState<DraftTranslations | null>(null);
+
+    const updateBaseField = (field: "title" | "message", value: string) => {
+        setSendForm(prev => ({ ...prev, [field]: value }));
+        // Editing the French source invalidates any translations drafted for the old text
+        setTranslations(null);
+    };
+
+    const handleGenerateTranslations = async () => {
+        if (!sendForm.title.trim() || !sendForm.message.trim()) return;
+        setIsTranslating(true);
+        try {
+            const result = await translateNotificationDraftAction(sendForm.title, sendForm.message);
+            if (!result.success) throw new Error(result.error);
+
+            setTranslations({
+                title: {
+                    en: result.title?.en || "",
+                    es: result.title?.es || "",
+                    de: result.title?.de || "",
+                },
+                message: {
+                    en: result.message?.en || "",
+                    es: result.message?.es || "",
+                    de: result.message?.de || "",
+                },
+            });
+        } catch (error) {
+            toast.error(t("commsTranslationsError"));
+        } finally {
+            setIsTranslating(false);
+        }
+    };
 
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -29,9 +74,16 @@ export function CommsConfig({ open, onClose }: CommsConfigProps) {
 
         setIsSending(true);
         try {
+            const draft = translations || EMPTY_TRANSLATIONS;
             const result = await adminSendNotificationAction({
                 title: sendForm.title,
                 message: sendForm.message,
+                title_en: draft.title.en || null,
+                title_es: draft.title.es || null,
+                title_de: draft.title.de || null,
+                message_en: draft.message.en || null,
+                message_es: draft.message.es || null,
+                message_de: draft.message.de || null,
                 targetUserId: sendForm.targetUserId.trim() || null,
                 severity: 'info'
             });
@@ -39,6 +91,7 @@ export function CommsConfig({ open, onClose }: CommsConfigProps) {
             if (result.success) {
                 toast.success(copy("Message envoyé avec succès."));
                 setSendForm({ title: "", message: "", targetUserId: "" });
+                setTranslations(null);
             } else {
                 toast.error(result.error || copy("Échec de l'envoi."));
             }
@@ -149,7 +202,7 @@ export function CommsConfig({ open, onClose }: CommsConfigProps) {
                                     placeholder={copy("Titre de l'alerte")}
                                     className="h-8 text-xs bg-black/50 border-white/10"
                                     value={sendForm.title}
-                                    onChange={e => setSendForm(prev => ({ ...prev, title: e.target.value }))}
+                                    onChange={e => updateBaseField("title", e.target.value)}
                                     required
                                 />
                             </div>
@@ -160,9 +213,57 @@ export function CommsConfig({ open, onClose }: CommsConfigProps) {
                                     placeholder={copy("Contenu...")}
                                     className="min-h-[60px] text-xs bg-black/50 border-white/10 resize-none"
                                     value={sendForm.message}
-                                    onChange={e => setSendForm(prev => ({ ...prev, message: e.target.value }))}
+                                    onChange={e => updateBaseField("message", e.target.value)}
                                     required
                                 />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={!sendForm.title.trim() || !sendForm.message.trim() || isTranslating}
+                                    onClick={handleGenerateTranslations}
+                                    className="w-full h-7 text-[10px] font-bold uppercase gap-1.5 border-white/10 text-neutral-300 hover:text-white hover:bg-white/5"
+                                >
+                                    {isTranslating ? (
+                                        <><Loader2 className="size-3 animate-spin" /> {t("commsTranslatingLabel")}</>
+                                    ) : (
+                                        <><Languages className="size-3" /> {t("commsGenerateTranslations")}</>
+                                    )}
+                                </Button>
+
+                                {translations && (
+                                    <div className="space-y-2 p-3 rounded-lg border border-white/10 bg-black/40">
+                                        <p className="text-[9px] text-neutral-500 italic">{t("commsTranslationsHint")}</p>
+                                        <div>
+                                            <Label className="text-[9px] text-neutral-500 uppercase tracking-widest">{t("commsTranslationsLabel")}</Label>
+                                            <div className="grid grid-cols-3 gap-2 mt-1">
+                                                {(["en", "es", "de"] as const).map(lang => (
+                                                    <Input
+                                                        key={`title-${lang}`}
+                                                        value={translations.title[lang]}
+                                                        onChange={e => setTranslations(prev => prev && ({ ...prev, title: { ...prev.title, [lang]: e.target.value } }))}
+                                                        placeholder={LOCALE_LABELS[lang]}
+                                                        className="h-7 text-[10px] bg-black/50 border-white/10"
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-3 gap-2">
+                                            {(["en", "es", "de"] as const).map(lang => (
+                                                <Textarea
+                                                    key={`message-${lang}`}
+                                                    value={translations.message[lang]}
+                                                    onChange={e => setTranslations(prev => prev && ({ ...prev, message: { ...prev.message, [lang]: e.target.value } }))}
+                                                    placeholder={LOCALE_LABELS[lang]}
+                                                    className="min-h-[50px] text-[10px] bg-black/50 border-white/10 resize-none"
+                                                />
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="space-y-1">

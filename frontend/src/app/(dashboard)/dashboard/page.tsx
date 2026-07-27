@@ -62,10 +62,10 @@ export default function DashboardPage() {
             awayScore: m.score?.away,
             scoreDisplay: m.score?.display,
             scoreDetails: m.score?.details,
-            venue: m.venue || "Stadium",
+            venue: m.venue || t("genericVenueFallback"),
             predictions: []
         };
-    }, [locale]);
+    }, [locale, t]);
 
     // Initial fetch — only shows loading skeleton on first load
     const fetchMatches = useCallback(async () => {

@@ -1,22 +1,26 @@
 "use client";
 
+import { useState } from "react";
+import Link from "next/link";
+import { toast } from "sonner";
 import { AppNotification } from "@/types/notifications";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
-    AlertTriangle,
     AlertCircle,
-    Info,
     MessageSquare,
     Terminal,
-    Trash2,
     Check,
     Clock,
-    ArrowRight
+    ArrowRight,
+    Reply,
+    Send
 } from "lucide-react";
 import { useI18n } from "@/lib/use-i18n";
+import { adminSendNotificationAction } from "@/app/actions/notifications";
 
 interface HolographicStreamProps {
     notifications: AppNotification[];
@@ -25,6 +29,34 @@ interface HolographicStreamProps {
 
 export function HolographicStream({ notifications, onMarkRead }: HolographicStreamProps) {
     const { copy, t } = useI18n();
+    const [openReplyId, setOpenReplyId] = useState<string | null>(null);
+    const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
+    const [sendingId, setSendingId] = useState<string | null>(null);
+
+    const handleSendReply = async (notif: AppNotification) => {
+        const draft = (replyDrafts[notif.id] || "").trim();
+        if (!draft || !notif.sender_id) return;
+
+        setSendingId(notif.id);
+        try {
+            const result = await adminSendNotificationAction({
+                title: `${t("notifReplyTitlePrefix")}: ${notif.title}`,
+                message: draft,
+                targetUserId: notif.sender_id,
+                severity: "info",
+            });
+            if (!result.success) throw new Error(result.error);
+
+            toast.success(t("notifReplySentToast"));
+            setReplyDrafts((current) => ({ ...current, [notif.id]: "" }));
+            setOpenReplyId(null);
+            if (!notif.is_read) onMarkRead(notif.id);
+        } catch {
+            toast.error(t("notifReplyErrorToast"));
+        } finally {
+            setSendingId(null);
+        }
+    };
 
     if (notifications.length === 0) {
         return (
@@ -77,8 +109,8 @@ export function HolographicStream({ notifications, onMarkRead }: HolographicStre
                                     </div>
                                 ) : (
                                     <Avatar className="size-10 border border-blue-500/30 rounded-lg">
-                                        <AvatarFallback className="bg-blue-500/10 text-blue-400 font-bold rounded-lg">
-                                            <MessageSquare className="size-5" />
+                                        <AvatarFallback className="bg-blue-500/10 text-blue-400 font-bold rounded-lg uppercase">
+                                            {notif.sender?.username ? notif.sender.username.slice(0, 2) : <MessageSquare className="size-5" />}
                                         </AvatarFallback>
                                     </Avatar>
                                 )}
@@ -102,6 +134,12 @@ export function HolographicStream({ notifications, onMarkRead }: HolographicStre
                                     </span>
                                 </div>
 
+                                {!isSystem && notif.sender?.username && (
+                                    <p className="text-xs font-mono text-blue-400 mb-1.5">
+                                        {t("notifFromLabel")} @{notif.sender.username}
+                                    </p>
+                                )}
+
                                 <p className="text-sm text-neutral-400 font-medium leading-relaxed mb-3">
                                     {notif.message}
                                 </p>
@@ -109,6 +147,7 @@ export function HolographicStream({ notifications, onMarkRead }: HolographicStre
                                 <div className="flex items-center gap-3">
                                     {notif.action_url && (
                                         <Button
+                                            asChild
                                             size="sm"
                                             variant="outline"
                                             className={cn(
@@ -117,7 +156,19 @@ export function HolographicStream({ notifications, onMarkRead }: HolographicStre
                                                     "bg-white/5 border-white/10 text-white hover:bg-white/10"
                                             )}
                                         >
-                                            {copy("Voir les détails")} <ArrowRight className="size-3" />
+                                            <Link href={notif.action_url}>
+                                                {copy("Voir les détails")} <ArrowRight className="size-3" />
+                                            </Link>
+                                        </Button>
+                                    )}
+                                    {!isSystem && notif.sender_id && (
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => setOpenReplyId(openReplyId === notif.id ? null : notif.id)}
+                                            className="h-7 text-xs font-mono font-bold uppercase gap-1 bg-white/5 border-white/10 text-white hover:bg-white/10"
+                                        >
+                                            <Reply className="size-3" /> {t("notifReplyButton")}
                                         </Button>
                                     )}
                                     {!notif.is_read && (
@@ -131,6 +182,35 @@ export function HolographicStream({ notifications, onMarkRead }: HolographicStre
                                         </Button>
                                     )}
                                 </div>
+
+                                {openReplyId === notif.id && (
+                                    <div className="mt-3 space-y-2">
+                                        <Textarea
+                                            value={replyDrafts[notif.id] || ""}
+                                            onChange={(e) => setReplyDrafts((current) => ({ ...current, [notif.id]: e.target.value }))}
+                                            placeholder={t("notifReplyPlaceholder")}
+                                            className="min-h-20 bg-black/60 border-white/10 text-sm text-white"
+                                        />
+                                        <div className="flex justify-end gap-2">
+                                            <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                onClick={() => setOpenReplyId(null)}
+                                                className="h-7 text-[10px] text-neutral-500 hover:text-white uppercase tracking-wider"
+                                            >
+                                                {t("notifReplyCancelButton")}
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                onClick={() => handleSendReply(notif)}
+                                                disabled={sendingId === notif.id || !(replyDrafts[notif.id] || "").trim()}
+                                                className="h-7 text-[10px] font-bold uppercase gap-1 bg-blue-600 hover:bg-blue-500 text-white"
+                                            >
+                                                <Send className="size-3" /> {t("notifReplySendButton")}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                         </div>

@@ -9,19 +9,20 @@ export interface AppNotification {
     type: NotificationType;
     title: string;
     message: string;
+    title_en?: string | null;
+    title_es?: string | null;
+    title_de?: string | null;
+    message_en?: string | null;
+    message_es?: string | null;
+    message_de?: string | null;
     severity: NotificationSeverity;
     is_read: boolean;
     action_url: string | null;
     created_at: string;
 
-    // Relations (returned when joined with profiles)
+    // Relation (returned when joined with profiles via sender_id)
     sender?: {
-        name: string;
-        email: string;
-        avatar?: string;
-    };
-    recipient?: {
-        name: string;
-        email: string;
-    };
+        username: string;
+        avatar_url: string | null;
+    } | null;
 }

@@ -17,6 +17,7 @@ import { de, enUS, es, fr } from "date-fns/locale";
 import Link from "next/link";
 import { markNotificationAsReadAction } from "@/app/actions/notifications";
 import { useI18n } from "@/lib/use-i18n";
+import { pickLocalized } from "@/lib/i18n";
 
 export function NotificationBell() {
     const { copy, locale } = useI18n();
@@ -135,6 +136,17 @@ export function NotificationBell() {
                             let color = "text-blue-400";
                             let bg = "bg-blue-400/10";
 
+                            const displayTitle = pickLocalized(locale, notification.title, {
+                                en: notification.title_en,
+                                es: notification.title_es,
+                                de: notification.title_de,
+                            });
+                            const displayMessage = pickLocalized(locale, notification.message, {
+                                en: notification.message_en,
+                                es: notification.message_es,
+                                de: notification.message_de,
+                            });
+
                             if (notification.severity === 'warning') {
                                 Icon = AlertTriangle;
                                 color = "text-amber-400";
@@ -159,14 +171,14 @@ export function NotificationBell() {
                                     <div className="flex-1 min-w-0 space-y-1">
                                         <div className="flex justify-between items-start gap-2">
                                             <p className={cn("text-xs font-bold truncate", !notification.is_read ? "text-white" : "text-neutral-300")}>
-                                                {notification.title}
+                                                {displayTitle}
                                             </p>
                                             <span className="text-[9px] text-neutral-500 font-mono shrink-0 pt-0.5">
                                                 {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true, locale: dateLocale })}
                                             </span>
                                         </div>
                                         <p className="text-xs text-neutral-400 line-clamp-2 leading-relaxed">
-                                            {notification.message}
+                                            {displayMessage}
                                         </p>
 
                                         {notification.action_url && (
