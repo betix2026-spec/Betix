@@ -9,6 +9,7 @@ import { SportIcon } from "@/components/icons/SportIcons";
 import { Match } from "@/types/match";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/use-i18n";
+import { ConfidenceBadge } from "@/components/dashboard/ConfidenceBadge";
 
 interface MatchCardProps {
     match: Match;
@@ -87,21 +88,8 @@ export function MatchCard({ match }: MatchCardProps) {
                             )}
                         </div>
 
-                        {/* Prediction Badge */}
-                        {topPrediction && (
-                            <Badge className={`
-                                    text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 h-5 border truncate shrink-0
-                                    ${topPrediction.level === "safe"
-                                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-[0_0_10px_-4px_rgba(16,185,129,0.5)]"
-                                    : topPrediction.level === "value"
-                                        ? "bg-purple-500/10 text-purple-400 border-purple-500/20 shadow-[0_0_10px_-4px_rgba(168,85,247,0.5)]"
-                                        : "bg-orange-500/10 text-orange-400 border-orange-500/20 shadow-[0_0_10px_-4px_rgba(249,115,22,0.5)]"
-                                }
-                                `}>
-                                <span className="hidden sm:inline mr-1">{topPrediction.level.toUpperCase()}</span>
-                                {topPrediction.confidence}%
-                            </Badge>
-                        )}
+                        {/* Confidence badge — dashboard-list teaser (see confidenceBadge on Match) */}
+                        <ConfidenceBadge badge={match.confidenceBadge} topPrediction={topPrediction} />
                     </div>
                 </div>
 

@@ -1,11 +1,10 @@
 """
 BETIX — audit_orchestration.py
-Logique partagée pour décider si une analyse existante doit être servie,
-régénérée (périmée), ou générée pour la première fois. Utilisée à la fois par
-l'endpoint à la demande (routers/matches.py) et par le passage planifié
-proactif (scripts/updates/scheduled_audit_pass.py) — un seul et même chemin
-de décision, pour que les deux déclencheurs ne puissent jamais lancer deux
-générations en parallèle sur le même match.
+Shared logic for deciding whether an existing analysis should be served,
+regenerated (stale), or generated for the first time. Used by both the
+on-demand endpoint (routers/audits.py) and the proactive scheduled pass
+(scripts/updates/scheduled_audit_pass.py) — one single decision path, so the
+two triggers can never race each other on the same match.
 """
 
 import logging
@@ -17,11 +16,11 @@ from scripts.updates.match_audit_script import run_audit, LIVE_RUN_ID
 
 logger = logging.getLogger("betix.audit_orchestration")
 
-# Au-delà, une analyse 'ready' est considérée périmée et regénérée si redemandée.
+# Beyond this age, a 'ready' analysis is considered stale and regenerated if requested again.
 STALE_AFTER_HOURS = 18
 
-# Au-delà, un verrou 'pending' est considéré bloqué (process mort avant d'avoir
-# pu marquer ready/failed) et peut être repris par un nouveau déclencheur.
+# Beyond this age, a 'pending' lock is considered stuck (process died before
+# marking ready/failed) and can be reclaimed by a new trigger.
 PENDING_LOCK_TIMEOUT_MINUTES = 5
 
 
@@ -66,22 +65,22 @@ async def ensure_audit(
     generate_inline: bool = True,
 ) -> Dict[str, Any]:
     """
-    Renvoie l'état courant de l'analyse pour un match, en déclenchant une
-    génération si nécessaire (absente, périmée, ou verrou 'pending' bloqué).
+    Returns the current analysis state for a match, triggering a generation
+    if needed (missing, stale, or a stuck 'pending' lock).
 
     Args:
-        generate_inline: si True, attend la génération avant de répondre
-            (utilisé par le passage planifié, qui n'a pas de contrainte de
-            latence HTTP). Si False, ne fait QUE poser le verrou 'pending' et
-            retourne immédiatement — l'appelant (l'endpoint à la demande) est
-            responsable de lancer `run_audit` en tâche de fond après ça.
+        generate_inline: if True, waits for generation to finish before
+            returning (used by the scheduled pass, which has no HTTP latency
+            constraint). If False, only sets the 'pending' lock and returns
+            immediately — the caller (the on-demand endpoint) is responsible
+            for kicking off `run_audit` in the background afterward.
 
     Returns:
-        {"state": "ready", "audit": {...}}   — analyse valide et fraîche
-        {"state": "pending", "audit": None}  — génération en cours (par cet
-            appel ou un autre) ; le client doit re-interroger sous peu.
-        {"state": "needs_generation", "audit": None}  — verrou posé,
-            à l'appelant de lancer run_audit (uniquement si generate_inline=False).
+        {"state": "ready", "audit": {...}}   — a fresh, valid analysis
+        {"state": "pending", "audit": None}  — generation in progress (from
+            this call or another one); the client should poll again shortly.
+        {"state": "needs_generation", "audit": None}  — lock set, caller must
+            launch run_audit itself (only when generate_inline=False).
     """
     existing = get_existing_audit(db, sport, match_id)
 
@@ -91,11 +90,11 @@ async def ensure_audit(
             return {"state": "ready", "audit": existing}
         if status == "pending" and not _pending_lock_expired(existing):
             return {"state": "pending", "audit": None}
-        # sinon : 'failed', 'pending' bloqué, ou 'ready' périmé -> régénérer
+        # otherwise: 'failed', a stuck 'pending', or a stale 'ready' -> regenerate
 
     if not generate_inline:
-        # Pose le verrou tout de suite (avant de rendre la main à l'appelant)
-        # pour qu'un deuxième client arrivant entre-temps voie 'pending'.
+        # Set the lock right away (before returning to the caller) so a
+        # second client arriving in the meantime sees 'pending' too.
         db.upsert(
             "ai_match_audits",
             [{
@@ -112,7 +111,7 @@ async def ensure_audit(
     try:
         await run_audit(sport, match_id, provider=provider, model_name=model_name, run_id=LIVE_RUN_ID, db=db)
     except Exception as e:
-        logger.error(f"ensure_audit: génération échouée pour {sport}#{match_id}: {e}")
+        logger.error(f"ensure_audit: generation failed for {sport}#{match_id}: {e}")
         return {"state": "pending", "audit": None}
 
     refreshed = get_existing_audit(db, sport, match_id)

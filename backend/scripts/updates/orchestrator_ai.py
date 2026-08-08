@@ -1,14 +1,14 @@
 """
-!! RETIRE (2026-08-01) !! Ne plus lancer ce script.
-Remplace par scripts/updates/scheduled_audit_pass.py, qui tourne desormais a
-l'interieur du process API via APScheduler (voir app/main.py). Ce fichier
-re-analysait chaque match jusqu'a 4x/jour sur une fenetre glissante de 3 jours
-sans jamais verifier si un match avait deja ete audite la veille -- c'est ce
-qui causait les couts IA excessifs diagnostiques. Conserve ici pour
-l'historique/reference uniquement ; plus reference nulle part dans le code.
+!! RETIRED (2026-08-01) !! Do not run this script anymore.
+Replaced by scripts/updates/scheduled_audit_pass.py, which now runs inside
+the API process via APScheduler (see app/main.py). This file re-analyzed
+every match up to 4x/day over a rolling 3-day window without ever checking
+whether a match had already been audited the day before -- that's what
+caused the excessive AI costs diagnosed. Kept here for
+history/reference only; no longer referenced anywhere in the code.
 
 BETIX -- orchestrator_ai.py
-Orchestrateur dedie aux analyses IA (independant de l'orchestrateur live).
+Orchestrator dedicated to AI analyses (independent of the live orchestrator).
 
 Gere le scheduling des runs d'audit avec frequences configurables par sport.
 Toute la configuration est lue depuis system_config (pilotable via le panel admin).

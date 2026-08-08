@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState, useEffect } from "react";
+import { use, useState, useEffect, useCallback } from "react";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Match, Prediction } from "@/types/match";
@@ -80,9 +80,10 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
     const [loading, setLoading] = useState(true);
     const supabase = createClient();
 
-    useEffect(() => {
-        async function fetchData() {
-            setLoading(true);
+    // Shared by the initial load and by the polling effect below, so both
+    // paths run the exact same fetch-and-transform logic.
+    const fetchAndSetMatch = useCallback(async (isInitialLoad: boolean) => {
+            if (isInitialLoad) setLoading(true);
 
             // 1. Fetch match basic info
             const { data: matchData } = await supabase
@@ -173,17 +174,28 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                         h2h: auditData.h2h,
                         rolling_stats: auditData.rolling_stats,
                         ai_analysis: auditData.ai_analysis,
-                        locked: (auditData as any).locked
+                        locked: (auditData as any).locked,
+                        pending: (auditData as any).pending,
                     } : undefined
                 };
                 setMatch(transformed);
             }
-            setLoading(false);
-        }
-        if (resolvedParams.id) {
-            fetchData();
-        }
+            if (isInitialLoad) setLoading(false);
     }, [copy, t, locale, resolvedParams.id, supabase]);
+
+    useEffect(() => {
+        if (resolvedParams.id) fetchAndSetMatch(true);
+    }, [fetchAndSetMatch, resolvedParams.id]);
+
+    // While an on-demand analysis is generating in the background, poll for
+    // it every few seconds. Stops automatically once aiAudit.pending flips
+    // to false (the effect re-runs, sees the guard, and the previous
+    // interval was already cleared) or the component unmounts.
+    useEffect(() => {
+        if (!match?.aiAudit?.pending) return;
+        const interval = setInterval(() => fetchAndSetMatch(false), 6000);
+        return () => clearInterval(interval);
+    }, [match?.aiAudit?.pending, fetchAndSetMatch]);
 
     // Initial loading state for animation
     const [mounted, setMounted] = useState(false);
@@ -452,7 +464,32 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                                         </div>
 
                                         <div className="w-full">
-                                            {(!match.predictions || match.predictions.length === 0) ? (
+                                            {match.aiAudit?.pending ? (
+                                                <div className="relative w-full rounded-2xl overflow-hidden border border-primary/10 bg-gradient-to-br from-zinc-900/60 via-black/40 to-zinc-900/60">
+                                                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 size-[220px] bg-primary/10 rounded-full blur-[90px] animate-glow-pulse" />
+
+                                                    <div className="relative z-10 flex flex-col items-center justify-center text-center py-16 sm:py-20 px-6 space-y-6">
+                                                        <div className="relative p-4 rounded-full bg-primary/10 border border-primary/20">
+                                                            <Sparkles className="size-7 text-primary animate-pulse" />
+                                                            <span className="dot dot-live absolute -top-0.5 -right-0.5" />
+                                                        </div>
+
+                                                        <div className="space-y-2 max-w-md">
+                                                            <h4 className="text-lg font-bold text-white tracking-tight">
+                                                                {copy("Génération de l'analyse en cours")}
+                                                            </h4>
+                                                            <p className="text-sm text-zinc-500 leading-relaxed">
+                                                                {copy("Notre IA analyse ce match en ce moment. Cette page se met à jour automatiquement dès que c'est prêt — quelques secondes en général.")}
+                                                            </p>
+                                                        </div>
+
+                                                        <div className="w-full max-w-xs space-y-2 pt-2">
+                                                            <div className="h-2 rounded-full animate-shimmer" />
+                                                            <div className="h-2 rounded-full animate-shimmer w-2/3 mx-auto" style={{ animationDelay: "0.2s" }} />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ) : (!match.predictions || match.predictions.length === 0) ? (
                                                 <div className="relative w-full rounded-2xl overflow-hidden border border-white/5 bg-gradient-to-br from-zinc-900/60 via-black/40 to-zinc-900/60">
                                                     {/* Subtle background glow */}
                                                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 size-[200px] bg-primary/5 rounded-full blur-[80px]" />

@@ -1,11 +1,17 @@
 """
 BETIX — prompt_builder.py
-Construit le prompt IA adapté au sport à partir des données de l'agrégateur.
+Builds the sport-specific AI prompt from the aggregator's data.
 
 Usage:
     system_prompt, user_prompt = await build_audit_prompt("football", 2629)
-    # system_prompt → le prompt système expert pour le football
-    # user_prompt   → le JSON du contexte match à analyser
+    # system_prompt → the sport-expert system prompt
+    # user_prompt   → the match context JSON to analyze
+
+Note: the system prompts and output-format strings below are written in
+French on purpose — the AI is instructed in French and produces French as
+its source-language output, which the app then translates to en/es/de (see
+OUTPUT_FORMAT and confidence_generator.normalize_language_fields). That's
+product behavior, not a leftover — don't "fix" it to English.
 """
 
 import json
@@ -18,7 +24,7 @@ logger = logging.getLogger("betix.prompt_builder")
 
 
 # ═══════════════════════════════════════════════════════════════════
-# PROMPTS SYSTÈME PAR SPORT
+# PER-SPORT SYSTEM PROMPTS (French content — see note above)
 # ═══════════════════════════════════════════════════════════════════
 
 FOOTBALL_SYSTEM_PROMPT = """Tu es un analyste expert en football, pédagogue et passionné. Ton rôle est d'expliquer la physionomie d'un match à un parieur amateur en rendant les données vivantes et compréhensibles.
@@ -167,16 +173,17 @@ TENNIS_SYSTEM_PROMPT = """Tu es un analyste expert en tennis, capable de décryp
 - Réponds UNIQUEMENT en JSON valide."""
 
 
-# Mapping sport → prompt
+# Sport → prompt mapping
 SPORT_PROMPTS = {
     "football": FOOTBALL_SYSTEM_PROMPT,
     "basketball": BASKETBALL_SYSTEM_PROMPT,
     "tennis": TENNIS_SYSTEM_PROMPT,
 }
 
-# Format de sortie attendu (inclus dans le user_prompt pour guider l'IA)
-# Chaque champ texte est produit en 4 langues EN UN SEUL APPEL (fr/en/es/de) —
-# il n'y a plus de second appel de traduction séparé. Voir "TRADUCTION" plus bas.
+# Expected output format (included in the user_prompt to guide the AI).
+# Every text field is produced in 4 languages IN A SINGLE CALL (fr/en/es/de) —
+# there's no separate second translation call anymore. See "TRADUCTION" below
+# (kept in French — it's part of the prompt text itself, see note at top of file).
 OUTPUT_FORMAT = """\n\nRéponds avec ce format JSON exact :
 {
   "match_summary": {"fr": "Résumé analytique concis de la rencontre", "en": "...", "es": "...", "de": "..."},
@@ -239,27 +246,27 @@ RAPPEL IMPORTANT : Chaque catégorie (`high_confidence`, `medium_confidence`, `r
 
 
 # ═══════════════════════════════════════════════════════════════════
-# FONCTION PRINCIPALE
+# MAIN FUNCTION
 # ═══════════════════════════════════════════════════════════════════
 
 async def build_audit_prompt(sport: str, match_id: int, context: Optional[Union[str, Dict[str, Any]]] = None) -> Tuple[str, str, str]:
     """
-    Construit le prompt complet pour l'audit IA d'un match.
-    
+    Builds the full AI audit prompt for a match.
+
     Args:
-        sport: "football", "basketball", ou "tennis"
-        match_id: ID interne du match.
-        context: Le texte du match (str) ou les données brutes (dict).
-    
+        sport: "football", "basketball", or "tennis"
+        match_id: internal match ID.
+        context: the match text (str) or raw data (dict).
+
     Returns:
         Tuple (system_prompt, user_prompt, context_str).
     """
     if sport not in SPORT_PROMPTS:
-        raise ValueError(f"Sport non supporté : {sport}. Choix : {list(SPORT_PROMPTS.keys())}")
-    
-    # 1. Récupérer ou transformer le contexte
+        raise ValueError(f"Unsupported sport: {sport}. Choices: {list(SPORT_PROMPTS.keys())}")
+
+    # 1. Fetch or transform the context
     from app.engine.data_aggregation import get_match_context, format_context
-    
+
     if context is None:
         logger.info(f"📊 Building prompt for {sport} #{match_id} (Fetching context)...")
         context_str = await get_match_context(sport, match_id)
@@ -268,32 +275,32 @@ async def build_audit_prompt(sport: str, match_id: int, context: Optional[Union[
         context_str = format_context(sport, context)
     else:
         context_str = context
-    
+
     if not context_str or "[MATCH" not in context_str:
-        raise RuntimeError(f"Contexte invalide ou vide pour {sport} #{match_id}.")
-    
-    # 2. Sélectionner le prompt système adapté
+        raise RuntimeError(f"Invalid or empty context for {sport} #{match_id}.")
+
+    # 2. Select the matching system prompt
     system_prompt = SPORT_PROMPTS[sport]
-    
-    # 3. Construire le user_prompt = Rapport textuel + format attendu
+
+    # 3. Build the user_prompt = text report + expected format
     user_prompt = f"Analyse ce match à partir du rapport suivant et produis ton audit JSON :\n\n{context_str}{OUTPUT_FORMAT}"
-    
+
     logger.info(f"✅ Prompt built: system={len(system_prompt)} chars, user={len(user_prompt)} chars")
     return system_prompt, user_prompt, context
 
 
 # ═══════════════════════════════════════════════════════════════════
-# CLI — Test direct
+# CLI — Direct test
 # ═══════════════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
     import asyncio
     import argparse
 
-    parser = argparse.ArgumentParser(description="Test du prompt builder BETIX")
+    parser = argparse.ArgumentParser(description="BETIX prompt builder test")
     parser.add_argument("sport", choices=["football", "basketball", "tennis"])
     parser.add_argument("match_id", type=int)
-    parser.add_argument("--system", action="store_true", help="Afficher aussi le system_prompt")
+    parser.add_argument("--system", action="store_true", help="Also print the system_prompt")
     args = parser.parse_args()
 
     async def main():

@@ -113,10 +113,9 @@ export async function getAiAuditForMatch(apiId: string, sport: string) {
             auditData = data;
         }
 
-        // 3. Rien en base, ou verrou 'pending' bloqué / analyse 'failed' —
-        //    déclenche une génération à la demande, mais UNIQUEMENT pour un
-        //    utilisateur premium (personne d'autre ne peut voir le résultat,
-        //    donc personne d'autre ne doit en déclencher le coût).
+        // 3. Nothing in the DB, or a stuck 'pending' lock / a 'failed' analysis —
+        //    trigger an on-demand generation, but ONLY for a premium user
+        //    (nobody else can see the result, so nobody else should trigger its cost).
         const needsTrigger =
             !auditData ||
             auditData.status === "failed" ||
@@ -127,7 +126,7 @@ export async function getAiAuditForMatch(apiId: string, sport: string) {
             if (triggered?.state === "ready" && triggered.audit) {
                 auditData = triggered.audit;
             } else {
-                // "pending" — génération lancée en tâche de fond côté backend.
+                // "pending" — generation kicked off in the background on the backend.
                 return { locked: false, pending: true, ai_analysis: null };
             }
         }
@@ -161,7 +160,7 @@ export async function getAiAuditForMatch(apiId: string, sport: string) {
 function isStuckPending(attemptedAt: string | null | undefined): boolean {
     if (!attemptedAt) return true;
     const ageMs = Date.now() - new Date(attemptedAt).getTime();
-    return ageMs > 5 * 60 * 1000; // même seuil que PENDING_LOCK_TIMEOUT_MINUTES côté backend
+    return ageMs > 5 * 60 * 1000; // same threshold as PENDING_LOCK_TIMEOUT_MINUTES on the backend
 }
 
 async function triggerAudit(sport: string, matchId: number): Promise<{ state: string; audit: Record<string, unknown> | null } | null> {
