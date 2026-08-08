@@ -1,17 +1,25 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Calendar, LayoutGrid, List, ChevronDown, Search, Swords } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Calendar, LayoutGrid, List, ChevronDown, Search, Swords, Radio } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 import { MatchCard } from "@/components/dashboard/MatchCard";
 import { MatchTable } from "@/components/dashboard/MatchTable";
+import { DateStrip, toDateStr } from "@/components/dashboard/DateStrip";
+import { getAuditSummaries, type AuditSummary } from "@/app/actions/matchList";
 import { cn } from "@/lib/utils";
 import { Match } from "@/types/match";
 import { useI18n } from "@/lib/use-i18n";
+
+type Tab = "live" | "upcoming" | "finished";
+type SortBy = "time" | "confidence" | "odds";
 
 export default function DashboardPage() {
     const { copy, t, locale } = useI18n();
@@ -22,6 +30,11 @@ export default function DashboardPage() {
     const [matches, setMatches] = useState<Match[]>([]);
     const [selectedLeague, setSelectedLeague] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
+
+    const [activeTab, setActiveTab] = useState<Tab>("upcoming");
+    const [selectedDate, setSelectedDate] = useState(() => toDateStr(new Date()));
+    const [sortBy, setSortBy] = useState<SortBy>("time");
+    const [auditSummaries, setAuditSummaries] = useState<Record<string, AuditSummary>>({});
 
     const searchParams = useSearchParams();
     const currentSport = searchParams.get("sport") || "all";
@@ -35,6 +48,7 @@ export default function DashboardPage() {
         return {
             id: m.id,
             sport: m.sport,
+            apiSportId: m.api_sport_id,
             league: {
                 name: m.league_name,
                 country: "International"
@@ -125,15 +139,13 @@ export default function DashboardPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentSport]);
 
-
-
-    // Reset pagination, search and league when sport changes
+    // Reset pagination, search, league and sort when sport or tab changes
     useEffect(() => {
         setVisibleCount(6);
         setSearchTeamA("");
         setSearchTeamB("");
         setSelectedLeague(null);
-    }, [currentSport]);
+    }, [currentSport, activeTab]);
 
     const dateLocale = { fr: "fr-FR", en: "en-US", es: "es-ES", de: "de-DE" }[locale];
     const today = new Date().toLocaleDateString(dateLocale, {
@@ -163,21 +175,22 @@ export default function DashboardPage() {
         filtered = filtered.filter(m => m.league?.name === selectedLeague);
     }
 
-    // 3. Filter by Status - Include imminent
-    filtered = filtered.filter(m => m.status === "live" || m.status === "upcoming" || m.status === "imminent");
-
-    // Sort: Live first, then Imminent, then by date/time
-    filtered.sort((a, b) => {
-        if (a.status === "live" && b.status !== "live") return -1;
-        if (b.status === "live" && a.status !== "live") return 1;
-        if (a.status === "imminent" && b.status !== "imminent" && b.status !== "live") return -1;
-        if (b.status === "imminent" && a.status !== "imminent" && a.status !== "live") return 1;
-        return new Date(a.date + "T" + a.time).getTime() - new Date(b.date + "T" + b.time).getTime();
+    // 3. Filter by tab (Live / Upcoming / Finished) — replaces the old
+    // always-exclude-finished behavior with an actual browsable tab.
+    filtered = filtered.filter(m => {
+        if (activeTab === "live") return m.status === "live";
+        if (activeTab === "finished") return m.status === "finished";
+        return m.status === "upcoming" || m.status === "imminent" || m.status === "scheduled";
     });
+
+    // 4. Filter by date (Live doesn't need a date picker — it's always "now")
+    if (activeTab !== "live") {
+        filtered = filtered.filter(m => m.date === selectedDate);
+    }
 
     const isSearching = searchTeamA.trim() !== "" || searchTeamB.trim() !== "";
 
-    // 4. Filter by Search (VS Logic + Short Name + Acronym)
+    // 5. Filter by Search (VS Logic + Short Name + Acronym)
     if (isSearching) {
         // Generate acronym from a team name: "Paris Saint Germain" → "psg"
         const acronym = (name: string) => name.split(/\s+/).map(w => w[0]).join("").toLowerCase();
@@ -218,6 +231,62 @@ export default function DashboardPage() {
             return true;
         });
     }
+
+    // Attach the batched confidence-badge data before sorting, so "sort by
+    // confidence/odds" has something to sort on.
+    filtered = filtered.map(m => ({ ...m, confidenceBadge: auditSummaries[m.id] }));
+
+    // 6. Sort
+    filtered = [...filtered].sort((a, b) => {
+        if (sortBy === "confidence") {
+            const ca = a.confidenceBadge?.topConfidence ?? -1;
+            const cb = b.confidenceBadge?.topConfidence ?? -1;
+            if (ca !== cb) return cb - ca;
+        } else if (sortBy === "odds") {
+            const oa = a.confidenceBadge?.topOdds ?? -1;
+            const ob = b.confidenceBadge?.topOdds ?? -1;
+            if (oa !== ob) return ob - oa;
+        }
+        if (a.status === "live" && b.status !== "live") return -1;
+        if (b.status === "live" && a.status !== "live") return 1;
+        if (a.status === "imminent" && b.status !== "imminent" && b.status !== "live") return -1;
+        if (b.status === "imminent" && a.status !== "imminent" && a.status !== "live") return 1;
+        return new Date(a.date + "T" + a.time).getTime() - new Date(b.date + "T" + b.time).getTime();
+    });
+
+    // Fetch confidence-badge teasers for whatever is actually in view — not
+    // the whole matches table. Keyed on the id list so it only re-fires when
+    // the actual set of visible matches changes, not on every render.
+    const filteredIdsKey = filtered.map(m => m.id).sort().join(",");
+    useEffect(() => {
+        if (!filteredIdsKey) return;
+        const items = filtered.map(m => ({
+            id: m.id,
+            apiSportId: m.apiSportId ?? null,
+            sport: m.sport,
+            leagueName: m.league?.name || "",
+        }));
+        getAuditSummaries(items).then(setAuditSummaries).catch(() => { });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [filteredIdsKey]);
+
+    const liveCount = matches.filter(m => (currentSport === "all" || m.sport === currentSport) && m.status === "live").length;
+
+    // No league selected, not searching, not on the Live tab -> group by
+    // league (the actual livescore-app layout). Otherwise a flat list.
+    const shouldGroupByLeague = !selectedLeague && !isSearching && activeTab !== "live";
+
+    const groupedByLeague = useMemo(() => {
+        if (!shouldGroupByLeague) return null;
+        const groups = new Map<string, Match[]>();
+        for (const m of filtered) {
+            const key = m.league?.name || copy("Autres");
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key)!.push(m);
+        }
+        return Array.from(groups.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [shouldGroupByLeague, filteredIdsKey, sortBy]);
 
     const visibleMatches = filtered.slice(0, visibleCount);
     const hasMore = visibleCount < filtered.length;
@@ -273,8 +342,35 @@ export default function DashboardPage() {
                     </div>
                 </div>
 
-                {/* League Filter */}
-                <div className="flex items-center justify-between gap-4 mt-0 sm:mt-2">
+                {/* Live / Upcoming / Finished */}
+                <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as Tab)}>
+                    <TabsList className="bg-black/40 border border-white/10 p-1 rounded-full h-auto gap-1">
+                        <TabsTrigger value="upcoming" className="rounded-full px-4 py-1.5 text-xs data-[state=active]:bg-white/10 data-[state=active]:text-white">
+                            {copy("À venir")}
+                        </TabsTrigger>
+                        <TabsTrigger value="live" className="rounded-full px-4 py-1.5 text-xs gap-1.5 data-[state=active]:bg-red-500/20 data-[state=active]:text-red-400">
+                            <span className={cn("dot", liveCount > 0 ? "dot-live" : "bg-neutral-600")} />
+                            {copy("Live")}
+                            {liveCount > 0 && <span className="font-mono">{liveCount}</span>}
+                        </TabsTrigger>
+                        <TabsTrigger value="finished" className="rounded-full px-4 py-1.5 text-xs data-[state=active]:bg-white/10 data-[state=active]:text-white">
+                            {copy("Terminés")}
+                        </TabsTrigger>
+                    </TabsList>
+                </Tabs>
+
+                {/* Date navigator (Live tab is always "now", no date to pick) */}
+                {activeTab !== "live" && (
+                    <DateStrip
+                        selected={selectedDate}
+                        onSelect={setSelectedDate}
+                        daysBack={activeTab === "finished" ? 6 : 0}
+                        daysForward={activeTab === "finished" ? 0 : 6}
+                    />
+                )}
+
+                {/* League Filter + Sort */}
+                <div className="flex items-center justify-between gap-2 mt-0 sm:mt-2">
                     <div className="flex-1 overflow-hidden">
                         {currentSport !== "all" && availableLeagues.length > 0 && (
                             <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 sm:pb-1 scrollbar-none animate-in fade-in slide-in-from-left-4 duration-500 mask-linear-fade pr-8">
@@ -310,6 +406,17 @@ export default function DashboardPage() {
                             </div>
                         )}
                     </div>
+
+                    <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortBy)}>
+                        <SelectTrigger className="h-7 sm:h-8 text-[10px] sm:text-xs bg-white/5 border-white/10 text-neutral-300 w-auto gap-1.5 shrink-0">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="time">{copy("Heure du coup d'envoi")}</SelectItem>
+                            <SelectItem value="confidence">{copy("Confiance IA")}</SelectItem>
+                            <SelectItem value="odds">{copy("Cote")}</SelectItem>
+                        </SelectContent>
+                    </Select>
                 </div>
 
                 {/* VS Search Bar - Prominent Glow Design (Ultra Compact Mobile) */}
@@ -363,30 +470,50 @@ export default function DashboardPage() {
                         ))}
                     </div>
                 ) : filtered.length > 0 ? (
-                    <>
-                        {viewMode === "grid" ? (
-                            <MatchGrid matches={visibleMatches} />
-                        ) : (
-                            <MatchTable items={visibleMatches} />
-                        )}
+                    groupedByLeague ? (
+                        <Accordion type="multiple" defaultValue={groupedByLeague.map(([league]) => league)} className="space-y-3">
+                            {groupedByLeague.map(([league, items]) => (
+                                <AccordionItem key={league} value={league} className="border border-white/10 rounded-xl bg-white/[0.02] overflow-hidden">
+                                    <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-white/[0.03]">
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-sm font-semibold text-white">{league}</span>
+                                            <span className="text-[10px] font-mono text-neutral-500 bg-white/5 px-2 py-0.5 rounded-full">{items.length}</span>
+                                        </div>
+                                    </AccordionTrigger>
+                                    <AccordionContent className="px-3 pb-3">
+                                        {viewMode === "grid" ? <MatchGrid matches={items} /> : <MatchTable items={items} />}
+                                    </AccordionContent>
+                                </AccordionItem>
+                            ))}
+                        </Accordion>
+                    ) : (
+                        <>
+                            {viewMode === "grid" ? (
+                                <MatchGrid matches={visibleMatches} />
+                            ) : (
+                                <MatchTable items={visibleMatches} />
+                            )}
 
-                        {hasMore && (
-                            <div className="flex justify-center pt-4">
-                                <Button
-                                    variant="outline"
-                                    size="lg"
-                                    className="bg-white/5 border-white/10 text-white hover:bg-white/10 hover:text-white w-full sm:w-auto min-w-[200px] gap-2 h-12"
-                                    onClick={() => setVisibleCount(prev => prev + 6)}
-                                >
-                                    {copy("Voir plus de matchs")} ({filtered.length - visibleCount}) <ChevronDown className="size-4" />
-                                </Button>
-                            </div>
-                        )}
-                    </>
+                            {hasMore && (
+                                <div className="flex justify-center pt-4">
+                                    <Button
+                                        variant="outline"
+                                        size="lg"
+                                        className="bg-white/5 border-white/10 text-white hover:bg-white/10 hover:text-white w-full sm:w-auto min-w-[200px] gap-2 h-12"
+                                        onClick={() => setVisibleCount(prev => prev + 6)}
+                                    >
+                                        {copy("Voir plus de matchs")} ({filtered.length - visibleCount}) <ChevronDown className="size-4" />
+                                    </Button>
+                                </div>
+                            )}
+                        </>
+                    )
                 ) : (
                     <div className="flex flex-col items-center justify-center py-20 text-muted-foreground border border-dashed border-white/10 rounded-xl bg-white/[0.02]">
-                        <Swords className="size-10 mb-4 opacity-20" />
-                        <p className="font-medium text-lg">{copy("Aucun match trouvé")}</p>
+                        {activeTab === "live" ? <Radio className="size-10 mb-4 opacity-20" /> : <Swords className="size-10 mb-4 opacity-20" />}
+                        <p className="font-medium text-lg">
+                            {activeTab === "live" ? copy("Aucun match en direct") : copy("Aucun match trouvé")}
+                        </p>
                         <p className="text-sm opacity-60">{copy("Essayez de modifier vos critères de recherche.")}</p>
                         {(searchTeamA || searchTeamB) && (
                             <Button

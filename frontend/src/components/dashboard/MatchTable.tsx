@@ -17,6 +17,7 @@ import { ChevronDown, ChevronUp, ExternalLink, Activity, Clock } from "lucide-re
 import { SportIcon } from "@/components/icons/SportIcons";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/use-i18n";
+import { ConfidenceBadge } from "@/components/dashboard/ConfidenceBadge";
 
 interface MatchTableProps {
     items: Match[];
@@ -213,29 +214,7 @@ export function MatchTable({ items }: MatchTableProps) {
 
                                     {/* 5. AI Confidence */}
                                     <TableCell className="text-right md:text-left">
-                                        {topPrediction && (
-                                            <>
-                                                {/* Mobile: Simple Badge */}
-                                                <Badge className={cn(
-                                                    "md:hidden text-[10px] px-1.5 h-5 font-mono",
-                                                    topPrediction.level === "safe" && "bg-emerald-500/20 text-emerald-400 border-emerald-500/20",
-                                                    topPrediction.level === "value" && "bg-purple-500/20 text-purple-400 border-purple-500/20",
-                                                    topPrediction.level === "risky" && "bg-orange-500/20 text-orange-400 border-orange-500/20"
-                                                )}>
-                                                    {topPrediction.confidence}%
-                                                </Badge>
-
-                                                {/* Desktop: Full Badge */}
-                                                <Badge className={cn(
-                                                    "hidden md:inline-flex border font-normal font-mono text-[10px]",
-                                                    topPrediction.level === "safe" && "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
-                                                    topPrediction.level === "value" && "bg-purple-500/10 text-purple-400 border-purple-500/20",
-                                                    topPrediction.level === "risky" && "bg-orange-500/10 text-orange-400 border-orange-500/20"
-                                                )}>
-                                                    {topPrediction.confidence}% {topPrediction.level.toUpperCase()}
-                                                </Badge>
-                                            </>
-                                        )}
+                                        <ConfidenceBadge badge={match.confidenceBadge} topPrediction={topPrediction} />
                                     </TableCell>
 
                                     {/* 6. Action Toggle */}

@@ -48,8 +48,17 @@ export interface Match {
     scoreDisplay?: string;
     scoreDetails?: Record<string, any>;
     venue?: string;
+    apiSportId?: string;
     predictions?: Prediction[];
     aiSummary?: string;
+    // Dashboard-list-only teaser (not the full prediction) — see
+    // app/actions/matchList.ts. Absent when out of scope or not generated yet.
+    confidenceBadge?: {
+        status: "ready" | "pending";
+        topLevel?: PredictionLevel;
+        topConfidence?: number;
+        topOdds?: number;
+    };
     aiAudit?: {
         snapshot_at: string;
         odds: any;
@@ -57,5 +66,6 @@ export interface Match {
         rolling_stats: any;
         ai_analysis: any;
         locked?: boolean;
+        pending?: boolean;
     };
 }
