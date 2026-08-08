@@ -11,13 +11,19 @@ import asyncio
 import json
 import logging
 import argparse
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 
 from app.engine.data_aggregation import get_match_context
-from app.engine.confidence_generator import generate_confidence
+from app.engine.confidence_generator import generate_confidence, DEFAULT_MODEL
 from app.services.ingestion.base_client import SupabaseREST
 from app.config import get_settings
+
+# Une seule ligne "courante" par match : les nouveaux passages de generation
+# ecrivent sous ce run_id fixe et ecrasent la ligne existante (UPSERT), au lieu
+# d'accumuler une nouvelle ligne datee a chaque passage comme l'ancien systeme.
+# Les anciennes lignes historiques (run_id = 'YYYY-MM-DD_runN') restent intactes.
+LIVE_RUN_ID = "live"
 
 # Configuration du logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -62,51 +68,71 @@ async def run_audit(
     match_id: int,
     provider: str = "claude",
     model_name: Optional[str] = None,
-    run_id: Optional[str] = None,
+    run_id: str = LIVE_RUN_ID,
+    db: Optional[SupabaseREST] = None,
 ):
     """Exécute le flux complet d'audit et archive le résultat.
+
+    Ecrit un verrou 'pending' avant de lancer la génération IA, puis 'ready'
+    (avec le résultat complet) ou 'failed' (avec le message d'erreur) — c'est
+    ce statut que l'endpoint à la demande et le passage planifié utilisent pour
+    éviter de lancer deux générations en parallèle sur le même match.
 
     Args:
         sport: "football", "basketball", ou "tennis"
         match_id: ID interne du match
         provider: Fournisseur IA
-        model_name: Modele specifique
-        run_id: Identifiant du passage batch (ex: "2026-03-05_run1").
-                Si None, genere automatiquement a partir de la date courante.
+        model_name: Modele specifique (défaut: DEFAULT_MODEL, Haiku)
+        run_id: 'live' par défaut — une seule ligne courante par match, écrasée
+                à chaque nouvelle génération. Passer un run_id daté explicite
+                pour archiver un snapshot historique séparé (rare, cas legacy).
+        db: client Supabase à réutiliser (optionnel — sinon en crée un).
     """
     settings = get_settings()
-    db = SupabaseREST(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY)
-
-    if run_id is None:
-        run_id = datetime.now().strftime("%Y-%m-%d_run1")
+    db = db or SupabaseREST(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY)
+    model_name = model_name or DEFAULT_MODEL
 
     logger.info(f"Demarrage de l'audit pour {sport} #{match_id} (run: {run_id})...")
 
-    # 1. Agregation du contexte complet (Raw Dict pour archivage et filtrage)
-    from app.engine.data_aggregation import get_match_raw_context
-    context = await get_match_raw_context(sport, match_id)
-    if not context or not context.get("match"):
-        logger.error(f"Impossible de recuperer le contexte brut pour {sport} #{match_id}.")
-        return False
-
-    # 2. Filtrage des statistiques essentielles pour l'audit
-    essential_stats = filter_essential_stats(sport, context)
-    logger.info(f"Statistiques essentielles extraites pour {sport} (Home: {list(essential_stats['home'].keys())})")
-
-    # 3. Generation de l'analyse IA (en passant le contexte deja agrege)
-    analysis = await generate_confidence(
-        sport=sport,
-        match_id=match_id,
-        provider=provider,
-        model_name=model_name,
-        context=context
+    # 0. Verrou : marquer 'pending' AVANT l'appel IA (couteux et lent) pour
+    #    qu'un second déclencheur concurrent (clic utilisateur + passage
+    #    planifié, ou deux clics) voie l'état 'pending' et n'en démarre pas un second.
+    db.upsert(
+        "ai_match_audits",
+        [{
+            "match_id": match_id,
+            "sport": sport,
+            "run_id": run_id,
+            "status": "pending",
+            "attempted_at": datetime.now(timezone.utc).isoformat(),
+        }],
+        on_conflict="match_id,sport,run_id",
     )
 
-    if not analysis:
-        raise RuntimeError("Echec de la generation de l'analyse IA.")
-
-    # 4. Archivage dans public.ai_match_audits
     try:
+        # 1. Agregation du contexte complet (Raw Dict pour archivage et filtrage)
+        from app.engine.data_aggregation import get_match_raw_context
+        context = await get_match_raw_context(sport, match_id)
+        if not context or not context.get("match"):
+            raise RuntimeError(f"Impossible de recuperer le contexte brut pour {sport} #{match_id}.")
+
+        # 2. Filtrage des statistiques essentielles pour l'audit
+        essential_stats = filter_essential_stats(sport, context)
+        logger.info(f"Statistiques essentielles extraites pour {sport} (Home: {list(essential_stats['home'].keys())})")
+
+        # 3. Generation de l'analyse IA (en passant le contexte deja agrege)
+        analysis = await generate_confidence(
+            sport=sport,
+            match_id=match_id,
+            provider=provider,
+            model_name=model_name,
+            context=context
+        )
+
+        if not analysis:
+            raise RuntimeError("Echec de la generation de l'analyse IA.")
+
+        # 4. Archivage dans public.ai_match_audits
         odds_ctx = context.get("odds", {}) or {}
         snapshots = [m.get("snapshot_at") for m in odds_ctx.values() if m.get("snapshot_at")]
         latest_snapshot = max(snapshots) if snapshots else None
@@ -115,6 +141,8 @@ async def run_audit(
             "match_id": match_id,
             "sport": sport,
             "run_id": run_id,
+            "status": "ready",
+            "error_message": None,
             "snapshot_at": latest_snapshot,
             "odds": context.get("odds"),
             "h2h": context.get("h2h"),
@@ -124,21 +152,32 @@ async def run_audit(
             "ai_model": model_name,
         }
 
-        db.upsert("ai_match_audits", audit_data, on_conflict="match_id,sport,run_id")
+        db.upsert("ai_match_audits", [audit_data], on_conflict="match_id,sport,run_id")
         logger.info(f"Audit archive avec succes (run: {run_id}).")
-    except Exception as e:
-        logger.error(f"Erreur lors de l'archivage en base : {e}")
-        raise
+        return True
 
-    return True
+    except Exception as e:
+        logger.error(f"Echec de l'audit pour {sport} #{match_id} : {e}")
+        db.upsert(
+            "ai_match_audits",
+            [{
+                "match_id": match_id,
+                "sport": sport,
+                "run_id": run_id,
+                "status": "failed",
+                "error_message": str(e)[:500],
+            }],
+            on_conflict="match_id,sport,run_id",
+        )
+        raise
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="BETIX -- Audit IA individuel")
     parser.add_argument("sport", choices=["football", "basketball", "tennis"])
     parser.add_argument("match_id", type=int)
     parser.add_argument("--provider", default="claude", choices=["gemini", "gpt", "claude"])
-    parser.add_argument("--model", default="claude-haiku-4-5-20251001")
-    parser.add_argument("--run-id", default=None, help="Identifiant du run (ex: 2026-03-05_run2)")
+    parser.add_argument("--model", default=DEFAULT_MODEL)
+    parser.add_argument("--run-id", default=LIVE_RUN_ID, help="Identifiant du run (défaut: 'live' — écrase la ligne courante)")
 
     args = parser.parse_args()
 
