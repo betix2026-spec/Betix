@@ -3387,14 +3387,22 @@ export function t(locale: Locale | undefined | null, key: DictionaryKey): string
 
 export function copy(locale: Locale | undefined | null, source: string): string {
     const activeLocale = locale && dictionaries[locale] ? locale : DEFAULT_LOCALE;
-    // literalTranslations has two entry shapes that both rely on this exact
-    // fallback: most entries are keyed by French source text with {en, es,
-    // de} translations (no redundant `fr` key — the source already is the
-    // French text); a smaller set is keyed by English source text with
-    // {fr, es, de} instead (no redundant `en` key, same reasoning). Either
-    // way, `|| source` is only wrong when the entry is missing outright —
-    // see the audit note below the table for how that gap gets closed.
-    return literalTranslations[source]?.[activeLocale] || source;
+    const entry = literalTranslations[source];
+    // literalTranslations has two entry shapes: most are keyed by French
+    // source text with {en, es, de} translations (no redundant `fr` key —
+    // the source already IS the French text); a smaller set is keyed by
+    // English source text with {fr, es, de} instead. For French, the
+    // correct fallback is therefore always the raw source (or an explicit
+    // `fr` override for the English-keyed set) — NEVER `entry.en`, which
+    // would incorrectly show English to a French user on every
+    // French-keyed entry (that was a real bug introduced and reverted
+    // earlier this session). For en/es/de, an explicit match wins, an
+    // English translation is a safe second choice, and the raw source is
+    // the last resort — hit only when a copy() call site was added without
+    // ever being backfilled into this table (verified zero such gaps as of
+    // this audit; this is protection against the next one).
+    if (activeLocale === "fr") return entry?.fr || source;
+    return entry?.[activeLocale] || entry?.en || source;
 }
 
 /**

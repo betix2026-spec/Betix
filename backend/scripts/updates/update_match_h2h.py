@@ -1,9 +1,9 @@
 """
 BETIX — update_match_h2h.py
-Mise à jour ciblée du Face-à-Face (H2H) pour UN match spécifique.
-Récupère les deux équipes du match, puis lance la recherche H2H pour cette paire.
+Targeted Head-to-Head (H2H) update for ONE specific match.
+Fetches both teams for the match, then runs the H2H lookup for that pair.
 
-Usage :
+Usage:
     python update_match_h2h.py --sport football --match-id 123456
     python update_match_h2h.py --sport basketball --match-id 456789
 """
@@ -16,7 +16,7 @@ import os
 import httpx
 from datetime import datetime
 
-# Ajout du chemin pour les imports app
+# Path setup for app imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from app.config import get_settings
@@ -62,34 +62,31 @@ class SingleMatchH2HUpdater:
         await self.client.aclose()
 
     async def get_team_pair(self, match_id: int) -> tuple[int, int] | None:
-        """Récupère les IDs internes des équipes pour ce match."""
+        """Fetches the internal team IDs for this match."""
         rows = self.db.select(
-            self.conf["match_table"], 
-            "home_team_id,away_team_id", 
+            self.conf["match_table"],
+            "home_team_id,away_team_id",
             {"api_id": match_id}
         )
         if not rows:
-            logger.error(f"❌ Match {match_id} introuvable dans {self.conf['match_table']}")
+            logger.error(f"❌ Match {match_id} not found in {self.conf['match_table']}")
             return None
-        
+
         home_id = rows[0]["home_team_id"]
         away_id = rows[0]["away_team_id"]
         return home_id, away_id
 
     async def get_team_api_ids(self, team_ids: list[int]) -> dict[int, int]:
-        """Convertit ID interne -> API ID."""
+        """Converts internal ID -> API ID."""
         if not team_ids: return {}
-        # Correction de la syntaxe pour le filtre 'in'
-        # SupabaseREST.select attend un dictionnaire, mais pour 'in', on doit préparer la valeur correctement
-        # ou passer par select_raw si le wrapper ajoute des quotes gênantes.
-        # Ici on utilise select_raw pour être sûr du format : id=in.(1,2)
+        # Uses select_raw to get the exact 'in' filter format: id=in.(1,2)
         teams_str = ",".join(map(str, team_ids))
         query = f"select=id,api_id&id=in.({teams_str})"
         rows = self.db.select_raw("teams", query)
         return {r["id"]: r["api_id"] for r in rows}
 
     def process_api_response(self, data, team_a, team_b, api_a):
-        """Logique de traitement H2H (copiée de fetch_h2h_v2.py)."""
+        """H2H processing logic (copied from fetch_h2h_v2.py)."""
         if not data: return None
 
         try:
@@ -113,7 +110,7 @@ class SingleMatchH2HUpdater:
 
             if s_home is None or s_away is None: continue
 
-            # Normalisation vs Team A
+            # Normalize vs Team A
             if fid_home == api_a:
                 s_for, s_against, is_home = s_home, s_away, True
             else:
@@ -163,15 +160,15 @@ class SingleMatchH2HUpdater:
         pair = await self.get_team_pair(match_id)
         if not pair: return
         
-        team_a, team_b = sorted(pair) # Toujours stocké A < B
+        team_a, team_b = sorted(pair) # Always stored A < B
         logger.info(f"   Teams Internal IDs: {team_a} vs {team_b}")
-        
+
         # 2. Get API IDs
         mapping = await self.get_team_api_ids([team_a, team_b])
         api_a, api_b = mapping.get(team_a), mapping.get(team_b)
-        
+
         if not api_a or not api_b:
-            logger.error("❌ API IDs introuvables pour ces équipes.")
+            logger.error("❌ API IDs not found for these teams.")
             return
 
         logger.info(f"   API IDs: {api_a} vs {api_b}")
@@ -184,7 +181,7 @@ class SingleMatchH2HUpdater:
             data = resp.json().get("response", [])
             
             if not data:
-                logger.warning("⚠️ Aucune donnée H2H trouvée.")
+                logger.warning("⚠️ No H2H data found.")
                 return
 
             row = self.process_api_response(data, team_a, team_b, api_a)
@@ -194,10 +191,10 @@ class SingleMatchH2HUpdater:
                 logger.info("✅ H2H Updated Successfully.")
                 # print(row) # Debug
             else:
-                logger.warning("⚠️ Données insuffisantes pour générer une ligne H2H.")
+                logger.warning("⚠️ Insufficient data to generate an H2H row.")
 
         except Exception as e:
-            logger.error(f"❌ Erreur lors de la mise à jour H2H: {e}")
+            logger.error(f"❌ Error while updating H2H: {e}")
 
 async def main():
     parser = argparse.ArgumentParser(description="Update specific match H2H")

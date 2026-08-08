@@ -1,10 +1,10 @@
 """
 BETIX — Compute ELO Ratings
-Calcule le classement ELO pour les équipes de football.
+Computes the ELO rating for football teams.
 Table cible : analytics.football_team_elo
 
-Formule : K=32, ajusté par la différence de buts.
-Base : 1500 pour toutes les équipes.
+Formula: K=32, adjusted by goal difference.
+Base: 1500 for all teams.
 
 Usage :
     python -m app.services.enrichment.compute_elo
@@ -26,12 +26,12 @@ BASE_ELO = 1500.0
 
 
 def expected_score(elo_a: float, elo_b: float) -> float:
-    """Probabilité de victoire de A selon l'ELO."""
+    """Win probability for A based on ELO."""
     return 1.0 / (1.0 + 10 ** ((elo_b - elo_a) / 400.0))
 
 
 def goal_diff_multiplier(goal_diff: int) -> float:
-    """Multiplicateur basé sur la différence de buts (modèle FiveThirtyEight)."""
+    """Multiplier based on goal difference (FiveThirtyEight model)."""
     diff = abs(goal_diff)
     if diff <= 1:
         return 1.0
@@ -43,8 +43,8 @@ def goal_diff_multiplier(goal_diff: int) -> float:
 
 async def compute_football_elo():
     """
-    Calcule l'ELO pour toutes les équipes de football.
-    TRUNCATE + INSERT car l'ELO dépend de l'ordre chronologique.
+    Computes the ELO for all football teams.
+    TRUNCATE + INSERT since ELO depends on chronological order.
     """
     settings = get_settings()
     db = SupabaseREST(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY, schema="analytics")

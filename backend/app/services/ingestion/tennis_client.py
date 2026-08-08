@@ -1,13 +1,13 @@
 """
 BETIX — TennisClient
-Implémentation concrète de BaseSportClient pour le Tennis (api-tennis.com).
-Gère les transformations spécifiques : fixtures, players (joueurs), tournaments.
+Concrete implementation of BaseSportClient for Tennis (api-tennis.com).
+Handles sport-specific transforms: fixtures, players, tournaments.
 
-Différences clés avec Football/Basketball :
-- API différente (api-tennis.com) avec clé dans les query params.
-- Utilise des joueurs (players) au lieu d'équipes (teams).
-- Utilise des tournois (tennis_tournaments) au lieu de ligues (leagues).
-- Le format de réponse utilise "result" au lieu de "response".
+Key differences from Football/Basketball:
+- Different API (api-tennis.com) with the key passed in query params.
+- Uses players instead of teams.
+- Uses tournaments (tennis_tournaments) instead of leagues.
+- The response format uses "result" instead of "response".
 """
 
 import logging
@@ -21,17 +21,17 @@ from .constants import ANALYTICS_TO_PUBLIC_STATUS
 
 logger = logging.getLogger("betix.ingestion.tennis")
 
-# Statuts API-Tennis → DB statuts
+# API-Tennis statuses → DB statuses
 TENNIS_STATUS_MAP = {
     "Finished": "finished",
     "Not Started": "scheduled",
-    # Décidés (vainqueur désigné ou match annulé définitivement)
+    # Decided (winner declared or match permanently cancelled)
     "Cancelled": "cancelled",
     "Walkover": "finished",
     "Retired": "finished",
     "Abandoned": "finished",
     "Defaulted": "finished",
-    # Reportés (match sera rejoué)
+    # Postponed (match will be replayed)
     "Postponed": "postponed",
     "Delayed": "postponed",
     "Suspended": "postponed",
@@ -39,12 +39,12 @@ TENNIS_STATUS_MAP = {
     "Live": "live",
 }
 
-# Pas de "league_ids" classiques pour le tennis — on scanne par date.
+# No classic "league_ids" for tennis — we scan by date instead.
 TENNIS_LEAGUES = {}
 
 
 class TennisClient(BaseSportClient):
-    """Client d'ingestion pour le Tennis via api-tennis.com."""
+    """Ingestion client for Tennis via api-tennis.com."""
 
     sport = "tennis"
     base_url = ""  # Overridden in __init__
@@ -56,7 +56,7 @@ class TennisClient(BaseSportClient):
         self.api_key = settings.API_TENNIS_KEY
         self.tennis_base_url = settings.API_TENNIS_BASE_URL
 
-        # Client REST pour le schéma analytics.*
+        # REST client for the analytics.* schema
         from .base_client import SupabaseREST
         self.analytics = SupabaseREST(
             settings.SUPABASE_URL,
@@ -64,31 +64,31 @@ class TennisClient(BaseSportClient):
             schema="analytics",
         )
 
-        # Client REST pour le schéma public.*
+        # REST client for the public.* schema
         self.public = SupabaseREST(
             settings.SUPABASE_URL,
             settings.SUPABASE_SERVICE_ROLE_KEY,
             schema="public",
         )
 
-        # Client HTTP pour api-tennis.com (pas de header auth, clé dans query params)
+        # HTTP client for api-tennis.com (no auth header, key passed in query params)
         self.http = httpx.AsyncClient(
             base_url=self.tennis_base_url,
         )
 
-        # Caches internes — pour le tennis c'est joueurs et tournois
+        # Internal caches — for tennis these are players and tournaments
         self._league_id_map: dict[int, int] = {}    # tournament api_id -> internal db id
         self._team_id_map: dict[int, int] = {}       # player api_id -> internal db id
         self._tournament_surface: dict[int, str] = {}  # tournament api_id -> surface
         self._request_count = 0
 
     # =========================================================================
-    # API CALL — Override pour api-tennis (clé dans query params)
+    # API CALL — Override for api-tennis (key passed in query params)
     # =========================================================================
     async def _api_get(self, endpoint: str, params: dict | None = None) -> dict:
         """
-        Appel GET à api-tennis.com.
-        La clé API est injectée dans les query params.
+        GET call to api-tennis.com.
+        The API key is injected into the query params.
         """
         if self._request_count >= 7000:
             msg = f"[tennis] Quota guard: {self._request_count} requests used, stopping."
@@ -120,16 +120,16 @@ class TennisClient(BaseSportClient):
             return {"result": []}
 
     # =========================================================================
-    # CACHES — joueurs et tournois au lieu d'équipes et ligues
+    # CACHES — players and tournaments instead of teams and leagues
     # =========================================================================
     def _load_league_id_map(self) -> None:
-        """Charge le mapping api_id -> id pour les tournois de tennis."""
+        """Loads the api_id -> id mapping for tennis tournaments."""
         rows = self.analytics.select("tennis_tournaments", "id,api_id,surface", {})
         self._league_id_map = {r["api_id"]: r["id"] for r in rows if r.get("api_id")}
         self._tournament_surface = {r["api_id"]: r.get("surface") for r in rows if r.get("api_id")}
 
     def _load_team_id_map(self) -> None:
-        """Charge le mapping api_id -> id pour les joueurs."""
+        """Loads the api_id -> id mapping for players."""
         rows = self.analytics.select("players", "id,api_id", {})
         self._team_id_map = {r["api_id"]: r["id"] for r in rows if r.get("api_id")}
 
@@ -165,17 +165,17 @@ class TennisClient(BaseSportClient):
     # TRANSFORMATIONS
     # =========================================================================
     def _transform_league(self, raw: dict, meta: dict) -> dict:
-        """Non utilisé pour le tennis (tournois gérés séparément)."""
+        """Not used for tennis (tournaments handled separately)."""
         return {}
 
     def _transform_team(self, raw: dict, internal_league_id: int) -> dict:
-        """Non utilisé pour le tennis (joueurs gérés séparément)."""
+        """Not used for tennis (players handled separately)."""
         return {}
 
     def _transform_match(self, raw: dict) -> Optional[dict]:
         """
         api-tennis fixture → analytics.tennis_matches row.
-        Logique robuste unifiée (similaire à TennisMatchUpserter).
+        Unified robust logic (similar to TennisMatchUpserter).
         """
         api_id = raw.get("event_key")
         if not api_id:
@@ -207,9 +207,9 @@ class TennisClient(BaseSportClient):
         if event_date and event_time and event_time != "":
             date_time = f"{event_date}T{event_time}:00Z"
 
-        # 3. Status Mapping (Logic Robuste)
+        # 3. Status Mapping (Robust Logic)
         raw_status = raw.get("event_status", "")
-        # API-Tennis renvoie parfois des codes numériques ("1"=Not Started, "3"=Finished, etc.)
+        # API-Tennis sometimes returns numeric codes ("1"=Not Started, "3"=Finished, etc.)
         NUMERIC_STATUS_MAP = {"1": "Not Started", "2": "Live", "3": "Finished", "4": "Postponed",
                               "5": "Cancelled", "6": "Postponed", "7": "Cancelled", "8": "Walkover", "0": "Not Started"}
         if raw_status in NUMERIC_STATUS_MAP:
@@ -220,7 +220,7 @@ class TennisClient(BaseSportClient):
 
         status = self.status_map.get(raw_status, "scheduled")
 
-        # Règle de fin absolue
+        # Absolute end-of-match rule
         if raw_status == "Finished" or (winner_raw and final_res and final_res != "-"):
             status = "finished"
         elif "Set" in raw_status or "Tiebreak" in raw_status or "Game" in raw_status or raw_status == "Live" or is_live:
@@ -239,7 +239,7 @@ class TennisClient(BaseSportClient):
         sets_played = 0
         raw_scores = raw.get("scores", [])
         if isinstance(raw_scores, list) and len(raw_scores) > 0:
-            # Ignorer le set "0-0" fantôme d'API-Tennis
+            # Ignore API-Tennis' phantom "0-0" set
             first_set = raw_scores[0]
             if first_set.get("score_first") == "0" and first_set.get("score_second") == "0" and len(raw_scores) == 1:
                 sets_played = 0
@@ -267,7 +267,7 @@ class TennisClient(BaseSportClient):
 
     def _build_public_match(self, analytics_row: dict) -> Optional[dict]:
         """
-        Construit un objet public.matches depuis une ligne analytics.tennis_matches.
+        Builds a public.matches object from an analytics.tennis_matches row.
         """
         # Lookup player info
         p1_info = self._get_player_info(analytics_row.get("player1_id"))

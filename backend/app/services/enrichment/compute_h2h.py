@@ -1,6 +1,6 @@
 """
 BETIX — Compute Head-to-Head (H2H)
-Calcule les confrontations directes à partir des matchs terminés.
+Computes head-to-head records from finished matches.
 Tables cibles : analytics.football_h2h, analytics.basketball_h2h
 
 Usage :

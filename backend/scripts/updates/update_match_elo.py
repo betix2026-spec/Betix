@@ -1,16 +1,16 @@
 """
 BETIX — update_match_elo.py
-Mise à jour ciblée de l'ELO pour UN match spécifique.
-Recalcule le rating ELO des deux équipes impliquées après le résultat du match.
+Targeted ELO update for ONE specific match.
+Recomputes the ELO rating for both teams involved after the match result.
 
-0 appel API — tout est calculé depuis la base de données.
+0 API calls — everything is computed from the database.
 
-Paramètres ELO (cohérents avec engine/compute_elo.py) :
+ELO parameters (consistent with engine/compute_elo.py):
   - Football  : K=30, base=1500
   - Basketball: K=20, base=1500
-  - Pas de multiplicateur goal diff
+  - No goal-diff multiplier
 
-Usage :
+Usage:
     python update_match_elo.py --sport football --match-id 123456
     python update_match_elo.py --sport basketball --match-id 456789
     python update_match_elo.py --sport football --match-id 123456 --dry-run
@@ -89,11 +89,11 @@ class SingleMatchEloUpdater:
 
         match = self.get_match_details(match_id)
         if not match:
-            logger.error(f"❌ Match {match_id} introuvable dans {self.match_table}")
+            logger.error(f"❌ Match {match_id} not found in {self.match_table}")
             return
 
         if match["status"] != "finished":
-            logger.warning(f"⚠️ Match {match_id} n'est pas terminé (status={match['status']}). ELO non calculé.")
+            logger.warning(f"⚠️ Match {match_id} is not finished (status={match['status']}). ELO not computed.")
             return
 
         home_id = match["home_team_id"]
@@ -103,7 +103,7 @@ class SingleMatchEloUpdater:
         match_date = match["date_time"]
 
         if h_score is None or a_score is None:
-            logger.error(f"❌ Scores manquants pour le match {match_id}.")
+            logger.error(f"❌ Missing scores for match {match_id}.")
             return
 
         if h_score > a_score:
@@ -146,17 +146,17 @@ class SingleMatchEloUpdater:
         logger.info(f"   Change 1M — Home: {change_1m_home:+.1f}, Away: {change_1m_away:+.1f}")
 
         if dry_run:
-            logger.info(f"[DRY RUN] 2 entrées calculées, aucune écriture.")
+            logger.info(f"[DRY RUN] 2 entries computed, nothing written.")
         else:
             self.db.upsert(self.elo_table, rows, on_conflict="team_id,date")
-            logger.info(f"✅ ELO mis à jour pour les 2 équipes.")
+            logger.info(f"✅ ELO updated for both teams.")
 
 
 async def main():
     parser = argparse.ArgumentParser(description="Update ELO for a specific match")
     parser.add_argument("--sport", choices=["football", "basketball"], required=True)
     parser.add_argument("--match-id", type=int, required=True)
-    parser.add_argument("--dry-run", action="store_true", help="Simuler sans écriture")
+    parser.add_argument("--dry-run", action="store_true", help="Simulate without writing")
     args = parser.parse_args()
 
     updater = SingleMatchEloUpdater(args.sport)

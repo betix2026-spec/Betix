@@ -1,7 +1,7 @@
 """
-Diagnostic Part 4 : 
-- Basketball: lister TOUS les bookmakers dispo pour game=470281
-- Tennis: trouver un match SIMPLE avec cotes
+Diagnostic Part 4:
+- Basketball: list ALL available bookmakers for game=470281
+- Tennis: find a SIMPLE match with odds
 """
 import httpx
 import json
@@ -21,7 +21,7 @@ def section(title):
     print(f"\n{'='*60}\n  {title}\n{'='*60}")
 
 # ==============================================================
-# 1. BASKETBALL: Tous les bookmakers pour game=470281
+# 1. BASKETBALL: All bookmakers for game=470281
 # ==============================================================
 section("BASKETBALL — All bookmakers for game=470281")
 try:
@@ -43,7 +43,7 @@ except Exception as e:
     print(f"  ERROR: {e}")
 
 # ==============================================================
-# 2. TENNIS: get_odds avec date_start/date_stop
+# 2. TENNIS: get_odds with date_start/date_stop
 # ==============================================================
 section("TENNIS — get_odds with dates")
 try:
@@ -65,7 +65,7 @@ try:
     if isinstance(result, dict) and result:
         keys = list(result.keys())
         print(f"  Total matches with odds: {len(keys)}")
-        # Afficher le premier match en détail
+        # Print the first match in detail
         first_key = keys[0]
         first_data = result[first_key]
         print(f"\n  Sample match_key: {first_key}")

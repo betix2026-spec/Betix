@@ -1,15 +1,15 @@
 -- ============================================================
--- Migration : Refactoring de analytics.odds_snapshots
--- Date : 2026-02-24
--- Description : Passage à une structure EAV / JSONB pour 
---               supporter tous les types de marchés (Markets).
+-- Migration: Refactoring analytics.odds_snapshots
+-- Date: 2026-02-24
+-- Description: Switch to an EAV / JSONB structure to
+--               support all market types.
 -- ============================================================
 
--- 1. Suppression de l'ancienne table (et de ses index)
--- Note : Nous savons que la table est actuellement vide en production
+-- 1. Drop the old table (and its indexes)
+-- Note: We know the table is currently empty in production
 DROP TABLE IF EXISTS analytics.odds_snapshots;
 
--- 2. Création de la nouvelle table hyper-flexible
+-- 2. Create the new, highly flexible table
 CREATE TABLE analytics.odds_snapshots (
     id              bigserial PRIMARY KEY,
     match_id        int NOT NULL,
@@ -17,15 +17,15 @@ CREATE TABLE analytics.odds_snapshots (
     bookmaker       text NOT NULL,
     snapshot_at     timestamptz NOT NULL DEFAULT now(),
     
-    -- Structure dynamique
-    market_name     text NOT NULL,  -- Ex: '1x2', 'Over/Under', 'Both Teams To Score'
-    market_value    text,           -- Ex: '2.5' (Pour l'Over/Under), NULL par défaut
+    -- Dynamic structure
+    market_name     text NOT NULL,  -- E.g.: '1x2', 'Over/Under', 'Both Teams To Score'
+    market_value    text,           -- E.g.: '2.5' (for Over/Under), NULL by default
     
     -- Format attendu: [{"label": "Home", "odds": 1.50}, {"label": "Draw", "odds": 3.40}]
     odds_data       jsonb NOT NULL
 );
 
--- 3. Création des index optimisés
+-- 3. Create optimized indexes
 CREATE INDEX idx_odds_sport_match ON analytics.odds_snapshots(sport, match_id);
 CREATE INDEX idx_odds_snapshot_time ON analytics.odds_snapshots(snapshot_at DESC);
 CREATE INDEX idx_odds_market ON analytics.odds_snapshots(market_name);

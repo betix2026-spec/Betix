@@ -1,7 +1,7 @@
 """
-BETIX — Router Matches
-Endpoints pour récupérer les matchs du jour par sport.
-Retourne des données mock pour la Phase 1 (avant intégration API réelle).
+BETIX — Matches Router
+Endpoints for fetching today's matches by sport.
+Returns mock data for Phase 1 (before real API integration).
 """
 
 from fastapi import APIRouter, Query
@@ -12,7 +12,7 @@ router = APIRouter()
 
 
 # =============================================================================
-# DONNÉES MOCK — Seront remplacées par les données API-Sports en Phase 3
+# MOCK DATA — Will be replaced by real API-Sports data in Phase 3
 # =============================================================================
 
 MOCK_MATCHES: list[dict] = [
@@ -117,7 +117,7 @@ MOCK_MATCHES: list[dict] = [
         "sport": "tennis",
         "league": {
             "id": 1,
-            "name": "ATP Tour — Open d'Australie",
+            "name": "ATP Tour — Australian Open",
             "logo": "",
             "country": "Australia",
             "country_flag": "🇦🇺",
@@ -135,7 +135,7 @@ MOCK_MATCHES: list[dict] = [
         "sport": "tennis",
         "league": {
             "id": 2,
-            "name": "WTA Tour — Open d'Australie",
+            "name": "WTA Tour — Australian Open",
             "logo": "",
             "country": "Australia",
             "country_flag": "🇦🇺",
@@ -156,9 +156,9 @@ MOCK_MATCHES: list[dict] = [
 
 @router.get("/today")
 async def get_today_matches(
-    sport: Optional[Sport] = Query(None, description="Filtrer par sport"),
+    sport: Optional[Sport] = Query(None, description="Filter by sport"),
 ):
-    """Récupère les matchs du jour, optionnellement filtrés par sport."""
+    """Fetches today's matches, optionally filtered by sport."""
     matches = MOCK_MATCHES
 
     if sport:
@@ -172,7 +172,7 @@ async def get_today_matches(
 
 @router.post("/refresh")
 async def refresh_live_matches():
-    """Déclenche une synchronisation forcée des matchs en direct."""
+    """Triggers a forced sync of live matches."""
     from app.services.ingestion.orchestrator import IngestionOrchestrator
     orchestrator = IngestionOrchestrator()
     report = await orchestrator.run_live_sync()
@@ -185,7 +185,7 @@ async def refresh_live_matches():
 
 @router.get("/debug-db")
 async def debug_db_content():
-    """Endpoint de debug pour voir ce que le backend voit en base."""
+    """Debug endpoint to see what the backend sees in the DB."""
     from app.services.ingestion.base_client import SupabaseREST
     from app.config import get_settings
     settings = get_settings()
@@ -208,7 +208,7 @@ async def debug_db_content():
 
 @router.get("/{match_id}")
 async def get_match(match_id: str):
-    """Récupère le détail d'un match par son ID."""
+    """Fetches a single match's details by its ID."""
     match = next((m for m in MOCK_MATCHES if m["id"] == match_id), None)
 
     if not match:

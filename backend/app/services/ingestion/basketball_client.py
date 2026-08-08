@@ -1,7 +1,7 @@
 """
 BETIX — BasketballClient
-Implémentation concrète de BaseSportClient pour le Basketball (API-Basketball v1).
-Gère les transformations spécifiques : games, scores par quart-temps.
+Concrete implementation of BaseSportClient for Basketball (API-Basketball v1).
+Handles sport-specific transforms: games, quarter-by-quarter scores.
 """
 
 import logging

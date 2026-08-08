@@ -218,7 +218,7 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
         );
     }
 
-    // Extraction des stats réelles de l'audit
+    // Extract the audit's real stats
     const auditStats = match.aiAudit?.rolling_stats;
     const homeStats = auditStats?.home || {};
     const awayStats = auditStats?.away || {};

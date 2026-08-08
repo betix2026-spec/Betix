@@ -1,10 +1,10 @@
 """
 BETIX — monitor_live.py
-Live Monitor : Suit les matchs 'live'.
-1. Met à jour le score en temps réel (pour le suivi Live).
-2. Si le match se termine, déclenche la séquence de clôture via les pipelines.
+Live Monitor: tracks 'live' matches.
+1. Updates the score in real time (for live tracking).
+2. When a match ends, triggers the completion sequence via the pipelines.
 
-Fréquence idéale : Toutes les 2 minutes.
+Ideal frequency: every 2 minutes.
 """
 
 import asyncio
@@ -39,7 +39,7 @@ class LiveMatchMonitor:
         self.tennis_upserter = TennisMatchUpserter(self.db, settings.API_TENNIS_KEY)
 
     async def get_live_matches(self):
-        """Récupère tous les matchs avec status='live'."""
+        """Fetches all matches with status='live'."""
         matches = []
         for sport in ["football", "basketball", "tennis"]:
             table = f"{sport}_matches"
@@ -59,7 +59,7 @@ class LiveMatchMonitor:
         return matches
 
     async def check_and_update(self, match):
-        """Utilise les Upserters pour mettre à jour et vérifier si terminé."""
+        """Uses the Upserters to update and check whether the match has finished."""
         sport = match["sport"]
         api_id = match["api_id"]
         

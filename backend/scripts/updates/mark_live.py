@@ -1,9 +1,9 @@
 """
 BETIX — mark_live.py
-Kick-off Radar : Détecte les matchs 'imminent' qui commencent dans moins de 5 minutes
-et passe leur statut à 'live' si l'API le confirme.
+Kick-off radar: detects 'imminent' matches starting in less than 5 minutes
+and flips their status to 'live' if the API confirms it.
 
-Fréquence idéale : Toutes les 5 minutes.
+Ideal frequency: every 5 minutes.
 """
 
 import asyncio
@@ -84,7 +84,7 @@ class LiveSwitchRadar:
                 logger.info("💤 No upcoming kick-offs found.")
                 return
 
-            logger.info(f"🟢 Radar Live : Scanning {len(matches)} matches...")
+            logger.info(f"🟢 Live Radar: Scanning {len(matches)} matches...")
             
             tasks = [self.check_and_update(m) for m in matches]
             results = await asyncio.gather(*tasks)

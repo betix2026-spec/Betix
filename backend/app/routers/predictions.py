@@ -1,7 +1,7 @@
 """
-BETIX — Router Predictions
-Endpoints pour récupérer les prédictions IA d'un match.
-Retourne des données mock pour la Phase 1.
+BETIX — Predictions Router
+Endpoints for fetching AI predictions for a match.
+Returns mock data from Phase 1.
 """
 
 from fastapi import APIRouter
@@ -11,7 +11,7 @@ router = APIRouter()
 
 
 # =============================================================================
-# DONNÉES MOCK — Seront remplacées par les prédictions IA en Phase 4
+# MOCK DATA — Will be replaced by real AI predictions in Phase 4
 # =============================================================================
 
 MOCK_PREDICTIONS: dict[str, list[dict]] = {
@@ -21,20 +21,20 @@ MOCK_PREDICTIONS: dict[str, list[dict]] = {
             "match_id": "fb-001",
             "sport": "football",
             "confidence_level": "safe",
-            "analysis": """## Analyse Prudente — Manchester United vs Liverpool
+            "analysis": """## Cautious Analysis — Manchester United vs Liverpool
 
-Les deux équipes affichent une forme récente contrastée. **Manchester United** reste sur 3 victoires consécutives à domicile, avec une défense qui n'a encaissé que 2 buts sur cette période. **Liverpool**, bien que leader du championnat, a montré des signes de fragilité en déplacement lors des dernières semaines.
+Both teams show contrasting recent form. **Manchester United** are on 3 consecutive home wins, with a defense that has conceded just 2 goals over that stretch. **Liverpool**, despite leading the table, have shown signs of fragility on the road in recent weeks.
 
-Le facteur Old Trafford pèse lourd : United a remporté 7 de ses 10 derniers matchs à domicile toutes compétitions confondues. La confrontation directe historique montre un équilibre, mais l'avantage du terrain devrait faire la différence.
+The Old Trafford factor carries weight: United have won 7 of their last 10 home matches across all competitions. The historical head-to-head is balanced, but home advantage should make the difference.
 
-**Recommandation : Double chance 1X (Manchester United ou Nul)**""",
+**Recommendation: Double chance 1X (Manchester United or Draw)**""",
             "predicted_outcome": "Double chance 1X",
             "predicted_score": "1-1",
             "odds_value": 1.45,
             "key_factors": [
-                {"icon": "🏟️", "label": "Avantage domicile", "description": "7 victoires sur 10 à Old Trafford", "impact": "positive"},
-                {"icon": "🛡️", "label": "Solidité défensive", "description": "2 buts encaissés en 3 matchs à domicile", "impact": "positive"},
-                {"icon": "📊", "label": "H2H équilibré", "description": "3V-2N-5D sur les 10 derniers face-à-face", "impact": "neutral"},
+                {"icon": "🏟️", "label": "Home advantage", "description": "7 wins in 10 at Old Trafford", "impact": "positive"},
+                {"icon": "🛡️", "label": "Defensive solidity", "description": "2 goals conceded in 3 home matches", "impact": "positive"},
+                {"icon": "📊", "label": "Balanced H2H", "description": "3W-2D-5L over the last 10 head-to-heads", "impact": "neutral"},
             ],
             "model_used": "gemini-2.0-flash",
             "generated_at": "2026-02-11T08:00:00+00:00",
@@ -44,20 +44,20 @@ Le facteur Old Trafford pèse lourd : United a remporté 7 de ses 10 derniers ma
             "match_id": "fb-001",
             "sport": "football",
             "confidence_level": "intermediate",
-            "analysis": """## Analyse Intermédiaire — Manchester United vs Liverpool
+            "analysis": """## Intermediate Analysis — Manchester United vs Liverpool
 
-L'analyse des statistiques avancées (xG, possession dans le dernier tiers) suggère un match ouvert avec des buts. Les deux équipes ont marqué dans **6 des 8 derniers derbies**. United a un xG moyen de 1.8 à domicile cette saison, tandis que Liverpool affiche 2.1 en déplacement.
+Advanced-stats analysis (xG, final-third possession) suggests an open match with goals. Both teams have scored in **6 of the last 8 derbies**. United average an xG of 1.8 at home this season, while Liverpool post 2.1 away.
 
-La tendance aux buts est forte : 75% des matchs de United à domicile ont vu plus de 2.5 buts cette saison. Liverpool a marqué au minimum 1 but dans chacun de ses 12 derniers déplacements.
+The scoring trend is strong: 75% of United's home matches this season have seen more than 2.5 goals. Liverpool have scored at least 1 goal in each of their last 12 away matches.
 
-**Recommandation : Les deux équipes marquent (BTTS Oui)**""",
-            "predicted_outcome": "BTTS Oui",
+**Recommendation: Both teams to score (BTTS Yes)**""",
+            "predicted_outcome": "BTTS Yes",
             "predicted_score": "2-1",
             "odds_value": 1.72,
             "key_factors": [
-                {"icon": "⚽", "label": "Tendance BTTS", "description": "6/8 derniers derbies avec les 2 équipes qui marquent", "impact": "positive"},
-                {"icon": "📈", "label": "xG élevé", "description": "xG combiné de 3.9 par match en moyenne", "impact": "positive"},
-                {"icon": "🔥", "label": "Forme offensive Liverpool", "description": "Au moins 1 but en 12 déplacements consécutifs", "impact": "negative"},
+                {"icon": "⚽", "label": "BTTS trend", "description": "6/8 last derbies with both teams scoring", "impact": "positive"},
+                {"icon": "📈", "label": "High xG", "description": "Combined xG of 3.9 per match on average", "impact": "positive"},
+                {"icon": "🔥", "label": "Liverpool attacking form", "description": "At least 1 goal in 12 consecutive away matches", "impact": "negative"},
             ],
             "model_used": "gemini-2.0-flash",
             "generated_at": "2026-02-11T08:00:00+00:00",
@@ -67,20 +67,20 @@ La tendance aux buts est forte : 75% des matchs de United à domicile ont vu plu
             "match_id": "fb-001",
             "sport": "football",
             "confidence_level": "risky",
-            "analysis": """## Analyse Risquée — Manchester United vs Liverpool
+            "analysis": """## Risky Analysis — Manchester United vs Liverpool
 
-En allant plus loin dans l'analyse, le profil de jeu de Manchester United à domicile (pressing haut, transitions rapides) combiné à l'agressivité offensive de Liverpool crée un terreau fertile pour un match à score élevé.
+Digging deeper into the analysis, Manchester United's home playing profile (high press, fast transitions) combined with Liverpool's offensive aggression creates fertile ground for a high-scoring match.
 
-Sur les 5 derniers Manchester United vs Liverpool à Old Trafford, le score moyen est de **2.6 - 1.8**. Si United adopte son schéma habituel en 4-3-3 avec Bruno Fernandes en meneur, les espaces laissés pourraient profiter aux deux camps.
+Over the last 5 Manchester United vs Liverpool meetings at Old Trafford, the average score is **2.6 - 1.8**. If United line up in their usual 4-3-3 with Bruno Fernandes as playmaker, the spaces left behind could benefit both sides.
 
-**Recommandation : Score exact 2-1 pour Manchester United**""",
-            "predicted_outcome": "Score exact 2-1 (Man Utd)",
+**Recommendation: Correct score 2-1 for Manchester United**""",
+            "predicted_outcome": "Correct score 2-1 (Man Utd)",
             "predicted_score": "2-1",
             "odds_value": 8.50,
             "key_factors": [
-                {"icon": "🎯", "label": "Score exact fréquent", "description": "2-1 est le score le plus fréquent à Old Trafford cette saison", "impact": "positive"},
-                {"icon": "⚠️", "label": "Risque élevé", "description": "Les scores exacts restent difficiles à prédire", "impact": "negative"},
-                {"icon": "💰", "label": "Cote attractive", "description": "8.50 offre un excellent ratio risque/rendement", "impact": "positive"},
+                {"icon": "🎯", "label": "Frequent correct score", "description": "2-1 is the most frequent scoreline at Old Trafford this season", "impact": "positive"},
+                {"icon": "⚠️", "label": "High risk", "description": "Correct scores remain hard to predict", "impact": "negative"},
+                {"icon": "💰", "label": "Attractive odds", "description": "8.50 offers an excellent risk/reward ratio", "impact": "positive"},
             ],
             "model_used": "gemini-2.0-flash",
             "generated_at": "2026-02-11T08:00:00+00:00",
@@ -95,14 +95,14 @@ Sur les 5 derniers Manchester United vs Liverpool à Old Trafford, le score moye
 
 @router.get("/{match_id}")
 async def get_predictions(match_id: str):
-    """Récupère les 3 niveaux de prédiction pour un match."""
+    """Fetches the 3 prediction confidence levels for a match."""
     predictions = MOCK_PREDICTIONS.get(match_id, [])
 
     if not predictions:
         return {
             "match_id": match_id,
             "available": False,
-            "message": "Les prédictions pour ce match ne sont pas encore disponibles.",
+            "message": "Predictions for this match are not available yet.",
             "predictions": [],
         }
 

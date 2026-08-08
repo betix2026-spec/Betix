@@ -371,7 +371,7 @@ export function OrchestratorControl() {
     );
 }
 
-/** Petit composant reutilisable pour une ligne de config numerique. */
+/** Small reusable component for a numeric config row. */
 function ConfigRow({
     label,
     unit,

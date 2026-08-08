@@ -1,9 +1,9 @@
 """
 BETIX — update_tennis_stats.py
-Mise à jour ciblée des statistiques pour UN match tennis spécifique.
-Récupère les stats du match via get_fixtures (event_key) et upsert dans tennis_match_stats.
+Targeted stats update for ONE specific tennis match.
+Fetches the match stats via get_fixtures (event_key) and upserts them into tennis_match_stats.
 
-Usage :
+Usage:
   python update_tennis_stats.py --match-id 12345678
 """
 import sys, os, logging, argparse, asyncio

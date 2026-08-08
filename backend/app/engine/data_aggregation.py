@@ -619,7 +619,7 @@ class DataAggregator:
 
         if not res:
             return {"summary": "No H2H found"}
-        # Injecter les IDs home/away pour que le frontend puisse mapper A/B → Home/Away
+        # Inject home/away IDs so the frontend can map A/B → Home/Away
         result = res[0]
         result["home_team_id"] = h1
         result["away_team_id"] = a1
@@ -777,7 +777,7 @@ class DataAggregator:
         return {
             "summary": summary,
             "last_5_meetings": meetings,
-            # IDs pour que le frontend mappe player_a/b → home/away
+            # IDs so the frontend can map player_a/b → home/away
             "home_player_id": p1,
             "away_player_id": p2,
         }
@@ -846,15 +846,15 @@ if __name__ == "__main__":
     import json
     import asyncio
 
-    parser = argparse.ArgumentParser(description="Test de l'agrégateur de données BETIX (Format CAR)")
+    parser = argparse.ArgumentParser(description="Test the BETIX data aggregator (CAR Format)")
     parser.add_argument("sport", nargs="?", choices=["football", "basketball", "tennis"],
-                        help="Sport à tester")
-    parser.add_argument("match_id", nargs="?", type=int, help="ID interne du match")
+                        help="Sport to test")
+    parser.add_argument("match_id", nargs="?", type=int, help="Internal match ID")
     args = parser.parse_args()
 
     async def run_single(sport: str, match_id: int):
-        """Agrège et affiche le contexte complet TEXTUEL pour un match donné."""
-        print(f"\n🎯 Agrégation du contexte TEXTUEL (IA-Ready) pour {sport} #{match_id}...\n")
+        """Aggregates and prints the full TEXT context for a given match."""
+        print(f"\n🎯 Aggregating TEXT context (AI-Ready) for {sport} #{match_id}...\n")
         ctx = await get_match_context(sport, match_id)
         print(ctx)
 

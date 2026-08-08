@@ -1,11 +1,11 @@
--- 1. Activer la réplication pour la table public.matches
--- Cela permet à Supabase de suivre les changements ligne par ligne.
+-- 1. Enable replication for the public.matches table
+-- This lets Supabase track changes row by row.
 ALTER TABLE public.matches REPLICA IDENTITY FULL;
 
--- 2. Ajouter la table à la publication 'supabase_realtime'
--- 'supabase_realtime' est la publication par défaut écoutée par les Websockets.
+-- 2. Add the table to the 'supabase_realtime' publication
+-- 'supabase_realtime' is the default publication listened to by Websockets.
 BEGIN;
-  -- Supprimer si déjà présent pour éviter les erreurs lors d'une ré-exécution
+  -- Drop if already present to avoid errors on re-run
   ALTER PUBLICATION supabase_realtime DROP TABLE IF EXISTS public.matches;
   ALTER PUBLICATION supabase_realtime ADD TABLE public.matches;
 COMMIT;

@@ -3,7 +3,7 @@ import asyncio
 import sys
 import os
 
-# Ajout du chemin pour importer les modules de l'app
+# Path setup for importing app modules
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from app.config import get_settings
@@ -11,20 +11,20 @@ from app.services.ingestion.base_client import SupabaseREST
 
 async def check_match():
     settings = get_settings()
-    # On travaille dans le schéma analytics
+    # Working in the analytics schema
     db = SupabaseREST(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY, schema="analytics")
     
     date_start = "2026-02-13T00:00:00"
     
-    print(f"--- Recherche du match le plus ancien depuis le {date_start} ---")
+    print(f"--- Searching for the oldest match since {date_start} ---")
     
-    # 1. Récupérer le match le plus ancien à partir du 13/02
-    # On trie par date_time ascendant
+    # 1. Fetch the oldest match starting from 02/13
+    # Sorted by date_time ascending
     query = f"date_time=gte.{date_start}&order=date_time.asc&limit=1"
     matches = db.select_raw("football_matches", query)
     
     if not matches:
-        print("Aucun match trouvé à partir de cette date.")
+        print("No match found from this date onward.")
         return
 
     match = matches[0]
@@ -34,31 +34,31 @@ async def check_match():
     away_id = match.get("away_team_id")
     dt = match.get("date_time")
     
-    print(f"Match trouvé :")
-    print(f"  - ID interne : {m_id}")
-    print(f"  - API ID     : {m_api_id}")
-    print(f"  - Date/Heure : {dt}")
-    print(f"  - Home Team ID (interne) : {home_id}")
-    print(f"  - Away Team ID (interne) : {away_id}")
+    print(f"Match found:")
+    print(f"  - Internal ID : {m_id}")
+    print(f"  - API ID      : {m_api_id}")
+    print(f"  - Date/Time   : {dt}")
+    print(f"  - Home Team ID (internal) : {home_id}")
+    print(f"  - Away Team ID (internal) : {away_id}")
     
-    # 2. Vérifier les stats dans football_match_stats
-    # Le lien se fait normalement sur match_id (qui correspond à l'api_id du match dans votre logique)
-    print(f"\n--- Vérification de football_match_stats pour match_id {m_api_id} ---")
+    # 2. Check the stats in football_match_stats
+    # The link is normally on match_id (which corresponds to the match's api_id in this logic)
+    print(f"\n--- Checking football_match_stats for match_id {m_api_id} ---")
     stats_query = f"match_id=eq.{m_api_id}"
     stats = db.select_raw("football_match_stats", stats_query)
     
     if not stats:
-        print("--- AUCUNE stat trouvee dans football_match_stats pour ce match.")
+        print("--- NO stats found in football_match_stats for this match.")
     else:
-        print(f"--- {len(stats)} ligne(s) de statistiques trouvee(s).")
+        print(f"--- {len(stats)} stats row(s) found.")
         for s in stats:
             team_id = s.get("team_id")
-            print(f"  - Ligne pour Team ID : {team_id}")
+            print(f"  - Row for Team ID: {team_id}")
         
         if len(stats) == 2:
-            print("\nConclusion : La table match_stats est complete pour ce match (2 lignes).")
+            print("\nConclusion: The match_stats table is complete for this match (2 rows).")
         else:
-            print(f"\nConclusion : Table incomplete ({len(stats)}/2 lignes).")
+            print(f"\nConclusion: Table incomplete ({len(stats)}/2 rows).")
 
 if __name__ == "__main__":
     asyncio.run(check_match())

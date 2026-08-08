@@ -1,6 +1,6 @@
 """
-BETIX — Modèles de données partagés.
-Structures normalisées pour les 3 sports (Football, Basketball, Tennis).
+BETIX — Shared data models.
+Normalized structures for the 3 sports (Football, Basketball, Tennis).
 """
 
 from pydantic import BaseModel
@@ -38,10 +38,10 @@ class FactorImpact(str, Enum):
     NEUTRAL = "neutral"
 
 
-# --- Données sportives ---
+# --- Sports data ---
 
 class League(BaseModel):
-    """Compétition / Ligue / Tournoi."""
+    """Competition / League / Tournament."""
     id: int
     name: str
     logo: str = ""
@@ -50,21 +50,21 @@ class League(BaseModel):
 
 
 class Participant(BaseModel):
-    """Équipe ou joueur."""
+    """Team or player."""
     id: int
     name: str
     logo: str = ""
 
 
 class Score(BaseModel):
-    """Score d'un match."""
+    """A match score."""
     home: int
     away: int
-    details: Optional[dict] = None  # Mi-temps foot, quarts basket, sets tennis
+    details: Optional[dict] = None  # Football half-time, basketball quarters, tennis sets
 
 
 class Match(BaseModel):
-    """Match normalisé — structure commune aux 3 sports."""
+    """Normalized match — structure shared across the 3 sports."""
     id: str
     external_id: str
     sport: Sport
@@ -80,10 +80,10 @@ class Match(BaseModel):
     score: Optional[Score] = None
 
 
-# --- Prédictions ---
+# --- Predictions ---
 
 class KeyFactor(BaseModel):
-    """Facteur clé de l'analyse."""
+    """Key factor in the analysis."""
     icon: str
     label: str
     description: str
@@ -91,17 +91,17 @@ class KeyFactor(BaseModel):
 
 
 class Prediction(BaseModel):
-    """Prédiction IA pour un match."""
+    """AI prediction for a match."""
     id: str
     match_id: str
     sport: Sport
 
     confidence_level: ConfidenceLevel
 
-    analysis: str  # Texte explicatif complet (markdown)
-    predicted_outcome: str  # Ex: "Victoire domicile", "Over 2.5"
-    predicted_score: Optional[str] = None  # Ex: "2-1"
-    odds_value: Optional[float] = None  # Cote associée
+    analysis: str  # Full explanatory text (markdown)
+    predicted_outcome: str  # E.g.: "Home win", "Over 2.5"
+    predicted_score: Optional[str] = None  # E.g.: "2-1"
+    odds_value: Optional[float] = None  # Associated odds
 
     key_factors: list[KeyFactor] = []
 
@@ -109,10 +109,10 @@ class Prediction(BaseModel):
     generated_at: str = ""  # ISO 8601
 
 
-# --- Contexte pour le prompt IA ---
+# --- Context for the AI prompt ---
 
 class Standing(BaseModel):
-    """Position au classement."""
+    """Position in the standings."""
     rank: int
     points: int
     played: int
@@ -124,7 +124,7 @@ class Standing(BaseModel):
 
 
 class H2HResult(BaseModel):
-    """Résultat d'une confrontation directe."""
+    """Result of a head-to-head meeting."""
     date: str
     home_team: str
     away_team: str
@@ -134,35 +134,35 @@ class H2HResult(BaseModel):
 
 
 class Injury(BaseModel):
-    """Joueur blessé / indisponible."""
+    """Injured / unavailable player."""
     player_name: str
     reason: str
     status: str = ""  # Doubtful, Out, etc.
 
 
-# --- Cotes & Audit ---
+# --- Odds & Audit ---
 
 class OddsData(BaseModel):
-    """Une seule ligne de cote (ex: Home, Over 2.5)."""
+    """A single odds line (e.g. Home, Over 2.5)."""
     label: str
     odds: float
 
 
 class OddsSnapshot(BaseModel):
-    """Snapshot d'un marché pour un bookmaker à un instant T."""
+    """Snapshot of a market for a bookmaker at a point in time."""
     id: Optional[str] = None
     match_id: int
     sport: Sport
     bookmaker: str
     market_name: str
-    market_value: Optional[str] = None # Ex: "2.5" pour Over/Under
+    market_value: Optional[str] = None # E.g.: "2.5" for Over/Under
     odds_data: list[OddsData]
     recorded_at: Optional[datetime] = None
     is_live: bool = False
 
 
 class MatchAnalysisContext(BaseModel):
-    """Contexte complet pour l'analyse IA d'un match."""
+    """Full context for a match's AI analysis."""
     match: Match
 
     home_form: list[str] = []  # ["W","W","D","L","W"]

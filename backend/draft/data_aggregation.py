@@ -408,8 +408,8 @@ async def get_match_context(sport: str, match_id: int) -> Dict[str, Any]:
 
 
 # ─────────────────────────────────────────────────────────────────
-# CLI — Usage direct : python -m app.engine.data_aggregation <sport> <match_id>
-#        ou mode auto : python -m app.engine.data_aggregation --find
+# CLI — Direct usage: python -m app.engine.data_aggregation <sport> <match_id>
+#        or auto mode: python -m app.engine.data_aggregation --find
 # ─────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
@@ -417,16 +417,16 @@ if __name__ == "__main__":
     import json
     import asyncio
 
-    parser = argparse.ArgumentParser(description="Test de l'agrégateur de données BETIX")
+    parser = argparse.ArgumentParser(description="Test the BETIX data aggregator")
     parser.add_argument("sport", nargs="?", choices=["football", "basketball", "tennis"],
-                        help="Sport à tester")
-    parser.add_argument("match_id", nargs="?", type=int, help="ID interne du match")
+                        help="Sport to test")
+    parser.add_argument("match_id", nargs="?", type=int, help="Internal match ID")
     parser.add_argument("--find", action="store_true",
-                        help="Trouver automatiquement un match avec cotes pour chaque sport")
+                        help="Automatically find a match with odds for each sport")
     args = parser.parse_args()
 
     async def find_matches_with_odds():
-        """Trouve un match avec cotes pour chaque sport."""
+        """Finds a match with odds for each sport."""
         agg = DataAggregator()
         found = {}
         for sport in ["football", "basketball", "tennis"]:
@@ -435,7 +435,7 @@ if __name__ == "__main__":
                 f"sport=eq.{sport}&select=match_id&limit=5&order=snapshot_at.desc"
             )
             if rows:
-                # Pour chaque match_id trouvé, vérifier qu'il existe dans la table matchs
+                # For each match_id found, verify it exists in the matches table
                 table = f"{sport}_matches" if sport != "tennis" else "tennis_matches"
                 for r in rows:
                     mid = r["match_id"]
@@ -444,42 +444,42 @@ if __name__ == "__main__":
                         found[sport] = mid
                         break
                 if sport not in found and rows:
-                    found[sport] = rows[0]["match_id"]  # Fallback : prendre le premier même si pas trouvé dans matchs
+                    found[sport] = rows[0]["match_id"]  # Fallback: take the first one even if not found in matches
         return found
 
     async def run_single(sport: str, match_id: int):
-        """Agrège et affiche le contexte pour un match donné."""
-        print(f"\n🎯 Agrégation du contexte pour {sport} #{match_id}...\n")
+        """Aggregates and prints the context for a given match."""
+        print(f"\n🎯 Aggregating context for {sport} #{match_id}...\n")
         
         ctx = await get_match_context(sport, match_id)
         
         # Meta
         print(f"📋 Match: {ctx.get('match', {})}")
         
-        # Equipes / Joueurs
+        # Teams / Players
         if sport == "tennis":
             p1 = ctx.get("player1", {})
             p2 = ctx.get("player2", {})
-            print(f"👤 Joueur 1: {p1.get('name', '?')} | Forme: {'✅' if p1.get('form') else '❌'}")
-            print(f"👤 Joueur 2: {p2.get('name', '?')} | Forme: {'✅' if p2.get('form') else '❌'}")
+            print(f"👤 Player 1: {p1.get('name', '?')} | Form: {'✅' if p1.get('form') else '❌'}")
+            print(f"👤 Player 2: {p2.get('name', '?')} | Form: {'✅' if p2.get('form') else '❌'}")
         else:
             ht = ctx.get("home_team", {})
             at = ctx.get("away_team", {})
-            print(f"🏠 Home: {ht.get('name', '?')} | Forme: {'✅' if ht.get('form') else '❌'} | Blessés: {len(ht.get('injuries', []))}")
-            print(f"🚀 Away: {at.get('name', '?')} | Forme: {'✅' if at.get('form') else '❌'} | Blessés: {len(at.get('injuries', []))}")
+            print(f"🏠 Home: {ht.get('name', '?')} | Form: {'✅' if ht.get('form') else '❌'} | Injuries: {len(ht.get('injuries', []))}")
+            print(f"🚀 Away: {at.get('name', '?')} | Form: {'✅' if at.get('form') else '❌'} | Injuries: {len(at.get('injuries', []))}")
         
         # H2H
         h2h = ctx.get("h2h")
-        print(f"🤝 H2H: {'✅ Disponible' if h2h and h2h != {'summary': 'No H2H found'} else '❌ Non disponible'}")
+        print(f"🤝 H2H: {'✅ Available' if h2h and h2h != {'summary': 'No H2H found'} else '❌ Not available'}")
         
         # ELO
         elo = ctx.get("elo")
-        print(f"🏆 ELO: {'✅ Disponible' if elo else '❌ Non disponible'}")
+        print(f"🏆 ELO: {'✅ Available' if elo else '❌ Not available'}")
         
         # Cotes
         odds = ctx.get("odds")
         if odds:
-            print(f"\n📊 Marchés Odds ({len(odds)}) :")
+            print(f"\n📊 Odds Markets ({len(odds)}):")
             for mk, data in odds.items():
                 od = data["odds_data"]
                 if isinstance(od, str):
@@ -487,17 +487,17 @@ if __name__ == "__main__":
                 labels = ", ".join([f"{o['label']}={o['odds']}" for o in od[:4]])
                 print(f"   📈 {mk}: {labels}{'...' if len(od) > 4 else ''}")
         else:
-            print(f"\n⚠️ Aucune cote trouvée")
+            print(f"\n⚠️ No odds found")
         
         print(f"\n{'='*60}")
-        print(f"💾 JSON complet ({len(json.dumps(ctx, default=str))} bytes)")
+        print(f"💾 Full JSON ({len(json.dumps(ctx, default=str))} bytes)")
 
     async def main():
         if args.find:
-            print("🔍 Recherche de matchs avec cotes...\n")
+            print("🔍 Searching for matches with odds...\n")
             found = await find_matches_with_odds()
             if not found:
-                print("❌ Aucun match avec cotes trouvé.")
+                print("❌ No match with odds found.")
                 return
             for sport, mid in found.items():
                 print(f"{'='*60}")

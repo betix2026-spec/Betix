@@ -1,6 +1,6 @@
 """
 BETIX — Compute Referee Stats
-Agrège les statistiques d'arbitrage depuis les matchs de football terminés.
+Aggregates referee stats from finished football matches.
 Table cible : analytics.football_referee_stats
 
 Usage :
@@ -22,8 +22,8 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 
 async def compute_referee_stats():
     """
-    Agrège les stats d'arbitrage en combinant football_matches (referee_name)
-    et football_match_stats (yellow_cards, red_cards, fouls).
+    Aggregates referee stats by combining football_matches (referee_name)
+    with football_match_stats (yellow_cards, red_cards, fouls).
     """
     settings = get_settings()
     db = SupabaseREST(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY, schema="analytics")

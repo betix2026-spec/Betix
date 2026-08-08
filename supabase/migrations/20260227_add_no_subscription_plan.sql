@@ -1,8 +1,8 @@
 -- ============================================================
--- BETIX — Ajout du plan "Aucun Abonnement"
--- Date : 2026-02-27
--- Description : Crée un plan spécifique utilisé pour restreindre 
---               l'accès au dashboard.
+-- BETIX — Add the "No Subscription" plan
+-- Date: 2026-02-27
+-- Description: Creates a dedicated plan used to restrict
+--               access to the dashboard.
 -- ============================================================
 
 INSERT INTO public.plans (id, name, price, features) 
@@ -15,5 +15,5 @@ VALUES (
 ON CONFLICT (id) DO UPDATE 
 SET name = EXCLUDED.name, features = EXCLUDED.features;
 
--- Note : Ce plan sert de marqueur pour le Paywall.
--- Les utilisateurs ayant ce plan (ou aucun abonnement) seront redirigés vers /pricing.
+-- Note: This plan acts as a marker for the Paywall.
+-- Users with this plan (or no subscription) will be redirected to /pricing.

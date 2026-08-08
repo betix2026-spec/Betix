@@ -1,9 +1,9 @@
 """
 BETIX — update_tennis_h2h.py
-Mise à jour ciblée du H2H pour UN match tennis spécifique.
-Récupère les deux joueurs du match, puis lance get_H2H pour cette paire.
+Targeted H2H update for ONE specific tennis match.
+Fetches both players for the match, then runs get_H2H for that pair.
 
-Usage :
+Usage:
   python update_tennis_h2h.py --match-id 12345678
 """
 import sys, os, logging, argparse, asyncio

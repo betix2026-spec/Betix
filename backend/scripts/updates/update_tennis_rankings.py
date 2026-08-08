@@ -1,14 +1,14 @@
 """
 BETIX — update_tennis_rankings.py
-Mise à jour des classements ATP & WTA depuis l'API api-tennis.com.
+Updates ATP & WTA rankings from the api-tennis.com API.
 
-Fetch les standings pour chaque tour, upsert les joueurs dans analytics.players
-et les classements dans analytics.tennis_rankings.
+Fetches standings for each tour, upserts players into analytics.players
+and rankings into analytics.tennis_rankings.
 
-Fréquence recommandée : 1x/semaine (les classements ATP/WTA changent le lundi).
-0 calcul local — tout vient de l'API.
+Recommended frequency: 1x/week (ATP/WTA rankings change on Mondays).
+0 local computation — everything comes from the API.
 
-Usage :
+Usage:
     python update_tennis_rankings.py
     python update_tennis_rankings.py --top 200
     python update_tennis_rankings.py --tour ATP
@@ -63,7 +63,7 @@ class TennisRankingsUpdater:
             return []
 
         results = data.get("result", [])
-        logger.info(f"{tour}: {len(results)} joueurs dans le standings")
+        logger.info(f"{tour}: {len(results)} players in standings")
         return results
 
     async def fetch_player_profile(self, player_key: str) -> dict | None:
@@ -138,10 +138,10 @@ class TennisRankingsUpdater:
 
     async def run(self):
         if not self.api_key:
-            logger.error("API_TENNIS_KEY non configurée.")
+            logger.error("API_TENNIS_KEY not configured.")
             return self.report
 
-        logger.info(f"Mise à jour rankings tennis — Tours: {self.tours}, Top {self.top}, Dry Run: {self.dry_run}")
+        logger.info(f"Updating tennis rankings — Tours: {self.tours}, Top {self.top}, Dry Run: {self.dry_run}")
 
         for tour in self.tours:
             logger.info(f"--- {tour} ---")
@@ -167,13 +167,13 @@ class TennisRankingsUpdater:
                     except Exception:
                         existing = self.db.select("players", "id", {"api_id": player_api_id})
                         if not existing:
-                            logger.error(f"Impossible d'upsert le joueur {player_name}")
+                            logger.error(f"Could not upsert player {player_name}")
                             self.report["errors"] += 1
                             continue
 
                 existing = self.db.select("players", "id", {"api_id": player_api_id})
                 if not existing:
-                    logger.warning(f"ID interne introuvable pour {player_name}")
+                    logger.warning(f"Internal ID not found for {player_name}")
                     self.report["errors"] += 1
                     continue
 
@@ -184,7 +184,7 @@ class TennisRankingsUpdater:
                     try:
                         self.db.upsert("tennis_rankings", [ranking_record], on_conflict="player_id,date")
                     except Exception as e:
-                        logger.error(f"Erreur upsert ranking {player_name}: {e}")
+                        logger.error(f"Error upserting ranking for {player_name}: {e}")
                         self.report["errors"] += 1
                         continue
 
@@ -192,19 +192,19 @@ class TennisRankingsUpdater:
                 self.report["rankings"] += 1
 
                 if (i + 1) % 50 == 0:
-                    logger.info(f"  {i + 1}/{len(standings)} joueurs traités")
+                    logger.info(f"  {i + 1}/{len(standings)} players processed")
 
-            logger.info(f"{tour} terminé: {len(standings)} joueurs traités")
+            logger.info(f"{tour} complete: {len(standings)} players processed")
 
-        logger.info(f"Résultat: {self.report}")
+        logger.info(f"Result: {self.report}")
         return self.report
 
 
 async def main():
     parser = argparse.ArgumentParser(description="Update tennis ATP/WTA rankings")
-    parser.add_argument("--top", type=int, default=100, help="Nombre de joueurs par tour (défaut: 100)")
-    parser.add_argument("--tour", choices=["ATP", "WTA"], default=None, help="Tour spécifique (défaut: les deux)")
-    parser.add_argument("--dry-run", action="store_true", help="Simuler sans écriture")
+    parser.add_argument("--top", type=int, default=100, help="Number of players per tour (default: 100)")
+    parser.add_argument("--tour", choices=["ATP", "WTA"], default=None, help="Specific tour (default: both)")
+    parser.add_argument("--dry-run", action="store_true", help="Simulate without writing")
     args = parser.parse_args()
 
     tours = [args.tour] if args.tour else None

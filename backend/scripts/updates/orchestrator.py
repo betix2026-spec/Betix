@@ -1,12 +1,12 @@
 """
 BETIX -- orchestrator.py
-Le "Cerveau" qui gere l'automatisation temporelle.
-Lance les differents radars a leurs frequences respectives.
+The "Brain" that manages time-based automation.
+Runs the different radars at their respective frequencies.
 
-Frequences par defaut (configurables via system_config) :
-- monitor_live : 2 min
-- mark_live : 4 min
-- mark_imminent : 16 min
+Default frequencies (configurable via system_config):
+- monitor_live: 2 min
+- mark_live: 4 min
+- mark_imminent: 16 min
 """
 
 import asyncio
@@ -33,14 +33,14 @@ logging.basicConfig(
 )
 logger = logging.getLogger("betix.orchestrator")
 
-# Defaults (fallback si la base est injoignable)
+# Defaults (fallback if the DB is unreachable)
 DEFAULT_MONITOR_INTERVAL = 120
 DEFAULT_MARK_LIVE_EVERY_N = 2
 DEFAULT_MARK_IMMINENT_EVERY_N = 8
 
 
 def load_live_config() -> dict:
-    """Charge la config live depuis system_config."""
+    """Loads the live config from system_config."""
     try:
         reader = ConfigReader()
         return {
@@ -50,7 +50,7 @@ def load_live_config() -> dict:
             "mark_imminent_every_n": reader.get_int("orch_live.mark_imminent_every_n", DEFAULT_MARK_IMMINENT_EVERY_N),
         }
     except Exception as e:
-        logger.warning(f"Config fallback (erreur DB) : {e}")
+        logger.warning(f"Config fallback (DB error): {e}")
         return {
             "enabled": True,
             "monitor_interval_s": DEFAULT_MONITOR_INTERVAL,
@@ -69,7 +69,7 @@ async def run_forever():
             cfg = load_live_config()
 
             if not cfg["enabled"]:
-                logger.info("Orchestrator Live DESACTIVE par la config. Attente 60s...")
+                logger.info("Orchestrator Live DISABLED by config. Waiting 60s...")
                 await asyncio.sleep(60)
                 continue
 

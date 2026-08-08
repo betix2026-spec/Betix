@@ -1,9 +1,9 @@
 """
 BETIX — update_tennis_rolling.py
-Mise à jour ciblée des Rolling Stats pour UN match tennis spécifique.
-Recalcule les stats (L5, L10, Season, Fatigue) pour les 2 joueurs à la date du match.
+Targeted Rolling Stats update for ONE specific tennis match.
+Recomputes stats (L5, L10, Season, Fatigue) for both players as of the match date.
 
-Usage :
+Usage:
   python update_tennis_rolling.py --match-id 12345678
 """
 import sys, os, logging, argparse, asyncio

@@ -11,21 +11,21 @@ class TennisMatchUpserter:
         self._http_client: httpx.AsyncClient | None = None
 
     async def _get_client(self) -> httpx.AsyncClient:
-        """Retourne un client HTTP partagé."""
+        """Returns a shared HTTP client."""
         if self._http_client is None or self._http_client.is_closed:
             self._http_client = httpx.AsyncClient(timeout=15.0)
         return self._http_client
 
     async def close(self):
-        """Ferme proprement le client HTTP."""
+        """Cleanly closes the HTTP client."""
         if self._http_client and not self._http_client.is_closed:
             await self._http_client.aclose()
             self._http_client = None
 
     async def process_match(self, db_match: dict) -> bool:
         """
-        Traite un match spécifique : Fetch API -> Parse -> Diff -> Update DB.
-        Retourne True si le match traité est considéré comme 'finished', False sinon.
+        Processes a specific match: Fetch API -> Parse -> Diff -> Update DB.
+        Returns True if the processed match is considered 'finished', False otherwise.
         """
         api_id = db_match["api_id"]
         db_id = db_match["id"]
@@ -33,7 +33,7 @@ class TennisMatchUpserter:
         # 1. FETCH API
         raw = await self._fetch_api_data(db_match)
         if not raw:
-            # Si le match est introuvable ET son heure est dépassée de >6h → cancelled
+            # If the match is not found AND its kickoff is >6h overdue → cancelled
             match_dt_str = db_match.get("date_time", "")
             is_overdue = False
             if match_dt_str:
@@ -45,17 +45,21 @@ class TennisMatchUpserter:
                     pass
 
             if is_overdue and db_match["status"] not in ("finished", "cancelled"):
-                logger.warning(f"   ⚠️ Match {api_id} (DB: {db_id}) introuvable sur l'API et dépassé de >6h → cancelled.")
+                logger.warning(f"   ⚠️ Match {api_id} (DB: {db_id}) not found on the API and >6h overdue → cancelled.")
                 try:
+                    # NOTE: status_short is hardcoded in French here ("Annulé") — a real
+                    # content gap (French reaching a user's view), not a code comment,
+                    # so left untouched by this English sweep. Same pattern as
+                    # process_daily_matches.py; flagged separately, not yet fixed.
                     self.db.update("tennis_matches", {"status": "cancelled", "status_short": "Annulé"}, {"api_id": api_id})
                 except Exception as e:
-                    logger.error(f"   ❌ Erreur DB cancel {api_id}: {e}")
+                    logger.error(f"   ❌ DB error cancelling {api_id}: {e}")
                 return False
             else:
-                logger.warning(f"   ⚠️ Match {api_id} (DB: {db_id}) introuvable sur l'API.")
+                logger.warning(f"   ⚠️ Match {api_id} (DB: {db_id}) not found on the API.")
                 return db_match["status"] == "finished"
             
-        # 2. PARSING ROBUSTE
+        # 2. ROBUST PARSING
         parsed_data = self._parse_api_payload(raw, db_match)
         
         # 3. DIFF & UPDATE
@@ -65,7 +69,7 @@ class TennisMatchUpserter:
 
     async def _fetch_api_data(self, db_match: dict) -> dict | None:
         api_id = db_match["api_id"]
-        # Récupération de la date depuis la DB pour cibler l'API
+        # Fetch the date from the DB to target the API
         db_date_str = db_match["date_time"][:10] if db_match.get("date_time") else datetime.utcnow().strftime("%Y-%m-%d")
         
         from datetime import timedelta
@@ -74,8 +78,8 @@ class TennisMatchUpserter:
             base_date = datetime.strptime(db_date_str, "%Y-%m-%d")
             client = await self._get_client()
             
-            # P5: Optimisation - tester d'abord la date théorique exacte (i=0)
-            # Si introuvable, chercher autour (-1, -2, 1, 2, 3, 4) car le tennis glisse souvent
+            # Optimization: try the exact theoretical date first (i=0)
+            # If not found, search around it (-1, -2, 1, 2, 3, 4) since tennis schedules often shift
             search_offsets = [0, -1, 1, -2, 2, 3, 4]
             
             for i in search_offsets:
@@ -90,20 +94,20 @@ class TennisMatchUpserter:
                     match_data = next((m for m in data if str(m.get("event_key")) == str(api_id)), None)
                     if match_data:
                         if i != 0:
-                            logger.info(f"   ⚠️ Match {api_id} trouvé décalé sur le {target_date} (DB: {db_date_str}, offset: {i}j)")
+                            logger.info(f"   ⚠️ Match {api_id} found shifted to {target_date} (DB: {db_date_str}, offset: {i}d)")
                         return match_data
             
-            return None # Introuvable sur 7 jours
+            return None # Not found within 7 days
         except Exception as e:
-            logger.error(f"Erreur HTTP lors de la récupération du match {api_id}: {e}")
+            logger.error(f"HTTP error while fetching match {api_id}: {e}")
             return None
 
     def _parse_api_payload(self, raw: dict, db_match: dict) -> dict:
-        """Applique l'algorithme robuste de parsing pour le Tennis.
-        Utilise une normalisation du status API pour éviter les mismatches (ex: 'Walk Over' vs 'Walkover').
+        """Applies the robust parsing algorithm for Tennis.
+        Normalizes the API status to avoid mismatches (e.g. 'Walk Over' vs 'Walkover').
         """
         
-        # --- A. TEMPS (Date & Heure) ---
+        # --- A. TIME (Date & Time) ---
         event_date = raw.get("event_date", "")
         event_time = raw.get("event_time", "")
         
@@ -111,9 +115,9 @@ class TennisMatchUpserter:
         if event_date and event_time and event_time != "":
             new_date_str = f"{event_date}T{event_time}:00Z"
             
-        # --- B. STATUS (avec normalisation) ---
+        # --- B. STATUS (with normalization) ---
         raw_status = raw.get("event_status", "")
-        # API-Tennis renvoie parfois des codes numériques au lieu de texte
+        # API-Tennis sometimes returns numeric codes instead of text
         # "1" = Not Started, "2" = In Progress, "3" = Finished, "6" = Postponed, "7" = Cancelled
         NUMERIC_STATUS_MAP = {"1": "notstarted", "2": "live", "3": "finished", "4": "postponed",
                               "5": "cancelled", "6": "postponed", "7": "cancelled", "8": "walkover", "0": "notstarted"}
@@ -125,8 +129,8 @@ class TennisMatchUpserter:
         winner = raw.get("event_winner")
         final_res = raw.get("event_final_result", "")
         
-        # Calculer le status par défaut dynamiquement au lieu de préserver aveuglément
-        # Si le match est dans les 3 prochaines heures → imminent, sinon → scheduled
+        # Compute the default status dynamically instead of blindly preserving it
+        # If the match is within the next 3 hours → imminent, otherwise → scheduled
         new_status = "scheduled"
         if new_date_str:
             try:
@@ -137,37 +141,37 @@ class TennisMatchUpserter:
             except (ValueError, TypeError):
                 pass
 
-        # Sets de statuts normalisés pour classification robuste
+        # Normalized status sets for robust classification
         FINISHED_STATUSES = {"finished"}
         DECIDED_STATUSES = {"walkover", "retired", "abandoned", "cancelled", "defaulted"}
         POSTPONED_STATUSES = {"postponed", "delayed", "suspended", "interrupted"}
         LIVE_KEYWORDS = {"set", "tiebreak", "game", "live"}
         
-        # Règle 1: Fin absolue (score normal OU vainqueur prononcé)
+        # Rule 1: Absolute end (normal score OR a declared winner)
         if normalized in FINISHED_STATUSES or (winner and final_res and final_res != "-"):
             new_status = "finished"
             
-        # Règle 2: Match décidé sans score classique (walkover, retired, etc.)
+        # Rule 2: Match decided without a classic score (walkover, retired, etc.)
         elif normalized in DECIDED_STATUSES:
-            new_status = "finished"  # Considéré comme terminé car un vainqueur est désigné
+            new_status = "finished"  # Considered finished since a winner is declared
             
-        # Règle 3: Vainqueur désigné (filet de sécurité ultime)
+        # Rule 3: Winner declared (ultimate safety net)
         elif winner:
             new_status = "finished"
-            logger.info(f"   🔒 Match {db_match.get('api_id')}: Vainqueur détecté ('{winner}') avec status API '{raw_status}' → forced finished.")
+            logger.info(f"   🔒 Match {db_match.get('api_id')}: Winner detected ('{winner}') with API status '{raw_status}' → forced finished.")
             
-        # Règle 4: Report / Suspension
+        # Rule 4: Postponed / Suspended
         elif normalized in POSTPONED_STATUSES:
             new_status = "postponed"
             
-        # Règle 5: Direct (Live)
+        # Rule 5: Live
         elif any(kw in normalized for kw in LIVE_KEYWORDS) or is_live:
             new_status = "live"
             
-        # Règle 6: Status inconnu → Warning + force cancelled si match dépassé
+        # Rule 6: Unknown status → Warning + force cancelled if the match is overdue
         elif raw_status and normalized not in {"", "notstarted", "scheduled"}:
-            logger.warning(f"   ⚠️ STATUS API NON RECONNU pour match {db_match.get('api_id')}: '{raw_status}' (normalisé: '{normalized}'). Vérifier la liste des statuts.")
-            # Si le match est dépassé de >6h avec un statut inconnu, on le force en cancelled
+            logger.warning(f"   ⚠️ UNRECOGNIZED API STATUS for match {db_match.get('api_id')}: '{raw_status}' (normalized: '{normalized}'). Check the status list.")
+            # If the match is >6h overdue with an unknown status, force it to cancelled
             match_dt_str = db_match.get("date_time", "")
             if match_dt_str:
                 try:
@@ -175,7 +179,7 @@ class TennisMatchUpserter:
                     hours_past = (datetime.now(timezone.utc) - dt).total_seconds() / 3600
                     if hours_past > 6:
                         new_status = "cancelled"
-                        logger.info(f"   🔒 Match {db_match.get('api_id')}: Status inconnu '{raw_status}' + dépassé >6h → forced cancelled.")
+                        logger.info(f"   🔒 Match {db_match.get('api_id')}: Unknown status '{raw_status}' + >6h overdue → forced cancelled.")
                 except (ValueError, TypeError):
                     pass
             
@@ -193,7 +197,11 @@ class TennisMatchUpserter:
             else:
                 sets_played = len(raw_scores)
                 
-        # P6: Normaliser status_short pour affichage frontend cohérent
+        # NOTE: STATUS_DISPLAY values below are hardcoded French user-facing strings
+        # (status_short), not code comments — same real content gap as elsewhere in
+        # this file and in process_daily_matches.py. Left untouched by this English
+        # sweep; flagged separately, not yet fixed.
+        # Normalize status_short for a consistent frontend display
         STATUS_DISPLAY = {
             "finished": "Terminé",
             "walkover": "W.O.",
@@ -210,7 +218,7 @@ class TennisMatchUpserter:
         }
         display_status = STATUS_DISPLAY.get(normalized, raw_status)
         
-        # Si live, garder le statut brut (ex: "Set 2", "Tiebreak")
+        # If live, keep the raw status (e.g. "Set 2", "Tiebreak")
         if new_status == "live":
             display_status = raw_status
         
@@ -223,13 +231,13 @@ class TennisMatchUpserter:
         }
 
     def _apply_update_if_needed(self, api_id: int, db_match: dict, parsed: dict) -> bool:
-        """Compare et applique l'update si les valeurs diffèrent. Retourne True si modifié."""
+        """Compares and applies the update if values differ. Returns True if modified."""
         payload = {}
         
         if parsed["status"] != db_match.get("status"):
             payload["status"] = parsed["status"]
             
-        # Comparaison de date sécurisée (ignorer None vs None)
+        # Safe date comparison (ignore None vs None)
         old_date = db_match.get("date_time")
         new_date = parsed["date_time"]
         if new_date and old_date and new_date[:16] != old_date[:16]:
@@ -242,14 +250,14 @@ class TennisMatchUpserter:
             payload["sets_played"] = parsed["sets_played"]
             
         if not payload:
-            logger.info(f"   💤 Match {api_id}: Aucun changement détecté.")
+            logger.info(f"   💤 Match {api_id}: No change detected.")
             return False
             
         try:
             self.db.update("tennis_matches", payload, {"api_id": api_id})
             updates_str = ", ".join([f"{k}={v}" for k, v in payload.items()])
-            logger.info(f"   ✅ Match {api_id} mis à jour : {updates_str}")
+            logger.info(f"   ✅ Match {api_id} updated: {updates_str}")
             return True
         except Exception as e:
-            logger.error(f"   ❌ Erreur DB lors de l'update de {api_id} : {e}")
+            logger.error(f"   ❌ DB error while updating {api_id}: {e}")
             return False

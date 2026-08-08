@@ -1,9 +1,9 @@
 """
 BETIX — mark_imminent.py
-Radar automatique : Détecte les matchs qui commencent dans moins de 3 heures
-et passe leur statut de 'scheduled' à 'imminent' en vérifiant via l'API.
+Automatic radar: detects matches starting in less than 3 hours and flips
+their status from 'scheduled' to 'imminent', verifying via the API.
 
-Fréquence idéale : Toutes les 15 minutes.
+Ideal frequency: every 15 minutes.
 """
 
 import asyncio
@@ -64,7 +64,7 @@ class ImminentRadar:
         table = f"{sport}_matches"
         
         try:
-            # 1. Traiter avec l'Upserter (mettra à jour score/date/statut si reporté/commencé)
+            # 1. Process with the Upserter (updates score/date/status if postponed/started)
             if sport in ["football", "basketball"]:
                 is_finished = await self.fb_upserter.process_match(sport, match)
             elif sport == "tennis":
@@ -76,10 +76,10 @@ class ImminentRadar:
                 logger.info(f"🏁 Match {sport.upper()} {api_id} JUST FINISHED (very early!).")
                 return match
                 
-            # 2. Vérifier si le statut est toujours 'scheduled' ET la date toujours dans la fenêtre 3h
+            # 2. Check whether the status is still 'scheduled' AND the date is still within the 3h window
             updated_row = self.db.select_raw(table, f"select=status,date_time&api_id=eq.{api_id}")
             if updated_row and updated_row[0].get("status") == "scheduled":
-                # Re-vérifier que la date mise à jour est toujours dans les 3 prochaines heures
+                # Re-check that the updated date is still within the next 3 hours
                 new_dt_str = updated_row[0].get("date_time", "")
                 still_imminent = False
                 if new_dt_str:
@@ -95,7 +95,7 @@ class ImminentRadar:
                     self.db.update(table, {"status": "imminent"}, {"api_id": api_id})
                     logger.info(f"   --> Forced {sport.upper()} {api_id} to IMMINENT.")
                 else:
-                    logger.info(f"   💤 {sport.upper()} {api_id}: date mise à jour hors fenêtre 3h, reste scheduled.")
+                    logger.info(f"   💤 {sport.upper()} {api_id}: updated date is outside the 3h window, staying scheduled.")
                 
             return None
         except Exception as e:
@@ -109,7 +109,7 @@ class ImminentRadar:
                 logger.info("💤 No upcoming matches (< 3h) found.")
                 return
 
-            logger.info(f"📡 Radar Imminent : Scanning {len(matches)} matches...")
+            logger.info(f"📡 Imminent Radar: Scanning {len(matches)} matches...")
             
             tasks = [self.check_and_update(m) for m in matches]
             results = await asyncio.gather(*tasks)

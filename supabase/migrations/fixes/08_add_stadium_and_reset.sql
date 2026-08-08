@@ -1,6 +1,6 @@
 -- 08_add_stadium_and_reset.sql
--- Ajouter le champ stadium et vider les tables matchs pour ré-importation complète.
--- EXÉCUTÉ PAR L'UTILISATEUR LE 2026-02-14.
+-- Add the stadium field and empty the match tables for a full re-import.
+-- EXECUTED BY THE USER ON 2026-02-14.
 
 ALTER TABLE analytics.football_matches ADD COLUMN IF NOT EXISTS stadium text;
 ALTER TABLE analytics.basketball_matches ADD COLUMN IF NOT EXISTS stadium text;

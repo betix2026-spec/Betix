@@ -1,9 +1,9 @@
 """
 BETIX — Ingestion Constants
-Définition des ligues ciblées et mappings de statuts.
+Defines the target leagues and status mappings.
 """
 
-CURRENT_SEASON = 2025  # Saison 2024-2025 (plan Pro activé)
+CURRENT_SEASON = 2025  # 2024-2025 season (Pro plan active)
 
 # =============================================================================
 # FOOTBALL (API-Sports v3)
