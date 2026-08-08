@@ -3330,6 +3330,25 @@ const literalTranslations: Record<string, Partial<Record<Locale, string>>> = {
     "analyzing": { fr: "analyse", es: "analizando", de: "analysiert" },
     "calc_value": { fr: "calcul_value", es: "calcular_valor", de: "wert_berechnen" },
     "checking_injuries": { fr: "verification_absences", es: "revisando_bajas", de: "verletzungen_pruefen" },
+
+    // Dashboard rebuild (Phase 2) — added when the copy() call sites were
+    // written; backfilled here after an audit found they'd been missed.
+    "Analyse en cours": { en: "Analyzing", es: "Analizando", de: "Analyse läuft" },
+    "Aucun match en direct": { en: "No live matches", es: "Sin partidos en directo", de: "Keine Live-Spiele" },
+    "Autres": { en: "Others", es: "Otros", de: "Andere" },
+    "Confiance IA": { en: "AI Confidence", es: "Confianza IA", de: "KI-Vertrauen" },
+    "Cote": { en: "Odds", es: "Cuota", de: "Quote" },
+    "Génération de l'analyse en cours": { en: "Generating the analysis", es: "Generando el análisis", de: "Analyse wird erstellt" },
+    "Heure du coup d'envoi": { en: "Kickoff time", es: "Hora del inicio", de: "Anstoßzeit" },
+    "Hier": { en: "Yesterday", es: "Ayer", de: "Gestern" },
+    "Notre IA analyse ce match en ce moment. Cette page se met à jour automatiquement dès que c'est prêt — quelques secondes en général.": {
+        en: "Our AI is analyzing this match right now. This page updates automatically once it's ready — usually just a few seconds.",
+        es: "Nuestra IA está analizando este partido ahora mismo. Esta página se actualiza automáticamente en cuanto esté lista, normalmente en unos segundos.",
+        de: "Unsere KI analysiert dieses Spiel gerade. Diese Seite aktualisiert sich automatisch, sobald sie fertig ist — meist nur wenige Sekunden.",
+    },
+    "Terminés": { en: "Finished", es: "Finalizados", de: "Beendet" },
+    "Trialing": { fr: "Essai", es: "En prueba", de: "Testphase" },
+    "À venir": { en: "Upcoming", es: "Próximos", de: "Bevorstehend" },
 };
 
 export function isLocale(value: string | undefined | null): value is Locale {
@@ -3355,11 +3374,26 @@ export function withLocale(pathname: string, locale: Locale): string {
 
 export function t(locale: Locale | undefined | null, key: DictionaryKey): string {
     const activeLocale = locale && dictionaries[locale] ? locale : DEFAULT_LOCALE;
-    return dictionaries[activeLocale][key] || dictionaries[DEFAULT_LOCALE][key];
+    // Fall back to English before French: a missing key should degrade to
+    // the most broadly-understood language, not silently show French to a
+    // user who never asked for it (English is the one locale guaranteed to
+    // be fully populated going forward — see MEMORY / plan note).
+    return (
+        dictionaries[activeLocale][key] ||
+        dictionaries.en[key] ||
+        dictionaries[DEFAULT_LOCALE][key]
+    );
 }
 
 export function copy(locale: Locale | undefined | null, source: string): string {
     const activeLocale = locale && dictionaries[locale] ? locale : DEFAULT_LOCALE;
+    // literalTranslations has two entry shapes that both rely on this exact
+    // fallback: most entries are keyed by French source text with {en, es,
+    // de} translations (no redundant `fr` key — the source already is the
+    // French text); a smaller set is keyed by English source text with
+    // {fr, es, de} instead (no redundant `en` key, same reasoning). Either
+    // way, `|| source` is only wrong when the entry is missing outright —
+    // see the audit note below the table for how that gap gets closed.
     return literalTranslations[source]?.[activeLocale] || source;
 }
 
