@@ -175,39 +175,44 @@ SPORT_PROMPTS = {
 }
 
 # Format de sortie attendu (inclus dans le user_prompt pour guider l'IA)
+# Chaque champ texte est produit en 4 langues EN UN SEUL APPEL (fr/en/es/de) —
+# il n'y a plus de second appel de traduction séparé. Voir "TRADUCTION" plus bas.
 OUTPUT_FORMAT = """\n\nRéponds avec ce format JSON exact :
 {
-  "match_summary": "Résumé analytique concis de la rencontre",
+  "match_summary": {"fr": "Résumé analytique concis de la rencontre", "en": "...", "es": "...", "de": "..."},
   "data_quality": "HIGH | MEDIUM | LOW",
   "categories": {
     "high_confidence": [
       {
-        "market": "Nom du marché",
-        "selection": "Choix spécifique recommandé",
+        "market": {"fr": "Nom du marché", "en": "...", "es": "...", "de": "..."},
+        "selection": {"fr": "Choix spécifique recommandé", "en": "...", "es": "...", "de": "..."},
         "odds": 1.50,
         "rank": 1,
         "confidence_score": 85,
-        "analysis": "Analyse rédigée en français naturel et fluide (3-4 phrases min), justifiant précisément cette sélection et expliquant pourquoi elle rentre dans cette catégorie (croise les stats, ELO, forme, etc.)."
+        "outcome": {"type": "over_under", "side": "over", "line": 2.5},
+        "analysis": {"fr": "Analyse rédigée en français naturel et fluide (3-4 phrases min), justifiant précisément cette sélection et expliquant pourquoi elle rentre dans cette catégorie (croise les stats, ELO, forme, etc.).", "en": "...", "es": "...", "de": "..."}
       }
     ],
     "medium_confidence": [
       {
-        "market": "Nom du marché",
-        "selection": "Choix spécifique suggéré",
+        "market": {"fr": "Nom du marché", "en": "...", "es": "...", "de": "..."},
+        "selection": {"fr": "Choix spécifique suggéré", "en": "...", "es": "...", "de": "..."},
         "odds": 2.10,
         "rank": 1,
         "confidence_score": 68,
-        "analysis": "Analyse rédigée en français naturel et fluide (3-4 phrases min)..."
+        "outcome": {"type": "moneyline", "side": "home", "line": null},
+        "analysis": {"fr": "Analyse rédigée en français naturel et fluide (3-4 phrases min)...", "en": "...", "es": "...", "de": "..."}
       }
     ],
     "risky": [
       {
-        "market": "Nom du marché",
-        "selection": "Choix spécifique avec fort potentiel",
+        "market": {"fr": "Nom du marché", "en": "...", "es": "...", "de": "..."},
+        "selection": {"fr": "Choix spécifique avec fort potentiel", "en": "...", "es": "...", "de": "..."},
         "odds": 3.80,
         "rank": 1,
         "confidence_score": 42,
-        "analysis": "Analyse rédigée en français naturel et fluide (3-4 phrases min)..."
+        "outcome": {"type": "correct_score", "side": "2-1", "line": null},
+        "analysis": {"fr": "Analyse rédigée en français naturel et fluide (3-4 phrases min)...", "en": "...", "es": "...", "de": "..."}
       }
     ]
   },
@@ -216,6 +221,20 @@ OUTPUT_FORMAT = """\n\nRéponds avec ce format JSON exact :
     "match_id": 1234
   }
 }
+
+CHAMP `outcome` (OBLIGATOIRE sur chaque sélection) : une version structurée et machine-lisible de `selection`, utilisée pour vérifier automatiquement après coup si le pari était gagnant — SANS relire le texte de `analysis` ou `selection`. Choisis le `type` le plus proche parmi :
+- "moneyline"      -> side: "home" | "away" | "draw" (draw uniquement si le sport l'autorise)
+- "double_chance"  -> side: "1X" | "X2" | "12"
+- "over_under"     -> side: "over" | "under", line: le seuil numérique (buts, points, jeux, sets...)
+- "handicap"       -> side: "home" | "away", line: la valeur du handicap (ex: -1.5)
+- "btts"           -> side: "yes" | "no", line: null
+- "correct_score"  -> side: le score exact au format "H-A" (ex: "2-1"), line: null
+- "sets_total"      (tennis) -> side: "over" | "under", line: le seuil de sets
+- "other"          -> side: null, line: null — utilise uniquement si aucun type ci-dessus ne correspond (le pari ne sera alors pas vérifié automatiquement, mais reste affiché normalement)
+`side` et `line` doivent rester cohérents avec `selection` — ce sont deux représentations du même pari, pas deux paris différents. Cet objet n'est PAS traduit — un seul, en anglais technique, peu importe la langue.
+
+TRADUCTION (OBLIGATOIRE) : `match_summary`, et pour chaque sélection `market`, `selection` et `analysis`, doivent TOUS être des objets `{"fr": "...", "en": "...", "es": "...", "de": "..."}` — jamais une simple chaîne. Rédige d'abord le texte français (ta rédaction naturelle habituelle), puis traduis-le fidèlement en anglais, espagnol et allemand, en conservant le sens, le ton et la longueur relative — un `market`/`selection` reste un libellé court dans les 4 langues, une `analysis` reste 3-4 phrases dans les 4 langues. Garde les noms d'équipes/joueurs inchangés dans toutes les langues.
+
 RAPPEL IMPORTANT : Chaque catégorie (`high_confidence`, `medium_confidence`, `risky`) peut contenir entre 0 et 3 sélections, numérotées par `rank` à partir de 1. Si les données ne justifient aucun pari dans une catégorie, retourne un tableau vide `[]`. Ne force JAMAIS un pari pour remplir un quota — propose uniquement ceux que les données justifient solidement après vérification croisée."""
 
 

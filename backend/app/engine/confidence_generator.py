@@ -27,12 +27,16 @@ logger = logging.getLogger("betix.confidence_generator")
 # ═══════════════════════════════════════════════════════════════════
 
 # Config optimisée pour l'analyse de paris (JSON structuré, pas créatif)
+# max_tokens relevé (8192 -> 11000) car l'analyse et sa traduction 4-langues
+# sont désormais produites en UN SEUL appel au lieu de deux.
 AI_CONFIG = {
     "temperature": 0.4,       # Légèrement plus exploratoire pour éviter le biais de confirmation
-    "max_tokens": 8192,       # JSON riche = besoin d'espace
+    "max_tokens": 11000,      # JSON riche + 4 langues = besoin d'espace
     "top_p": 0.85,
     "top_k": 40,              # Plus de diversité dans les raisonnements explorés
 }
+
+DEFAULT_MODEL = "claude-haiku-4-5-20251001"
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -79,90 +83,54 @@ def parse_ai_response(raw: str) -> Optional[Dict[str, Any]]:
     return None
 
 
-async def translate_analysis_texts(ai: ChatModel, analysis: Dict[str, Any]) -> Dict[str, Any]:
+LANGS = ("fr", "en", "es", "de")
+
+
+def normalize_language_fields(data: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Traduit les textes d'analyse (français) en anglais, espagnol et allemand,
-    et transforme chaque champ texte concerné en { fr, en, es, de } au lieu
-    d'une simple chaîne. Un seul appel IA pour tout traduire (moins cher qu'une
-    génération complète par langue).
-
-    Couvre match_summary et, pour chaque sélection : market, selection, et
-    analysis. Le prompt IA produit ces trois champs en français (voir
-    prompt_builder.py) — market/selection ne sont PAS des codes anglais fixes,
-    ce sont des libellés rédigés par le modèle, donc ils ont besoin de la même
-    traduction que le texte d'analyse.
+    Le modèle produit désormais `match_summary`/`market`/`selection`/`analysis`
+    directement en 4 langues en un seul appel (voir prompt_builder.OUTPUT_FORMAT) —
+    il n'y a plus d'appel de traduction séparé. Cette fonction ne fait que
+    combler une langue manquante par le français si le modèle en a oublié une,
+    pour qu'aucun champ ne soit jamais vide côté frontend.
     """
-    cat_keys = ["high_confidence", "medium_confidence", "risky"]
-    item_fields = ["market", "selection", "analysis"]
-    texts_to_translate: Dict[str, str] = {}
+    def fill(obj):
+        if not isinstance(obj, dict):
+            return {lang: (obj or "") for lang in LANGS}
+        fr = obj.get("fr") or ""
+        return {lang: (obj.get(lang) or fr) for lang in LANGS}
 
-    if analysis.get("match_summary"):
-        texts_to_translate["match_summary"] = analysis["match_summary"]
+    if "match_summary" in data:
+        data["match_summary"] = fill(data["match_summary"])
 
-    for cat in cat_keys:
-        for idx, item in enumerate(analysis.get("categories", {}).get(cat, [])):
-            for field in item_fields:
-                if item.get(field):
-                    texts_to_translate[f"{cat}.{idx}.{field}"] = item[field]
+    for cat in ("high_confidence", "medium_confidence", "risky"):
+        for item in data.get("categories", {}).get(cat, []):
+            for field in ("market", "selection", "analysis"):
+                if field in item:
+                    item[field] = fill(item[field])
 
-    if not texts_to_translate:
-        return analysis
+    return data
 
-    translation_prompt = (
-        "Translate each of the following French sports-betting texts into "
-        "English, Spanish, and German. Some are short betting-market or selection "
-        "labels (e.g. a market name or a pick like a team name or an over/under line), "
-        "others are full analysis paragraphs — translate each appropriately to its "
-        "length, preserving meaning and tone; keep team/player names unchanged. "
-        "Respond with ONLY a JSON object, no markdown, no commentary, in this exact shape:\n"
-        '{ "<key>": { "en": "...", "es": "...", "de": "..." }, ... }\n\n'
-        f"Texts to translate:\n{json.dumps(texts_to_translate, ensure_ascii=False, indent=2)}"
-    )
 
-    ai.clear_history()
-    try:
-        raw = await ai.generate_response(message=translation_prompt)
-    except Exception as e:
-        logger.error(f"❌ Échec de l'appel de traduction: {e}")
-        return analysis
-    finally:
-        ai.clear_history()
+VALID_OUTCOME_TYPES = {
+    "moneyline", "double_chance", "over_under", "handicap",
+    "btts", "correct_score", "sets_total", "other",
+}
 
-    if not raw or raw.startswith("Error:"):
-        logger.warning(f"⚠️ Traduction indisponible, analyse laissée en français uniquement: {raw[:200] if raw else 'empty'}")
-        return analysis
 
-    translated = parse_ai_response(raw)
-    if not translated:
-        logger.warning("⚠️ Parsing de la traduction échoué, analyse laissée en français uniquement.")
-        return analysis
-
-    if "match_summary" in texts_to_translate:
-        fr_text = texts_to_translate["match_summary"]
-        t = translated.get("match_summary", {}) or {}
-        analysis["match_summary"] = {
-            "fr": fr_text,
-            "en": t.get("en") or fr_text,
-            "es": t.get("es") or fr_text,
-            "de": t.get("de") or fr_text,
-        }
-
-    for cat in cat_keys:
-        for idx, item in enumerate(analysis.get("categories", {}).get(cat, [])):
-            for field in item_fields:
-                key = f"{cat}.{idx}.{field}"
-                if key not in texts_to_translate:
-                    continue
-                fr_text = texts_to_translate[key]
-                t = translated.get(key, {}) or {}
-                item[field] = {
-                    "fr": fr_text,
-                    "en": t.get("en") or fr_text,
-                    "es": t.get("es") or fr_text,
-                    "de": t.get("de") or fr_text,
-                }
-
-    return analysis
+def normalize_outcome_fields(data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Garantit que chaque sélection porte un champ `outcome` structuré et valide,
+    même si le modèle l'a omis ou a inventé un `type` hors taxonomie — pour que
+    la vérification automatique (Phase 3) n'ait jamais à null-checker ce champ.
+    """
+    categories = data.get("categories", {})
+    for cat in ("high_confidence", "medium_confidence", "risky"):
+        for item in categories.get(cat, []):
+            outcome = item.get("outcome")
+            if not isinstance(outcome, dict) or outcome.get("type") not in VALID_OUTCOME_TYPES:
+                item["outcome"] = {"type": "other", "side": None, "line": None}
+    return data
 
 
 def validate_analysis(data: Dict[str, Any]) -> bool:
@@ -200,7 +168,8 @@ def validate_analysis(data: Dict[str, Any]) -> bool:
             if score is not None:
                 lo, hi = score_ranges[cat]
                 if not (lo <= score <= hi):
-                    logger.warning(f"Score {score} hors range [{lo}-{hi}] pour catégorie '{cat}' (market: {item.get('market')}).")
+                    market_label = (item.get("market") or {}).get("fr", item.get("market"))
+                    logger.warning(f"Score {score} hors range [{lo}-{hi}] pour catégorie '{cat}' (market: {market_label}).")
 
     return True
 
@@ -213,7 +182,7 @@ async def generate_confidence(
     sport: str,
     match_id: int,
     provider: str = "claude",
-    model_name: Optional[str] = "claude-haiku-4-5-20251001",
+    model_name: Optional[str] = DEFAULT_MODEL,
     context: Optional[Dict[str, Any]] = None,
 ) -> Optional[Dict[str, Any]]:
     """
@@ -273,12 +242,15 @@ async def generate_confidence(
         logger.error("❌ Parsing JSON échoué.")
         return None
 
+    # 4b. Garantir un champ `outcome` structuré sur chaque sélection,
+    # et un texte pour chacune des 4 langues (l'IA traduit en un seul appel —
+    # voir prompt_builder.OUTPUT_FORMAT — ceci ne fait que combler les trous).
+    analysis = normalize_outcome_fields(analysis)
+    analysis = normalize_language_fields(analysis)
+
     # 5. Valider la structure
     if not validate_analysis(analysis):
         logger.warning("⚠️ Analyse incomplète mais retournée quand même.")
-
-    # 5b. Traduire les textes d'analyse (fr -> en/es/de) pour le site multilingue
-    analysis = await translate_analysis_texts(ai, analysis)
 
     # 6. Enrichir avec les métadonnées
     analysis["_meta"] = {
@@ -305,7 +277,7 @@ if __name__ == "__main__":
     parser.add_argument("match_id", type=int)
     parser.add_argument("--provider", default="claude", choices=["gemini", "gpt", "claude"],
                         help="Fournisseur IA (défaut: claude)")
-    parser.add_argument("--model", default="claude-haiku-4-5-20251001", help="Nom du modèle spécifique")
+    parser.add_argument("--model", default=DEFAULT_MODEL, help="Nom du modèle spécifique")
     args = parser.parse_args()
 
     async def main():

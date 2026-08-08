@@ -113,9 +113,34 @@ export async function getAiAuditForMatch(apiId: string, sport: string) {
             auditData = data;
         }
 
-        if (!auditData) return null;
+        // 3. Rien en base, ou verrou 'pending' bloqué / analyse 'failed' —
+        //    déclenche une génération à la demande, mais UNIQUEMENT pour un
+        //    utilisateur premium (personne d'autre ne peut voir le résultat,
+        //    donc personne d'autre ne doit en déclencher le coût).
+        const needsTrigger =
+            !auditData ||
+            auditData.status === "failed" ||
+            (auditData.status === "pending" && isStuckPending(auditData.attempted_at));
 
-        // 3. Gating Logic: Mask AI analysis if not premium
+        if (needsTrigger && isPremium && internalId) {
+            const triggered = await triggerAudit(sport, internalId);
+            if (triggered?.state === "ready" && triggered.audit) {
+                auditData = triggered.audit;
+            } else {
+                // "pending" — génération lancée en tâche de fond côté backend.
+                return { locked: false, pending: true, ai_analysis: null };
+            }
+        }
+
+        if (!auditData) {
+            return isPremium ? { locked: false, pending: false, ai_analysis: null } : null;
+        }
+
+        if (auditData.status === "pending") {
+            return { locked: false, pending: true, ai_analysis: null };
+        }
+
+        // 4. Gating Logic: Mask AI analysis if not premium
         if (!isPremium) {
             console.log(`[getAiAuditForMatch] Masking premium data for non-premium user: ${user.id}`);
             return {
@@ -125,10 +150,40 @@ export async function getAiAuditForMatch(apiId: string, sport: string) {
             };
         }
 
-        return auditData;
+        return { ...auditData, locked: false, pending: false };
 
     } catch (e) {
         console.error("Error in getAiAuditForMatch:", e);
+        return null;
+    }
+}
+
+function isStuckPending(attemptedAt: string | null | undefined): boolean {
+    if (!attemptedAt) return true;
+    const ageMs = Date.now() - new Date(attemptedAt).getTime();
+    return ageMs > 5 * 60 * 1000; // même seuil que PENDING_LOCK_TIMEOUT_MINUTES côté backend
+}
+
+async function triggerAudit(sport: string, matchId: number): Promise<{ state: string; audit: Record<string, unknown> | null } | null> {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+    const secret = process.env.INTERNAL_API_SECRET;
+    if (!secret) {
+        console.error("[triggerAudit] INTERNAL_API_SECRET is not set — cannot trigger on-demand generation.");
+        return null;
+    }
+    try {
+        const res = await fetch(`${apiUrl}/audits/${sport}/${matchId}/ensure`, {
+            method: "POST",
+            headers: { "X-Internal-Secret": secret },
+            cache: "no-store",
+        });
+        if (!res.ok) {
+            console.error(`[triggerAudit] Backend returned ${res.status}`);
+            return null;
+        }
+        return await res.json();
+    } catch (e) {
+        console.error("[triggerAudit] Failed to reach backend:", e);
         return null;
     }
 }
