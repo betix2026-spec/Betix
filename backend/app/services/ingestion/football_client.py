@@ -1,7 +1,7 @@
 """
 BETIX — FootballClient
-Implémentation concrète de BaseSportClient pour le Football (API-Football v3).
-Gère les transformations spécifiques : fixtures, referee, weather, round.
+Concrete implementation of BaseSportClient for Football (API-Football v3).
+Handles sport-specific transforms: fixtures, referee, weather, round.
 """
 
 import logging

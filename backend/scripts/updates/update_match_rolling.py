@@ -1,9 +1,9 @@
 """
 BETIX — update_match_rolling.py
-Mise à jour ciblée des Rolling Stats (Séries) pour UN match spécifique.
-Recalcule les stats (L5, L10, etc.) pour les deux équipes impliquées, à la date du match.
+Targeted Rolling Stats (streaks) update for ONE specific match.
+Recomputes stats (L5, L10, etc.) for both teams involved, as of the match date.
 
-Usage :
+Usage:
     python update_match_rolling.py --sport football --match-id 123456
     python update_match_rolling.py --sport basketball --match-id 456789
 """
@@ -15,7 +15,7 @@ import sys
 import os
 from datetime import datetime, timedelta
 
-# Ajout du chemin pour les imports app
+# Path setup for app imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from app.config import get_settings
@@ -41,22 +41,18 @@ class SingleMatchRollingUpdater:
         return rows[0] if rows else None
 
     async def get_team_history(self, team_id: int, before_date: str, limit: int = 20):
-        """Récupère les N derniers matchs de l'équipe AVANT la date donnée."""
-        # On doit récupérer les matchs où l'équipe joue
-        # Supabase complex filtering : or=(home_team_id.eq.X,away_team_id.eq.X) AND date_time.lt.DATE
-        # Simplification : on fait une query raw
-        # Correction de la syntaxe pour le filtre 'or' + 'and'
-        # Supabase raw query : or=(home_team_id.eq.787,away_team_id.eq.787)&date_time=lt.2023...
-        # Il faut s'assurer que les parenthèses sont bien gérées.
-        # Parfois, un espace ou un caractère spécial casse tout.
-        
+        """Fetches the team's last N matches BEFORE the given date."""
+        # Needs matches where the team is either home or away
+        # Supabase complex filtering: or=(home_team_id.eq.X,away_team_id.eq.X) AND date_time.lt.DATE
+        # Built as a raw query since the wrapper's dict-based filters can't express 'or' + 'and' together.
+
         # DATE ENCODING FIX:
         # The '+' in '2023-01-01T12:00:00+00:00' is treated as a space by URL decoders.
         # We must replace it with '%2B' OR use urllib.parse.quote.
         # Here we manually replace '+' with '%2B' for safety.
         safe_date = before_date.replace("+", "%2B")
 
-        # On construit la query string manuellement et proprement
+        # Build the query string manually and cleanly
         query = (
             f"select=id,api_id,home_team_id,away_team_id,home_score,away_score,date_time&"
             f"or=(home_team_id.eq.{team_id},away_team_id.eq.{team_id})&"
@@ -65,15 +61,15 @@ class SingleMatchRollingUpdater:
             f"order=date_time.desc&"
             f"limit={limit}"
         )
-        # Enlever les sauts de ligne potentiels qui cassent l'URL
+        # Strip any stray newlines/spaces that would break the URL
         query = query.replace("\n", "").replace(" ", "")
-        
+
         rows = self.db.select_raw(self.match_table, query)
-        # Remettre dans l'ordre chronologique pour le calcul
+        # Restore chronological order for the calculation
         return sorted(rows, key=lambda x: x["date_time"])
 
     def compute_football_stats(self, team_id: int, match_date: str, venue: str, history: list):
-        # history est chronologique
+        # history is chronological
         last_5 = history[-5:]
         if not last_5: return None
         n = len(last_5)
@@ -93,7 +89,7 @@ class SingleMatchRollingUpdater:
         form_list = []
         
         match_ids = [m["api_id"] for m in last_5]
-        # On utilise select_raw pour plus de robustesse sur le 'in'
+        # Using select_raw for a more robust 'in' filter
         stats_query = f"match_id=in.({','.join(map(str, match_ids))})"
         stats_rows = self.db.select_raw("football_match_stats", stats_query)
         stats_map = {(s["match_id"], s["team_id"]): s for s in stats_rows}
@@ -122,7 +118,7 @@ class SingleMatchRollingUpdater:
             if gf > 0 and ga > 0: btts_count += 1
             if (gf + ga) > 2.5: over25_count += 1
 
-            # Stats avancées depuis football_match_stats
+            # Advanced stats from football_match_stats
             s = stats_map.get((pm["api_id"], team_id))
             if s:
                 if s.get("expected_goals") is not None: xg_for.append(float(s["expected_goals"]))
@@ -140,7 +136,7 @@ class SingleMatchRollingUpdater:
             if s_opp and s_opp.get("expected_goals") is not None:
                 xg_against.append(float(s_opp["expected_goals"]))
                 
-        # Calcul de streak
+        # Streak calculation
         streak_val = 0
         streak_char = ''
         if form_list:
@@ -150,7 +146,7 @@ class SingleMatchRollingUpdater:
                 else: break
         l5_streak = f"{streak_val}{streak_char}" if streak_val > 0 else None
         
-        # Calcul xG Diff
+        # xG Diff calculation
         l5_xg_diff = None
         l5_xg_for_avg = round(sum(xg_for) / len(xg_for), 2) if xg_for else None
         l5_xg_against_avg = round(sum(xg_against) / len(xg_against), 2) if xg_against else None
@@ -187,7 +183,7 @@ class SingleMatchRollingUpdater:
         }
 
     def compute_basketball_stats(self, team_id: int, match_date: str, venue: str, history: list):
-        # history est chronologique
+        # history is chronological
         last_5 = history[-5:]
         if not last_5: return None
         n5 = len(last_5)
@@ -316,7 +312,7 @@ class SingleMatchRollingUpdater:
         
         match = await self.get_match_details(match_id)
         if not match:
-            logger.error("❌ Match introuvable.")
+            logger.error("❌ Match not found.")
             return
 
         date_time = match["date_time"]
@@ -331,10 +327,10 @@ class SingleMatchRollingUpdater:
             tid = t["id"]
             venue = t["venue"]
             
-            # Récupérer l'historique AVANT ce match
+            # Fetch history BEFORE this match
             history = await self.get_team_history(tid, date_time)
             
-            # Calculer pour le contexte spécifique (Home/Away) et Global (All)
+            # Compute for the specific context (Home/Away) and Global (All)
             contexts = [venue, "all"]
             
             for ctx in contexts:
@@ -352,20 +348,20 @@ class SingleMatchRollingUpdater:
 
         if rows_to_upsert:
             if dry_run:
-                logger.info(f"[DRY RUN] Simulation terminee. {len(rows_to_upsert)} entrees calculees.")
+                logger.info(f"[DRY RUN] Simulation complete. {len(rows_to_upsert)} entries computed.")
                 for r in rows_to_upsert:
                     logger.info(f"   - {r['venue']} for team {r['team_id']}: {r}")
             else:
                 self.db.upsert(self.rolling_table, rows_to_upsert, on_conflict="team_id,date,venue")
                 logger.info(f"✅ Rolling Stats Updated: {len(rows_to_upsert)} entries.")
         else:
-            logger.warning("⚠️ Aucune donnée Rolling générée (manque d'historique ?)")
+            logger.warning("⚠️ No Rolling data generated (missing history?)")
 
 async def main():
     parser = argparse.ArgumentParser(description="Update specific match Rolling Stats")
     parser.add_argument("--sport", choices=["football", "basketball"], required=True)
     parser.add_argument("--match-id", type=int, required=True)
-    parser.add_argument("--dry-run", action="store_true", help="Simuler les calculs sans insertion")
+    parser.add_argument("--dry-run", action="store_true", help="Simulate the calculations without writing")
     args = parser.parse_args()
     
     updater = SingleMatchRollingUpdater(args.sport)

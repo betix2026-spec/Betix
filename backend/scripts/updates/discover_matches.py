@@ -1,9 +1,9 @@
 """
 BETIX — discover_matches.py (AUTO-INGEST)
-Version finale optimisée :
-1. Découverte intelligente (Range Football, Daily Basketball silencieux).
-2. Comparaison Delta avec la DB (Batch check).
-3. Ingestion automatique des données manquantes (Analytics + Public schemas).
+Final optimized version:
+1. Smart discovery (Football range scan, silent daily Basketball scan).
+2. Delta comparison against the DB (batch check).
+3. Automatic ingestion of missing data (Analytics + Public schemas).
 """
 
 import asyncio
@@ -13,14 +13,14 @@ import sys
 import os
 from datetime import datetime, timedelta, timezone
 
-# Configuration du chemin pour les imports
+# Path setup for imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from app.services.ingestion.football_client import FootballClient
 from app.services.ingestion.basketball_client import BasketballClient
 from app.services.ingestion.tennis_client import TennisClient
 
-# Désactivation des logs verbeux
+# Silence verbose logs
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
 
@@ -28,7 +28,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s — %(
 logger = logging.getLogger("betix.discovery")
 
 async def get_missing_items(client, table: str, api_items: list[dict], sport: str):
-    """Filtre les items API pour ne garder que ceux absents de la DB."""
+    """Filters the API items down to those missing from the DB."""
     if not api_items:
         return []
         
@@ -64,11 +64,11 @@ async def get_missing_items(client, table: str, api_items: list[dict], sport: st
     return missing_items
 
 async def ingest_missing(client, missing_items: list[dict]):
-    """Transforme et insère les items manquants dans les deux schémas."""
+    """Transforms and inserts the missing items into both schemas."""
     if not missing_items:
         return 0
-        
-    # Chargement des maps d'ID (nécessaire pour build_public_match)
+
+    # Load the ID maps (needed for build_public_match)
     if not client._team_id_map: client._load_team_id_map()
     if not client._league_id_map: client._load_league_id_map()
     
@@ -154,7 +154,7 @@ async def discovery_tennis(start_date_obj, days: int):
             items = data.get("result", [])
             
             for it in items:
-                # Exclure les doubles (simplifié)
+                # Exclude doubles matches (simplified check)
                 if "/" in it.get("event_first_player", "") or "&" in it.get("event_first_player", ""):
                     continue
                 all_api_items.append(it)

@@ -1,8 +1,8 @@
 """
 BETIX — BaseSportClient
-Classe abstraite pour l'ingestion des données sportives.
-Fournit les méthodes communes : appel API, UPSERT, logging, sync vers public.
-Chaque sport (Football, Basketball) hérite et implémente ses transformations.
+Abstract base class for sports data ingestion.
+Provides the shared methods: API calls, UPSERT, logging, sync to public.
+Each sport (Football, Basketball) subclasses this and implements its own transforms.
 
 NOTE: Uses raw httpx + Supabase PostgREST API instead of the supabase-py SDK
 to avoid the SDK's blocking Realtime WebSocket connection during batch jobs.
@@ -149,11 +149,11 @@ class SupabaseREST:
 
 class BaseSportClient(ABC):
     """
-    Client d'ingestion abstrait.
-    Chaque sport doit implémenter les méthodes _transform_* et _build_public_match.
+    Abstract ingestion client.
+    Each sport must implement the _transform_* methods and _build_public_match.
     """
 
-    # --- Attributs abstraits à définir dans les sous-classes ---
+    # --- Abstract attributes to define in subclasses ---
     sport: str = ""
     base_url: str = ""
     league_ids: dict[int, dict] = {}
@@ -163,38 +163,38 @@ class BaseSportClient(ABC):
         settings = get_settings()
         self.api_key = settings.API_SPORTS_KEY
 
-        # Client REST pour le schéma analytics.*
+        # REST client for the analytics.* schema
         self.analytics = SupabaseREST(
             settings.SUPABASE_URL,
             settings.SUPABASE_SERVICE_ROLE_KEY,
             schema="analytics",
         )
 
-        # Client REST pour le schéma public.*
+        # REST client for the public.* schema
         self.public = SupabaseREST(
             settings.SUPABASE_URL,
             settings.SUPABASE_SERVICE_ROLE_KEY,
             schema="public",
         )
 
-        # Client HTTP pour les appels API-Sports
+        # HTTP client for API-Sports calls
         self.http = httpx.AsyncClient(
             base_url=f"https://{self.base_url}",
             headers={"x-apisports-key": self.api_key},
         )
 
-        # Cache interne pour les mappings api_id -> internal_id
+        # Internal cache for api_id -> internal_id mappings
         self._league_id_map: dict[int, int] = {}  # api_id -> internal db id
         self._team_id_map: dict[int, int] = {}  # api_id -> internal db id
         self._request_count = 0
 
     # =========================================================================
-    # API CALL (avec rate-limit guard)
+    # API CALL (with rate-limit guard)
     # =========================================================================
     async def _api_get(self, endpoint: str, params: dict | None = None) -> dict:
         """
-        Appel GET à l'API-Sports avec gestion du compteur de requêtes.
-        Lève une exception si le quota est proche (>90 requêtes).
+        GET call to API-Sports with request-counter tracking.
+        Raises an exception if the quota is nearly exhausted.
         """
         if self._request_count >= 7000:
             msg = f"[{self.sport}] Quota guard: {self._request_count} requests used, stopping (Pro limit: 7500/day)."
@@ -244,31 +244,31 @@ class BaseSportClient(ABC):
             logger.error(f"Failed to write system_log: {e}")
 
     # =========================================================================
-    # CACHES D'IDs (api_id -> internal_id)
+    # ID CACHES (api_id -> internal_id)
     # =========================================================================
     def _load_league_id_map(self) -> None:
         """
-        Charge le mapping api_id -> id pour les ligues de ce sport.
-        À appeler APRÈS l'ingestion des ligues.
+        Loads the api_id -> id mapping for this sport's leagues.
+        Call AFTER league ingestion.
         """
         rows = self.analytics.select("leagues", "id,api_id", {"sport": self.sport})
         self._league_id_map = {r["api_id"]: r["id"] for r in rows}
 
     def _load_team_id_map(self) -> None:
         """
-        Charge le mapping api_id -> id pour les équipes de ce sport.
-        À appeler APRÈS l'ingestion des équipes.
+        Loads the api_id -> id mapping for this sport's teams.
+        Call AFTER team ingestion.
         """
         rows = self.analytics.select("teams", "id,api_id", {"sport": self.sport})
         self._team_id_map = {r["api_id"]: r["id"] for r in rows}
 
     # =========================================================================
-    # INGESTION : LIGUES
+    # INGESTION: LEAGUES
     # =========================================================================
     async def ingest_leagues(self) -> int:
         """
-        Ingère les ligues ciblées dans analytics.leagues.
-        Retourne le nombre de ligues insérées/mises à jour.
+        Ingests the target leagues into analytics.leagues.
+        Returns the number of leagues inserted/updated.
         """
         logger.info(f"[{self.sport}] Ingesting {len(self.league_ids)} leagues...")
 
@@ -295,12 +295,12 @@ class BaseSportClient(ABC):
         return len(rows)
 
     # =========================================================================
-    # INGESTION : ÉQUIPES
+    # INGESTION: TEAMS
     # =========================================================================
     async def ingest_teams(self) -> int:
         """
-        Ingère les équipes de toutes les ligues ciblées dans analytics.teams.
-        Retourne le nombre d'équipes insérées/mises à jour.
+        Ingests teams for all target leagues into analytics.teams.
+        Returns the number of teams inserted/updated.
         """
         if not self._league_id_map:
             self._load_league_id_map()
@@ -334,16 +334,16 @@ class BaseSportClient(ABC):
         return len(all_rows)
 
     # =========================================================================
-    # INGESTION : MATCHS
+    # INGESTION: MATCHES
     # =========================================================================
     async def ingest_matches(self, date: str) -> int:
         """
-        Ingère les matchs d'une date donnée dans la table analytics spécifique.
-        Puis synchronise vers public.matches.
+        Ingests matches for a given date into the sport-specific analytics table.
+        Then syncs to public.matches.
         Args:
             date: Format "YYYY-MM-DD"
         Returns:
-            Nombre de matchs insérés/mis à jour.
+            Number of matches inserted/updated.
         """
         if not self._team_id_map:
             self._load_team_id_map()
@@ -399,8 +399,8 @@ class BaseSportClient(ABC):
     # =========================================================================
     def _get_live_match_api_ids_from_db(self) -> list[int]:
         """
-        Récupère les API IDs des matchs qui sont 'live' 
-        en interrogeant la table analytics propre au sport (source de vérité).
+        Fetches the API IDs of matches that are 'live'
+        by querying the sport's own analytics table (source of truth).
         """
         table = self._get_analytics_matches_table()
         query = "select=api_id&status=eq.live"
@@ -408,7 +408,7 @@ class BaseSportClient(ABC):
         print(f"DEBUG: [{self.sport}] Searching IDs in {table} with query: {query}")
         
         try:
-            # On cherche dans le schema analytics
+            # Query within the analytics schema
             rows = self.analytics.select_raw(table, query)
             ids = [int(r["api_id"]) for r in rows if r.get("api_id")]
             print(f"DEBUG: [{self.sport}] Found IDs: {ids}")
@@ -420,8 +420,8 @@ class BaseSportClient(ABC):
 
     async def ingest_live_matches(self) -> int:
         """
-        Ingère uniquement les matchs EN DIRECT (ou censés l'être) basés sur la DB.
-        Met à jour analytics.*_matches et public.matches.
+        Ingests only LIVE matches (or those expected to be) based on the DB.
+        Updates analytics.*_matches and public.matches.
         """
         if not self._team_id_map:
             self._load_team_id_map()
@@ -487,12 +487,12 @@ class BaseSportClient(ABC):
         return len(all_public_rows)
 
     # =========================================================================
-    # MÉTHODES ABSTRAITES — À implémenter par chaque sport
+    # ABSTRACT METHODS — To be implemented by each sport
     # =========================================================================
     async def fetch_live_data_only(self) -> list[dict]:
         """
-        [DEBUG] Extrait et transforme les données live de l'API sans persister en base.
-        Utile pour vérifier les scores/status avant d'activer l'écriture.
+        [DEBUG] Fetches and transforms live data from the API without persisting to the DB.
+        Useful for checking scores/status before enabling writes.
         """
         if not self._team_id_map:
             self._load_team_id_map()
@@ -506,8 +506,8 @@ class BaseSportClient(ABC):
         all_transformed: list[dict] = []
         batch_size = 20
 
-        # On prépare les appels API. Certains sports supportent le batch (Football),
-        # d'autres non (Basketball v1).
+        # Prepare the API calls. Some sports support batching (Football),
+        # others don't (Basketball v1).
         endpoints: list[str] = self._get_matches_by_ids_endpoints(target_ids)
         
         async def _fetch_one(endpoint):
@@ -535,7 +535,7 @@ class BaseSportClient(ABC):
                 logger.error(f"[{self.sport}] Error fetching {endpoint}: {e}")
                 return []
 
-        # On lance tous les appels en parallèle (limité par le quota)
+        # Fire all calls in parallel (bounded by the quota)
         results = await asyncio.gather(*[_fetch_one(ep) for ep in endpoints])
         for res in results:
             all_transformed.extend(res)
@@ -544,66 +544,66 @@ class BaseSportClient(ABC):
 
     def _get_matches_by_ids_endpoints(self, ids: list[int]) -> list[str]:
         """
-        Génère une liste d'endpoints pour récupérer les matchs par IDs.
-        Par défaut, tente de faire un batch (recommandé).
+        Generates a list of endpoints for fetching matches by IDs.
+        Attempts to batch by default (recommended).
         """
         ids_str = "-".join(map(str, ids))
         return [f"{self._get_matches_endpoint()}?ids={ids_str}"]
 
     def _get_leagues_endpoint(self) -> str:
-        """Endpoint API pour récupérer les ligues."""
+        """API endpoint for fetching leagues."""
         ...
 
     @abstractmethod
     def _get_teams_endpoint(self) -> str:
-        """Endpoint API pour récupérer les équipes."""
+        """API endpoint for fetching teams."""
         return "/teams"
 
     @abstractmethod
     def _get_teams_params(self, league_api_id: int) -> dict:
-        """Paramètres pour la requête de récupération des équipes."""
+        """Parameters for the team-fetching request."""
         ...
 
     @abstractmethod
     def _get_matches_endpoint(self) -> str:
-        """Endpoint API pour récupérer les matchs."""
+        """API endpoint for fetching matches."""
         ...
 
     @abstractmethod
     def _get_matches_params(self, league_api_id: int, date: str) -> dict:
-        """Paramètres pour la requête de matchs."""
+        """Parameters for the matches request."""
         ...
 
     @abstractmethod
     def _get_live_matches_endpoint(self) -> str:
-        """Endpoint API pour récupérer les matchs en direct."""
+        """API endpoint for fetching live matches."""
         ...
 
     @abstractmethod
     def _get_analytics_matches_table(self) -> str:
-        """Nom de la table analytics pour les matchs de ce sport."""
+        """Name of the analytics table for this sport's matches."""
         ...
 
     @abstractmethod
     def _transform_league(self, raw: dict, meta: dict) -> dict:
-        """Transforme la réponse API en ligne analytics.leagues."""
+        """Transforms the API response into an analytics.leagues row."""
         ...
 
     @abstractmethod
     def _transform_team(self, raw: dict, internal_league_id: int) -> dict:
-        """Transforme la réponse API en ligne analytics.teams."""
+        """Transforms the API response into an analytics.teams row."""
         ...
 
     @abstractmethod
     def _transform_match(self, raw: dict) -> Optional[dict]:
-        """Transforme la réponse API en ligne analytics.*_matches."""
+        """Transforms the API response into an analytics.*_matches row."""
         ...
 
     @abstractmethod
     def _build_public_match(self, analytics_row: dict) -> Optional[dict]:
         """
-        Construit un objet public.matches depuis une ligne analytics.
-        Résout les FKs en utilisant les caches _team_id_map et _league_id_map.
+        Builds a public.matches object from an analytics row.
+        Resolves FKs using the _team_id_map and _league_id_map caches.
         """
         ...
 
@@ -611,5 +611,5 @@ class BaseSportClient(ABC):
     # CLEANUP
     # =========================================================================
     async def close(self) -> None:
-        """Ferme le client HTTP."""
+        """Closes the HTTP client."""
         await self.http.aclose()

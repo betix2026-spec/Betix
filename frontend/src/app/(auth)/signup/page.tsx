@@ -28,7 +28,7 @@ export default function SignupPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        // Validation côté client
+        // Client-side validation
         if (formData.password !== formData.confirmPassword) {
             toast.error(t("passwordsDoNotMatch"), {
                 description: t("checkYourInput"),

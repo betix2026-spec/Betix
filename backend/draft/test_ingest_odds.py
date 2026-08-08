@@ -1,11 +1,11 @@
 """
-BETIX — Test d'ingestion : insère les cotes des 3 matchs tests dans analytics.odds_snapshots.
-Mode Bulk : 1 snapshot = 1 marché (toutes les lignes dans odds_data).
+BETIX — Ingestion test: inserts the odds for the 3 test matches into analytics.odds_snapshots.
+Bulk mode: 1 snapshot = 1 market (all lines in odds_data).
 
-Matchs ciblés :
-- Football fixture=1379229 (8 marchés Bet365)
-- Basketball game=470281 (5 marchés Bet365)
-- Tennis match_key=12104660 (5 marchés bet365)
+Target matches:
+- Football fixture=1379229 (8 Bet365 markets)
+- Basketball game=470281 (5 Bet365 markets)
+- Tennis match_key=12104660 (5 bet365 markets)
 """
 import asyncio
 import httpx
@@ -50,7 +50,7 @@ TENNIS_MARKETS = [
 
 def build_snapshot(match_id: int, sport: str, bookmaker: str,
                    market_name: str, odds_data: list) -> dict:
-    """Construit un dict prêt pour insertion dans analytics.odds_snapshots."""
+    """Builds a dict ready for insertion into analytics.odds_snapshots."""
     return {
         "match_id": match_id,
         "sport": sport,
@@ -61,7 +61,7 @@ def build_snapshot(match_id: int, sport: str, bookmaker: str,
 
 
 async def fetch_football(client: httpx.AsyncClient, api_key: str) -> list:
-    """Récupère les cotes Football Bet365."""
+    """Fetches Football Bet365 odds."""
     logger.info("🏟️  Football — Fetching odds...")
     resp = await client.get(
         "https://v3.football.api-sports.io/odds",
@@ -84,12 +84,12 @@ async def fetch_football(client: httpx.AsyncClient, api_key: str) -> list:
             odds = [{"label": str(v["value"]), "odds": float(v["odd"])} for v in bet.get("values", [])]
             snapshots.append(build_snapshot(FOOTBALL_FIXTURE_ID, "football", PREFERRED_BOOKIE_NAME, market, odds))
     
-    logger.info(f"   ✅ {len(snapshots)} marchés extraits")
+    logger.info(f"   ✅ {len(snapshots)} markets extracted")
     return snapshots
 
 
 async def fetch_basketball(client: httpx.AsyncClient, api_key: str) -> list:
-    """Récupère les cotes Basketball (Bet365 ou fallback)."""
+    """Fetches Basketball odds (Bet365 or fallback)."""
     logger.info("🏀 Basketball — Fetching odds...")
     resp = await client.get(
         "https://v1.basketball.api-sports.io/odds",
@@ -124,12 +124,12 @@ async def fetch_basketball(client: httpx.AsyncClient, api_key: str) -> list:
             odds = [{"label": str(v["value"]), "odds": float(v["odd"])} for v in bet.get("values", [])]
             snapshots.append(build_snapshot(BASKETBALL_GAME_ID, "basketball", bookie_name, market, odds))
     
-    logger.info(f"   ✅ {len(snapshots)} marchés extraits")
+    logger.info(f"   ✅ {len(snapshots)} markets extracted")
     return snapshots
 
 
 async def fetch_tennis(client: httpx.AsyncClient, tennis_key: str) -> list:
-    """Récupère les cotes Tennis bet365 (structure dict imbriqué)."""
+    """Fetches Tennis bet365 odds (nested dict structure)."""
     logger.info("🎾 Tennis — Fetching odds...")
     today = datetime.now().strftime("%Y-%m-%d")
     stop = (datetime.now() + timedelta(days=2)).strftime("%Y-%m-%d")
@@ -145,7 +145,7 @@ async def fetch_tennis(client: httpx.AsyncClient, tennis_key: str) -> list:
     if match_key not in all_matches:
         if all_matches:
             match_key = list(all_matches.keys())[0]
-            logger.info(f"   ⚠️ Match {TENNIS_MATCH_KEY} non trouvé, fallback: {match_key}")
+            logger.info(f"   ⚠️ Match {TENNIS_MATCH_KEY} not found, fallback: {match_key}")
         else:
             logger.warning("   ❌ No odds data")
             return []
@@ -167,14 +167,14 @@ async def fetch_tennis(client: httpx.AsyncClient, tennis_key: str) -> list:
             first_val = next(iter(bookies_or_thresholds.values()), None)
             
             if isinstance(first_val, dict):
-                # 3 niveaux : outcome → seuil → bookmaker → cote
+                # 3 levels: outcome → threshold → bookmaker → odd
                 for threshold, bookies in bookies_or_thresholds.items():
                     if isinstance(bookies, dict):
                         odd = bookies.get("bet365") or next(iter(bookies.values()), None)
                         if odd:
                             values.append({"label": f"{outcome_name} {threshold}", "odds": float(odd)})
             else:
-                # 2 niveaux : outcome → bookmaker → cote
+                # 2 levels: outcome → bookmaker → odd
                 odd = bookies_or_thresholds.get("bet365") or next(iter(bookies_or_thresholds.values()), None)
                 if odd:
                     try:
@@ -185,7 +185,7 @@ async def fetch_tennis(client: httpx.AsyncClient, tennis_key: str) -> list:
         if values:
             snapshots.append(build_snapshot(used_match_id, "tennis", "bet365", market, values))
     
-    logger.info(f"   ✅ {len(snapshots)} marchés extraits (match_key={match_key})")
+    logger.info(f"   ✅ {len(snapshots)} markets extracted (match_key={match_key})")
     return snapshots
 
 
@@ -194,17 +194,17 @@ async def main():
     db = SupabaseREST(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY, schema="analytics")
     
     logger.info("=" * 60)
-    logger.info("  BETIX — Test Ingestion Odds (Mode Bulk)")
+    logger.info("  BETIX — Odds Ingestion Test (Bulk Mode)")
     logger.info("=" * 60)
     
-    # Nettoyage complet de la table
-    logger.info("🧹 Nettoyage de la table odds_snapshots...")
+    # Full table cleanup
+    logger.info("🧹 Cleaning the odds_snapshots table...")
     try:
         for mid in [FOOTBALL_FIXTURE_ID, BASKETBALL_GAME_ID, TENNIS_MATCH_KEY]:
             db.delete("odds_snapshots", {"match_id": str(mid)})
-        logger.info("   ✅ Nettoyage OK")
+        logger.info("   ✅ Cleanup OK")
     except Exception as e:
-        logger.warning(f"   ⚠️ Nettoyage partiel: {e}")
+        logger.warning(f"   ⚠️ Partial cleanup: {e}")
     
     all_snapshots = []
     async with httpx.AsyncClient(timeout=30.0) as client:
@@ -219,13 +219,13 @@ async def main():
         te = await fetch_tennis(client, settings.API_TENNIS_KEY)
         all_snapshots.extend(te)
     
-    logger.info(f"\n📦 Total snapshots à insérer : {len(all_snapshots)}")
+    logger.info(f"\n📦 Total snapshots to insert: {len(all_snapshots)}")
     
     if not all_snapshots:
-        logger.warning("⚠️ Aucun snapshot — abandon.")
+        logger.warning("⚠️ No snapshots — aborting.")
         return
     
-    # Insertion en base
+    # DB insertion
     try:
         headers = {**db.headers, "Prefer": "return=representation"}
         url = f"{db.base_url}/odds_snapshots"
@@ -233,9 +233,9 @@ async def main():
         resp.raise_for_status()
         inserted = resp.json()
         
-        logger.info(f"\n✅ {len(inserted)} snapshots insérés avec succès !")
+        logger.info(f"\n✅ {len(inserted)} snapshots inserted successfully!")
         
-        # Résumé par sport
+        # Summary by sport
         sports = {}
         for s in inserted:
             sp = s.get("sport", "?")
@@ -245,13 +245,13 @@ async def main():
             sports[sp]["markets"].append(s.get("market_name"))
         
         for sport, info in sports.items():
-            logger.info(f"  {sport}: {info['count']} marchés → {info['markets']}")
+            logger.info(f"  {sport}: {info['count']} markets → {info['markets']}")
             
     except httpx.HTTPStatusError as e:
-        logger.error(f"❌ Erreur insertion DB: {e.response.status_code}")
+        logger.error(f"❌ DB insertion error: {e.response.status_code}")
         logger.error(f"   Body: {e.response.text}")
     except Exception as e:
-        logger.error(f"❌ Erreur inattendue: {e}")
+        logger.error(f"❌ Unexpected error: {e}")
 
 
 if __name__ == "__main__":

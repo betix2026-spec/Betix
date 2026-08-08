@@ -1,11 +1,11 @@
 """
 BETIX — orchestrator_data.py
-Le "Cerveau Secondaire" dédié aux données de fond (Background Data).
+The "Secondary Brain" dedicated to background data.
 
-Fréquences :
-- Ingestion des matchs (MatchDiscoverer) : Toutes les 6 heures (avant les cotes)
-- Ingestion des Cotes (OddsIngester) : Toutes les 6 heures
-- Nettoyage et Stats (DailyMatchOrchestrator) : Toutes les 8 heures
+Frequencies:
+- Match ingestion (MatchDiscoverer): every 6 hours (before odds)
+- Odds ingestion (OddsIngester): every 6 hours
+- Cleanup and stats (DailyMatchOrchestrator): every 8 hours
 """
 
 import asyncio
@@ -35,7 +35,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("betix.orchestrator_data")
 
-# Defaults (fallback si la base est injoignable)
+# Defaults (fallback if the DB is unreachable)
 DEFAULT_SLEEP_INTERVAL = 60
 DEFAULT_DISCOVERY_EVERY_N = 360
 DEFAULT_CLEANUP_EVERY_N = 480
@@ -43,7 +43,7 @@ DEFAULT_DISCOVERY_DAYS = 10
 
 
 def load_data_config() -> dict:
-    """Charge la config data depuis system_config."""
+    """Loads the data config from system_config."""
     try:
         reader = ConfigReader()
         return {
@@ -54,7 +54,7 @@ def load_data_config() -> dict:
             "discovery_days": reader.get_int("orch_data.discovery_days", DEFAULT_DISCOVERY_DAYS),
         }
     except Exception as e:
-        logger.warning(f"Config fallback (erreur DB) : {e}")
+        logger.warning(f"Config fallback (DB error): {e}")
         return {
             "enabled": True,
             "sleep_interval_s": DEFAULT_SLEEP_INTERVAL,
@@ -85,7 +85,7 @@ async def run_forever():
             cfg = load_data_config()
 
             if not cfg["enabled"]:
-                logger.info("Orchestrator Data DESACTIVE par la config. Attente 60s...")
+                logger.info("Orchestrator Data DISABLED by config. Waiting 60s...")
                 await asyncio.sleep(60)
                 continue
 
@@ -116,7 +116,7 @@ async def run_forever():
                 except Exception as e:
                     logger.error(f"Error in DailyMatchOrchestrator: {e}")
 
-            # TENNIS RANKINGS (hebdomadaire, le lundi)
+            # TENNIS RANKINGS (weekly, on Mondays)
             today = datetime.now(timezone.utc)
             today_str = today.strftime("%Y-%m-%d")
             is_monday = today.weekday() == 0

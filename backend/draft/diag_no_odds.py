@@ -1,4 +1,4 @@
-"""Diagnostic rapide : vérifier les matchs basket avec/sans cotes."""
+"""Quick diagnostic: check basketball matches with/without odds."""
 import httpx, sys, os
 from datetime import datetime, timedelta, timezone
 
@@ -17,14 +17,14 @@ limit_str = limit.strftime("%Y-%m-%dT%H:%M:%S") + "Z"
 rows = db.select_raw("basketball_matches",
     f"status=in.(imminent,scheduled)&date_time=gte.{now_str}&date_time=lte.{limit_str}&select=id,api_id,date_time&order=date_time.asc")
 
-print(f"Total matchs basket : {len(rows)}\n")
+print(f"Total basketball matches: {len(rows)}\n")
 
 headers = {"x-apisports-key": s.API_SPORTS_KEY}
 with_odds = 0
 without_odds = 0
 without_list = []
 
-# Tester les 15 premiers et les 15 derniers (proximité vs lointains)
+# Test the first 15 and last 15 (near vs far)
 sample = rows[:15] + rows[-15:] if len(rows) > 30 else rows
 
 for m in sample:
@@ -47,7 +47,7 @@ for m in sample:
     print(f"  {m['api_id']} | {dt} | {status}")
 
 print(f"\n{'='*60}")
-print(f"  Échantillon: {with_odds} avec cotes / {without_odds} sans cotes")
+print(f"  Sample: {with_odds} with odds / {without_odds} without odds")
 if without_list:
-    print(f"  IDs sans cotes: {without_list}")
+    print(f"  IDs without odds: {without_list}")
 print(f"{'='*60}")

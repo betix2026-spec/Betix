@@ -44,8 +44,8 @@ function LoginForm() {
             description: t("redirectDashboard"),
         });
 
-        // Utilisation de location.replace pour s'assurer que le cache du routeur Next.js
-        // est complètement ignoré et que la nouvelle session est chargée proprement.
+        // Using location.replace to make sure the Next.js router cache
+        // is fully bypassed and the new session loads cleanly.
         window.location.replace(redirectTo);
     };
 

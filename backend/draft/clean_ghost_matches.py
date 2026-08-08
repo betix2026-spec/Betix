@@ -30,7 +30,7 @@ def fetch_all(db, table, select="*", filters=None):
     return all_rows
 
 async def main():
-    print("🚀 Début du nettoyage des matchs Fantômes de Tennis")
+    print("🚀 Starting cleanup of Tennis Ghost matches")
     
     settings = get_settings()
     db = SupabaseREST(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY, schema="analytics")
@@ -60,17 +60,17 @@ async def main():
             ghost_matches.append(m["id"])
             ghost_api_ids.append(m["api_id"])
             
-    print(f"👻 Matchs fantômes détectés : {len(ghost_matches)}")
+    print(f"👻 Ghost matches detected: {len(ghost_matches)}")
     
     if not ghost_matches:
-        print("✅ Aucun nettoyage nécessaire.")
+        print("✅ No cleanup needed.")
         return
         
-    print(f"Exemples d'API IDs : {ghost_api_ids[:5]}...")
+    print(f"Example API IDs: {ghost_api_ids[:5]}...")
     
     # 4. DELETION
     # We delete from public.matches first, then analytics.tennis_matches
-    print(f"🗑️ Nettoyage de public.matches (sport='tennis')...")
+    print(f"🗑️ Cleaning public.matches (sport='tennis')...")
     
     deleted_public = 0
     # Batch delete in chunks of 100 to avoid URL length issues
@@ -93,11 +93,11 @@ async def main():
             deleted_public += len(chunk)
             print(f"  -> Deleted chunk of {len(chunk)} from public schema")
         except Exception as e:
-            print(f"Erreur suppression public: {e}")
+            print(f"Deletion error (public): {e}")
             
-    print(f"✅ Supprimés de public.matches : {deleted_public}")
+    print(f"✅ Deleted from public.matches: {deleted_public}")
             
-    print(f"🗑️ Nettoyage de analytics.tennis_matches...")
+    print(f"🗑️ Cleaning analytics.tennis_matches...")
     deleted_analytics = 0
     for i in range(0, len(ghost_matches), chunk_size):
         chunk = ghost_matches[i:i + chunk_size]
@@ -114,10 +114,10 @@ async def main():
             deleted_analytics += len(chunk)
             print(f"  -> Deleted chunk of {len(chunk)} from analytics schema")
         except Exception as e:
-            print(f"Erreur suppression analytics: {e}")
+            print(f"Deletion error (analytics): {e}")
             
-    print(f"✅ Supprimés de analytics.tennis_matches : {deleted_analytics}")
-    print("🎉 Nettoyage terminé avec succès !")
+    print(f"✅ Deleted from analytics.tennis_matches: {deleted_analytics}")
+    print("🎉 Cleanup completed successfully!")
 
 if __name__ == "__main__":
     asyncio.run(main())

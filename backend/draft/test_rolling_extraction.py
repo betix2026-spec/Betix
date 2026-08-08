@@ -5,23 +5,23 @@ import sys
 import os
 from typing import Dict, Any
 
-# Ajout du backend au path
+# Add backend to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from app.engine.data_aggregation import get_match_context
 
-# On définit localement la fonction pour éviter d'importer match_audit_script.py (qui crash à cause de l'IA)
+# Defining the function locally to avoid importing match_audit_script.py (which crashes due to the AI)
 def filter_essential_stats_local(sport: str, context: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Filtre le contexte pour ne garder que les statistiques 'maîtresses' 
-    afin d'alléger l'archive JSON tout en gardant la substance de l'audit.
+    Filters the context to keep only the 'core' statistics
+    to lighten the JSON archive while preserving the audit's substance.
     """
     filtered = {
         "home": {},
         "away": {}
     }
     
-    # Mapping des stats clés par sport
+    # Mapping of key stats by sport
     keys_by_sport = {
         "basketball": ["l5_ortg", "l5_drtg", "l5_net_rtg", "l5_pace", "l5_efg_pct", "l10_ortg", "l10_drtg"],
         "football": ["l5_goals_for", "l5_goals_against", "l5_xg_for", "l5_xg_against", "l5_possession_avg", "l5_points"],
@@ -30,19 +30,19 @@ def filter_essential_stats_local(sport: str, context: Dict[str, Any]) -> Dict[st
     
     keys = keys_by_sport.get(sport, [])
     
-    # On récupère le "global" (all venues) du dernier snapshot rolling
+    # Fetch the "global" (all venues) latest rolling snapshot
     for side in ["home", "away"]:
-        # Pour le basket/foot : "home_team" / "away_team"
-        # Pour le tennis : "player1" / "player2"
+        # For basketball/football: "home_team" / "away_team"
+        # For tennis: "player1" / "player2"
         side_key = f"{side}_team" if sport != "tennis" else ("player1" if side == "home" else "player2")
         
         raw_form = context.get(side_key, {}).get("form", {}).get("global", [])
         if not raw_form and sport == "tennis":
-            # Tennis a une structure légèrement différente dans l'agrégateur
+            # Tennis has a slightly different structure in the aggregator
             raw_form = context.get(side_key, {}).get("form", {}).get("overall", [])
             
         if raw_form:
-            latest = raw_form[0] # Le plus récent (index 0 car ordonné par date desc dans l'agrégateur)
+            latest = raw_form[0] # Most recent (index 0 since sorted by date desc in the aggregator)
             filtered[side] = {k: latest.get(k) for k in keys if k in latest}
             filtered[side]["date"] = latest.get("date")
 
@@ -53,25 +53,25 @@ async def test_sport_extraction(sport, match_id):
     print(f" TESTING {sport.upper()} Match #{match_id}")
     print("="*50)
     
-    # 1. Récupérer le contexte
+    # 1. Fetch the context
     try:
         context = await get_match_context(sport, match_id)
     except Exception as e:
-        print(f"[ERROR] Erreur lors de get_match_context: {e}")
+        print(f"[ERROR] Error in get_match_context: {e}")
         return
 
     if not context or not context.get("match"):
-        print(f"[ERROR] Aucun contexte trouvé pour {sport} #{match_id}")
+        print(f"[ERROR] No context found for {sport} #{match_id}")
         return
 
-    # 2. Extraire les stats filtrées
+    # 2. Extract the filtered stats
     filtered = filter_essential_stats_local(sport, context)
     
-    # 3. Afficher les résultats
-    print("\n[RESULTATS FILTRES ENREGISTRES DANS AI_MATCH_AUDITS]")
+    # 3. Print the results
+    print("\n[FILTERED RESULTS STORED IN AI_MATCH_AUDITS]")
     print(json.dumps(filtered, indent=2))
     
-    # 4. Diagnostic approfondi
+    # 4. In-depth diagnostic
     keys_by_sport = {
         "basketball": ["l5_ortg", "l5_drtg", "l5_net_rtg", "l5_pace", "l5_efg_pct", "l10_ortg", "l10_drtg"],
         "football": ["l5_goals_for", "l5_goals_against", "l5_xg_for", "l5_xg_against", "l5_possession_avg", "l5_points"],
@@ -85,24 +85,24 @@ async def test_sport_extraction(sport, match_id):
         
         print(f"\n--- Details {side_key} ---")
         if not form_dict:
-            print(f"WARN: Aucun dictionnaire 'form' pour {side_key}")
+            print(f"WARN: No 'form' dictionary for {side_key}")
             continue
 
         for fkey in ["global", "overall", "home", "away"]:
             data = form_dict.get(fkey, [])
             if data:
-                print(f"Form '{fkey}' : {len(data)} snapshots trouves. Dernier le {data[0].get('date')}")
-                # Vérifier la présence des clés attendues dans le dernier snapshot de cette catégorie
+                print(f"Form '{fkey}': {len(data)} snapshots found. Latest on {data[0].get('date')}")
+                # Check for the expected keys in this category's latest snapshot
                 missing = [k for k in expected_keys if k not in data[0]]
                 if missing:
-                    print(f"   MISSING: Cles MANQUANTES dans '{fkey}': {missing}")
+                    print(f"   MISSING: MISSING keys in '{fkey}': {missing}")
                 else:
-                    print(f"   OK: Toutes les cles ({len(expected_keys)}) sont presentes dans '{fkey}'.")
+                    print(f"   OK: All keys ({len(expected_keys)}) are present in '{fkey}'.")
             else:
-                print(f"   (L'entree '{fkey}' est vide)")
+                print(f"   (The '{fkey}' entry is empty)")
 
 async def main():
-    # Liste des matchs à tester (IDs internes valides trouvés en DB)
+    # List of matches to test (valid internal IDs found in the DB)
     tests = [
         ("football", 1321),
         ("basketball", 4385),

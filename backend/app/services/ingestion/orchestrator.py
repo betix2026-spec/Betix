@@ -1,8 +1,8 @@
 """
 BETIX — IngestionOrchestrator
-Pilote l'exécution séquentielle de l'ingestion :
-  1. Ligues → 2. Équipes → 3. Matchs → 4. Sync public
-Garantit l'ordre des dépendances (pas de FK violation).
+Drives the sequential ingestion pipeline:
+  1. Leagues → 2. Teams → 3. Matches → 4. Public sync
+Guarantees dependency order (no FK violations).
 """
 
 import asyncio
@@ -18,8 +18,8 @@ logger = logging.getLogger("betix.ingestion.orchestrator")
 
 class IngestionOrchestrator:
     """
-    Orchestre l'ingestion pour tous les sports actifs.
-    Respecte l'ordre : Ligues → Équipes → Matchs.
+    Orchestrates ingestion for all active sports.
+    Respects the order: Leagues → Teams → Matches.
     """
 
     def __init__(self) -> None:
@@ -30,8 +30,8 @@ class IngestionOrchestrator:
 
     async def run_initial_import(self) -> dict:
         """
-        Import initial : Ligues + Équipes pour tous les sports.
-        À exécuter une seule fois, ou pour rafraîchir les référentiels.
+        Initial import: Leagues + Teams for all sports.
+        Run once, or to refresh the reference data.
         """
         report = {"leagues": 0, "teams": 0, "errors": []}
 
@@ -39,11 +39,11 @@ class IngestionOrchestrator:
             try:
                 logger.info(f"=== Initial Import: {client.sport.upper()} ===")
 
-                # Étape 1 : Ligues
+                # Step 1: Leagues
                 leagues_count = await client.ingest_leagues()
                 report["leagues"] += leagues_count
 
-                # Étape 2 : Équipes
+                # Step 2: Teams
                 teams_count = await client.ingest_teams()
                 report["teams"] += teams_count
 
@@ -59,12 +59,12 @@ class IngestionOrchestrator:
 
     async def run_daily_sync(self, date: str | None = None) -> dict:
         """
-        Synchronisation quotidienne : Matchs du jour + enrichissement des matchs terminés.
-        Le client ingère dans analytics puis synchronise dans public.matches.
-        Ensuite, enrichit les matchs terminés sans stats.
+        Daily sync: today's matches + enrichment of finished matches.
+        The client ingests into analytics then syncs to public.matches.
+        Then enriches finished matches that are missing stats.
 
         Args:
-            date: Format "YYYY-MM-DD". Si None, utilise la date du jour.
+            date: Format "YYYY-MM-DD". If None, uses today's date.
         """
         if not date:
             date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -99,8 +99,8 @@ class IngestionOrchestrator:
 
     async def run_post_match_enrichment(self) -> dict:
         """
-        Enrichit les matchs terminés qui n'ont pas encore de stats.
-        Puis recalcule les tables computed (H2H, ELO, Rolling, Referee).
+        Enriches finished matches that don't have stats yet.
+        Then recomputes the derived tables (H2H, ELO, Rolling, Referee).
         """
         from app.services.enrichment.compute_h2h import compute_football_h2h, compute_basketball_h2h
         from app.services.enrichment.compute_elo import compute_football_elo
@@ -142,7 +142,7 @@ class IngestionOrchestrator:
 
     async def run_upcoming_sync(self, days: int = 14) -> dict:
         """
-        Synchronise les matchs pour les X prochains jours.
+        Syncs matches for the next X days.
         """
         from datetime import timedelta
         
@@ -170,8 +170,8 @@ class IngestionOrchestrator:
 
     async def run_live_sync(self) -> dict:
         """
-        Déclenche l'ingestion réelle des matchs live pour tous les sports.
-        Met à jour Supabase (analytics + public).
+        Triggers a real ingestion pass for live matches across all sports.
+        Updates Supabase (analytics + public).
         """
         self.clients = [FootballClient(), BasketballClient()]
         report = {"counts": {}, "total_updated": 0, "errors": []}
@@ -198,8 +198,8 @@ class IngestionOrchestrator:
 
     async def run_full_pipeline(self, date: str | None = None) -> dict:
         """
-        Pipeline complet : Initial Import + Daily Sync.
-        Utile pour le premier lancement ou pour un reset complet.
+        Full pipeline: Initial Import + Daily Sync.
+        Useful for the first run or a full reset.
         """
         if not date:
             date = datetime.now(timezone.utc).strftime("%Y-%m-%d")

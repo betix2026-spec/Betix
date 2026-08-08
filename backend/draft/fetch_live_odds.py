@@ -1,11 +1,11 @@
 """
-BETIX — Script prototype : récupération des cotes Bet365
-Interroge les 3 APIs sportives pour extraire les marchés ciblés.
+BETIX — Prototype script: fetching Bet365 odds
+Queries the 3 sports APIs to extract the target markets.
 
-Structure des réponses API (validée par diagnostic) :
-- Football : response[0].bookmakers[].bets[].values[]
-- Basketball : idem (Bet365 absent → fallback Pinnacle/1xBet)
-- Tennis : result{match_key: {market: {outcome: {bookmaker: cote}}}}
+API response structure (validated via diagnostic):
+- Football: response[0].bookmakers[].bets[].values[]
+- Basketball: same (Bet365 absent → fallback Pinnacle/1xBet)
+- Tennis: result{match_key: {market: {outcome: {bookmaker: odd}}}}
 """
 import asyncio
 import httpx
@@ -18,29 +18,29 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 from app.config import get_settings
 
 # ─── Configuration ─────────────────────────────────────────────
-FOOTBALL_FIXTURE_ID = 1379229       # Match avec cotes Bet365 confirmé
-BASKETBALL_GAME_ID = 470281        # Match NBA avec cotes confirmé
-TENNIS_MATCH_KEY = 12104660        # Match tennis simple avec cotes Bet365
+FOOTBALL_FIXTURE_ID = 1379229       # Match with confirmed Bet365 odds
+BASKETBALL_GAME_ID = 470281        # NBA match with confirmed odds
+TENNIS_MATCH_KEY = 12104660        # Singles tennis match with Bet365 odds
 
 PREFERRED_BOOKIE_NAME = "Bet365"
 PREFERRED_BOOKIE_ID = 8            # Football only
 
-# Fallback bookmakers pour le basket (Bet365 non disponible)
+# Fallback bookmakers for basketball (Bet365 unavailable)
 BASKETBALL_FALLBACK = ["Pinnacle", "1xBet", "Betfair"]
 
-# 8 marchés ciblés Football
+# 8 target Football markets
 FOOTBALL_MARKETS = [
     "Match Winner",         # 1x2
     "Goals Over/Under",     # Totals
     "Both Teams Score",     # BTTS
     "Double Chance",
-    "Exact Score",          # Correct Score (nom API réel)
+    "Exact Score",          # Correct Score (actual API name)
     "Asian Handicap",
-    "HT/FT Double",        # Half Time / Full Time (nom API réel)
+    "HT/FT Double",        # Half Time / Full Time (actual API name)
     "First Half Winner"
 ]
 
-# 5 marchés ciblés Basketball
+# 5 target Basketball markets
 BASKETBALL_MARKETS = [
     "Home/Away",            # Moneyline (incl OT)
     "Asian Handicap",       # Spread
@@ -49,13 +49,13 @@ BASKETBALL_MARKETS = [
     "Home/Away - 1st Half"  # 1st Half Winner
 ]
 
-# 5 marchés ciblés Tennis (noms exacts depuis l'API)
+# 5 target Tennis markets (exact names from the API)
 TENNIS_MARKETS = [
     "Home/Away",            # Match Winner
-    "Set Betting",          # Score en Sets
-    "Over/Under",           # Total de Jeux (structure spéciale)
-    "Home/Away (1st Set)",  # 1er Set Winner
-    "Correct Score 1st Half"# Score exact 1er set
+    "Set Betting",          # Score in Sets
+    "Over/Under",           # Total Games (special structure)
+    "Home/Away (1st Set)",  # 1st Set Winner
+    "Correct Score 1st Half"# Exact score 1st set
 ]
 
 
@@ -67,7 +67,7 @@ class OddsPrototype:
 
     # ─── Football ─────────────────────────────────────────────
     async def fetch_football(self, client: httpx.AsyncClient) -> dict:
-        """Récupère les cotes Football via API-Sports v3."""
+        """Fetches Football odds via API-Sports v3."""
         print("\n🏟️  FOOTBALL — Fetching odds...")
         headers = {"x-apisports-key": self.api_sports_key}
         resp = await client.get(
@@ -106,8 +106,8 @@ class OddsPrototype:
 
     # ─── Basketball ───────────────────────────────────────────
     async def fetch_basketball(self, client: httpx.AsyncClient) -> dict:
-        """Récupère les cotes Basketball via API-Sports v1.
-        Bet365 n'est pas disponible → on utilise un fallback."""
+        """Fetches Basketball odds via API-Sports v1.
+        Bet365 is unavailable → falls back to another bookmaker."""
         print("\n🏀 BASKETBALL — Fetching odds...")
         headers = {"x-apisports-key": self.api_sports_key}
         resp = await client.get(
@@ -124,7 +124,7 @@ class OddsPrototype:
         
         bookmakers = data[0].get("bookmakers", [])
         
-        # Chercher Bet365 d'abord, puis fallback
+        # Look for Bet365 first, then fallback
         bookie = None
         for name in [PREFERRED_BOOKIE_NAME] + BASKETBALL_FALLBACK:
             bookie = next(
@@ -157,8 +157,8 @@ class OddsPrototype:
 
     # ─── Tennis ───────────────────────────────────────────────
     async def fetch_tennis(self, client: httpx.AsyncClient) -> dict:
-        """Récupère les cotes Tennis via API-Tennis.
-        Structure différente: result[match_key][market][outcome][bookmaker] = cote
+        """Fetches Tennis odds via API-Tennis.
+        Different structure: result[match_key][market][outcome][bookmaker] = odd
         """
         print("\n🎾 TENNIS — Fetching odds...")
         today = datetime.now().strftime("%Y-%m-%d")
@@ -179,10 +179,10 @@ class OddsPrototype:
         
         match_key = str(TENNIS_MATCH_KEY)
         if match_key not in all_matches:
-            # Si le match exact n'est pas trouvé, prendre le premier disponible
+            # If the exact match isn't found, take the first one available
             if all_matches:
                 match_key = list(all_matches.keys())[0]
-                print(f"   ⚠️ Match {TENNIS_MATCH_KEY} non trouvé, fallback sur {match_key}")
+                print(f"   ⚠️ Match {TENNIS_MATCH_KEY} not found, falling back to {match_key}")
             else:
                 print("   ❌ No matches with odds available")
                 return {}
@@ -196,19 +196,19 @@ class OddsPrototype:
                 result[target_market] = None
                 continue
             
-            # Extraire la cote bet365 pour chaque outcome
+            # Extract the bet365 odd for each outcome
             values = []
             for outcome_name, bookies_or_thresholds in market_data.items():
                 if not isinstance(bookies_or_thresholds, dict):
                     continue
                 
-                # Déterminer si c'est un dict de bookmakers ({"bet365": "1.50"})
-                # ou un dict de seuils ({"2.5": {"bet365": "1.50"}})
+                # Determine whether this is a bookmaker dict ({"bet365": "1.50"})
+                # or a threshold dict ({"2.5": {"bet365": "1.50"}})
                 first_val = next(iter(bookies_or_thresholds.values()), None)
                 
                 if isinstance(first_val, dict):
-                    # Structure à 3 niveaux : outcome → seuil → bookmaker → cote
-                    # Ex: "Over/Under Over" → {"2.5": {"bwin": "1.50", "bet365": "1.55"}}
+                    # 3-level structure: outcome → threshold → bookmaker → odd
+                    # E.g.: "Over/Under Over" → {"2.5": {"bwin": "1.50", "bet365": "1.55"}}
                     for threshold, bookies in bookies_or_thresholds.items():
                         if isinstance(bookies, dict):
                             odd = bookies.get("bet365")
@@ -218,8 +218,8 @@ class OddsPrototype:
                                 label = f"{outcome_name} {threshold}"
                                 values.append({"label": label, "odds": float(odd)})
                 else:
-                    # Structure à 2 niveaux : outcome → bookmaker → cote
-                    # Ex: "Home" → {"bet365": "2.50", "bwin": "2.40"}
+                    # 2-level structure: outcome → bookmaker → odd
+                    # E.g.: "Home" → {"bet365": "2.50", "bwin": "2.40"}
                     odd = bookies_or_thresholds.get("bet365")
                     if odd is None:
                         odd = next(iter(bookies_or_thresholds.values()), None)
@@ -247,7 +247,7 @@ class OddsPrototype:
             await asyncio.sleep(1)
             results["tennis"] = await self.fetch_tennis(client)
         
-        # ── Rapport ──
+        # ── Report ──
         print("\n" + "="*60)
         print("  📊 EXTRACTION REPORT")
         print("="*60)

@@ -1,7 +1,7 @@
 /**
- * BETIX — Mollie REST Client (Node.js https natif)
- * Bypasse le SDK @mollie/api-client dont le fetch global est intercepté par Turbopack.
- * Utilise le module https de Node.js, confirmé fonctionnel en environnement local.
+ * BETIX — Mollie REST Client (native Node.js https)
+ * Bypasses the @mollie/api-client SDK, whose global fetch gets intercepted by Turbopack.
+ * Uses Node.js's https module, confirmed working in the local environment.
  */
 
 import https from 'https';

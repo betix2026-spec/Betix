@@ -25,7 +25,7 @@ export const stripe = new Proxy({} as Stripe, {
 });
 
 /**
- * Mappe la fréquence d'un plan BETIX vers les paramètres d'intervalle Stripe.
+ * Maps a BETIX plan frequency to Stripe interval parameters.
  */
 export function toStripeInterval(frequency: string): { interval: Stripe.Price.Recurring.Interval; interval_count: number } {
     switch (frequency) {
@@ -40,11 +40,11 @@ export function toStripeInterval(frequency: string): { interval: Stripe.Price.Re
 }
 
 /**
- * Extrait current_period_end depuis un objet Subscription Stripe.
+ * Extracts current_period_end from a Stripe Subscription object.
  *
- * Stripe SDK v20+ (API 2026-02-25.clover) a supprimé current_period_end
- * du niveau racine de Subscription et l'a déplacé vers chaque SubscriptionItem.
- * Cette fonction gère les deux formats pour assurer la rétro-compatibilité.
+ * Stripe SDK v20+ (API 2026-02-25.clover) removed current_period_end
+ * from the Subscription root and moved it onto each SubscriptionItem.
+ * This function handles both formats to preserve backward compatibility.
  */
 type SubscriptionWithLegacyPeriod = Stripe.Subscription & {
     current_period_end?: number | null;
@@ -55,16 +55,16 @@ type SubscriptionItemWithPeriod = Stripe.SubscriptionItem & {
 };
 
 export function getSubscriptionPeriodEnd(subscription: SubscriptionWithLegacyPeriod): Date {
-    // SDK v20+ : current_period_end est sur les items
+    // SDK v20+: current_period_end lives on the items
     const firstItem = subscription.items?.data?.[0] as SubscriptionItemWithPeriod | undefined;
     const periodEnd =
         firstItem?.current_period_end
-        ?? subscription.current_period_end; // fallback anciennes versions
+        ?? subscription.current_period_end; // fallback for older SDK versions
 
     if (periodEnd == null) {
         throw new Error(
-            `[Stripe] current_period_end introuvable sur la subscription ${subscription.id}. ` +
-            `Vérifiez la version du SDK Stripe.`
+            `[Stripe] current_period_end not found on subscription ${subscription.id}. ` +
+            `Check the Stripe SDK version.`
         );
     }
 
@@ -72,7 +72,7 @@ export function getSubscriptionPeriodEnd(subscription: SubscriptionWithLegacyPer
 }
 
 /**
- * Calcule la prochaine date d'échéance à partir de la fréquence du plan.
+ * Computes the next due date from the plan frequency.
  */
 export function calculateNextPeriodEnd(frequency: string): Date {
     const now = new Date();

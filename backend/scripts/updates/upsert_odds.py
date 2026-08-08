@@ -1,13 +1,13 @@
 """
-BETIX — Ingestion globale des odds (fenêtre 7 jours, hors live).
+BETIX — Global odds ingestion (7-day window, excludes live matches).
 
-Récupère les cotes Bet365 pour TOUS les matchs à venir des 3 sports
-et les insère dans analytics.odds_snapshots (mode Bulk : 1 ligne = 1 marché).
+Fetches Bet365 odds for ALL upcoming matches across the 3 sports
+and inserts them into analytics.odds_snapshots (bulk mode: 1 row = 1 market).
 
-Optimisations :
-- Football/Basketball : 1 appel API par match (bookmaker=8 pour limiter le payload)
-- Tennis : 1 seul appel API retourne tous les matchs de la période
-- Délai entre chaque requête pour respecter les quotas API (300 req/min)
+Optimizations:
+- Football/Basketball: 1 API call per match (bookmaker=8 to limit the payload)
+- Tennis: a single API call returns all matches for the period
+- Delay between each request to respect API quotas (300 req/min)
 """
 import asyncio
 import httpx
@@ -63,19 +63,19 @@ def build_snapshot(match_id: int, sport: str, bookmaker: str,
 class OddsIngester:
     def __init__(self):
         settings = get_settings()
-        # Tout est dans le schéma analytics (matchs + odds)
+        # Everything lives in the analytics schema (matches + odds)
         self.db = SupabaseREST(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY, schema="analytics")
         self.api_sports_key = settings.API_SPORTS_KEY
         self.api_tennis_key = settings.API_TENNIS_KEY
         
-        # Compteurs pour le rapport
+        # Counters for the report
         self.report = {
             "football":   {"matches_found": 0, "matches_with_odds": 0, "snapshots": 0},
             "basketball": {"matches_found": 0, "matches_with_odds": 0, "snapshots": 0},
             "tennis":     {"matches_found": 0, "matches_with_odds": 0, "snapshots": 0},
         }
 
-    # ─── Récupération des matchs à venir ────────────────────────
+    # ─── Fetching upcoming matches ───────────────────────────
     def get_upcoming_matches(self, sport: str) -> list:
         now = datetime.now(timezone.utc)
         limit = now + timedelta(days=WINDOW_DAYS)
@@ -96,10 +96,10 @@ class OddsIngester:
             self.report[sport]["matches_found"] = len(rows)
             return rows
         except Exception as e:
-            logger.error(f"❌ Erreur récupération {sport} matches: {e}")
+            logger.error(f"❌ Error fetching {sport} matches: {e}")
             return []
 
-    # ─── Football/Basketball : 1 appel API par match ────────────
+    # ─── Football/Basketball: 1 API call per match ──────────────
     async def fetch_fb_bb_odds(self, client: httpx.AsyncClient, sport: str, match: dict) -> list:
         api_id = match["api_id"]
         db_id = match["id"]
@@ -111,7 +111,7 @@ class OddsIngester:
         headers = {"x-apisports-key": self.api_sports_key}
         params = {param_key: api_id}
         
-        # Pour le foot on filtre directement Bet365 côté API
+        # For football we filter directly for Bet365 on the API side
         if sport == "football":
             params["bookmaker"] = PREFERRED_BOOKIE_ID
         
@@ -126,7 +126,7 @@ class OddsIngester:
             if not bookmakers_list:
                 return []
             
-            # Trouver le bookmaker
+            # Find the bookmaker
             if sport == "football":
                 bookie = bookmakers_list[0]
             else:
@@ -151,13 +151,13 @@ class OddsIngester:
             return snapshots
             
         except httpx.HTTPStatusError as e:
-            logger.warning(f"   ⚠️ API {sport} erreur {e.response.status_code} pour api_id={api_id}")
+            logger.warning(f"   ⚠️ API {sport} error {e.response.status_code} for api_id={api_id}")
             return []
         except Exception as e:
             logger.warning(f"   ⚠️ {sport} api_id={api_id}: {e}")
             return []
 
-    # ─── Tennis : 1 seul appel pour tous les matchs ─────────────
+    # ─── Tennis: a single call for all matches ──────────────────
     async def fetch_all_tennis_odds(self, client: httpx.AsyncClient, matches: list) -> list:
         today = datetime.now().strftime("%Y-%m-%d")
         stop = (datetime.now() + timedelta(days=WINDOW_DAYS)).strftime("%Y-%m-%d")
@@ -170,13 +170,13 @@ class OddsIngester:
             resp.raise_for_status()
             all_odds = resp.json().get("result", {})
         except Exception as e:
-            logger.error(f"❌ Erreur API Tennis: {e}")
+            logger.error(f"❌ Tennis API error: {e}")
             return []
         
         if not all_odds:
             return []
         
-        # Indexer par api_id pour matcher avec nos matchs DB
+        # Index by api_id to match against our DB matches
         api_id_to_db = {str(m["api_id"]): m["id"] for m in matches}
         
         all_snapshots = []
@@ -184,7 +184,7 @@ class OddsIngester:
         
         for match_key, match_odds in all_odds.items():
             if match_key not in api_id_to_db:
-                continue  # Ce match n'est pas dans notre DB
+                continue  # This match is not in our DB
             
             db_id = api_id_to_db[match_key]
             match_snapshots = []
@@ -226,10 +226,10 @@ class OddsIngester:
         self.report["tennis"]["snapshots"] = len(all_snapshots)
         return all_snapshots
 
-    # ─── Runner principal ───────────────────────────────────────
+    # ─── Main runner ─────────────────────────────────────────────
     async def run(self):
         logger.info("=" * 60)
-        logger.info(f"  BETIX — Ingestion Odds (fenêtre {WINDOW_DAYS}j, hors live)")
+        logger.info(f"  BETIX — Odds Ingestion ({WINDOW_DAYS}-day window, excludes live)")
         logger.info("=" * 60)
         
         all_snapshots = []
@@ -237,25 +237,25 @@ class OddsIngester:
         async with httpx.AsyncClient(timeout=30.0) as client:
             # ── Football ──
             fb_matches = self.get_upcoming_matches("football")
-            logger.info(f"\n🏟️  Football — {len(fb_matches)} matchs à traiter")
+            logger.info(f"\n🏟️  Football — {len(fb_matches)} matches to process")
             fb_with_odds = 0
             for i, m in enumerate(fb_matches):
                 snaps = await self.fetch_fb_bb_odds(client, "football", m)
                 if snaps:
                     fb_with_odds += 1
                     all_snapshots.extend(snaps)
-                # Progress log tous les 10 matchs
+                # Progress log every 10 matches
                 if (i + 1) % 10 == 0:
-                    logger.info(f"   ... {i+1}/{len(fb_matches)} traités")
+                    logger.info(f"   ... {i+1}/{len(fb_matches)} processed")
                 await asyncio.sleep(0.3)  # Rate limit: ~3 req/s < 300/min
             
             self.report["football"]["matches_with_odds"] = fb_with_odds
             self.report["football"]["snapshots"] = sum(1 for s in all_snapshots if s["sport"] == "football")
-            logger.info(f"   ✅ {fb_with_odds} matchs avec cotes, {self.report['football']['snapshots']} snapshots")
+            logger.info(f"   ✅ {fb_with_odds} matches with odds, {self.report['football']['snapshots']} snapshots")
             
             # ── Basketball ──
             bb_matches = self.get_upcoming_matches("basketball")
-            logger.info(f"\n🏀 Basketball — {len(bb_matches)} matchs à traiter")
+            logger.info(f"\n🏀 Basketball — {len(bb_matches)} matches to process")
             bb_with_odds = 0
             fb_count = len(all_snapshots)
             for i, m in enumerate(bb_matches):
@@ -264,29 +264,29 @@ class OddsIngester:
                     bb_with_odds += 1
                     all_snapshots.extend(snaps)
                 if (i + 1) % 10 == 0:
-                    logger.info(f"   ... {i+1}/{len(bb_matches)} traités")
+                    logger.info(f"   ... {i+1}/{len(bb_matches)} processed")
                 await asyncio.sleep(0.3)
             
             self.report["basketball"]["matches_with_odds"] = bb_with_odds
             self.report["basketball"]["snapshots"] = len(all_snapshots) - fb_count
-            logger.info(f"   ✅ {bb_with_odds} matchs avec cotes, {self.report['basketball']['snapshots']} snapshots")
+            logger.info(f"   ✅ {bb_with_odds} matches with odds, {self.report['basketball']['snapshots']} snapshots")
             
-            # ── Tennis (1 seul appel) ──
+            # ── Tennis (single call) ──
             te_matches = self.get_upcoming_matches("tennis")
-            logger.info(f"\n🎾 Tennis — {len(te_matches)} matchs dans la DB")
+            logger.info(f"\n🎾 Tennis — {len(te_matches)} matches in the DB")
             te_snaps = await self.fetch_all_tennis_odds(client, te_matches)
             all_snapshots.extend(te_snaps)
-            logger.info(f"   ✅ {self.report['tennis']['matches_with_odds']} matchs avec cotes, {len(te_snaps)} snapshots")
+            logger.info(f"   ✅ {self.report['tennis']['matches_with_odds']} matches with odds, {len(te_snaps)} snapshots")
         
-        # ── Insertion en base ──
-        logger.info(f"\n📦 Total snapshots à insérer : {len(all_snapshots)}")
+        # ── DB insertion ──
+        logger.info(f"\n📦 Total snapshots to insert: {len(all_snapshots)}")
         
         if not all_snapshots:
-            logger.warning("⚠️ Aucun snapshot — abandon.")
+            logger.warning("⚠️ No snapshots — aborting.")
             self._print_report()
             return
         
-        # Insertion par batches de 500 pour éviter les timeouts
+        # Insert in batches of 500 to avoid timeouts
         BATCH = 500
         total_inserted = 0
         for i in range(0, len(all_snapshots), BATCH):
@@ -298,16 +298,16 @@ class OddsIngester:
                 resp.raise_for_status()
                 total_inserted += len(batch)
             except httpx.HTTPStatusError as e:
-                logger.error(f"❌ Erreur insertion batch {i//BATCH+1}: {e.response.status_code} — {e.response.text[:200]}")
+                logger.error(f"❌ Error inserting batch {i//BATCH+1}: {e.response.status_code} — {e.response.text[:200]}")
             except Exception as e:
-                logger.error(f"❌ Erreur batch {i//BATCH+1}: {e}")
+                logger.error(f"❌ Error in batch {i//BATCH+1}: {e}")
         
-        logger.info(f"\n✅ {total_inserted} snapshots insérés avec succès !")
+        logger.info(f"\n✅ {total_inserted} snapshots inserted successfully!")
         self._print_report()
 
     def _print_report(self):
         logger.info("\n" + "=" * 60)
-        logger.info("  📊 RAPPORT D'INGESTION")
+        logger.info("  📊 INGESTION REPORT")
         logger.info("=" * 60)
         
         total_matches = 0
@@ -324,16 +324,16 @@ class OddsIngester:
             pct = f"{with_odds/found*100:.0f}%" if found > 0 else "N/A"
             
             logger.info(f"\n  {icon} {sport.upper()}")
-            logger.info(f"     Matchs trouvés (DB)    : {found}")
-            logger.info(f"     Matchs avec cotes      : {with_odds} ({pct})")
-            logger.info(f"     Snapshots insérés       : {snaps}")
+            logger.info(f"     Matches found (DB)     : {found}")
+            logger.info(f"     Matches with odds      : {with_odds} ({pct})")
+            logger.info(f"     Snapshots inserted      : {snaps}")
             
             total_matches += found
             total_with_odds += with_odds
             total_snapshots += snaps
         
         logger.info(f"\n  {'─'*40}")
-        logger.info(f"  📈 TOTAL : {total_matches} matchs → {total_with_odds} avec cotes → {total_snapshots} snapshots")
+        logger.info(f"  📈 TOTAL: {total_matches} matches → {total_with_odds} with odds → {total_snapshots} snapshots")
         logger.info("=" * 60)
 
 

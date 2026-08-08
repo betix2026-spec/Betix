@@ -14,31 +14,31 @@ class FBMatchUpserter:
             "basketball": {"url": "https://v1.basketball.api-sports.io/games", "id_param": "id"}
         }
         
-        # P3: Client HTTP partagé (réutilisé entre les appels)
+        # Shared HTTP client (reused across calls)
         self._http_client: httpx.AsyncClient | None = None
 
     async def _get_client(self) -> httpx.AsyncClient:
-        """Retourne un client HTTP partagé, le crée si nécessaire."""
+        """Returns a shared HTTP client, creating it if needed."""
         if self._http_client is None or self._http_client.is_closed:
             self._http_client = httpx.AsyncClient(timeout=15.0)
         return self._http_client
 
     async def close(self):
-        """Ferme proprement le client HTTP."""
+        """Cleanly closes the HTTP client."""
         if self._http_client and not self._http_client.is_closed:
             await self._http_client.aclose()
             self._http_client = None
 
     async def process_match(self, sport: str, db_match: dict) -> bool:
         """
-        Traite un match de Foot ou Basket : Fetch API -> Parse -> Diff -> Update DB.
-        Retourne True si le match traité est considéré comme 'finished', False sinon.
+        Processes a Football or Basketball match: Fetch API -> Parse -> Diff -> Update DB.
+        Returns True if the processed match is considered 'finished', False otherwise.
         """
         api_id = db_match["api_id"]
         
         raw = await self._fetch_api_data(sport, api_id)
         if not raw:
-            logger.warning(f"   ⚠️ Match {sport} {api_id} introuvable sur l'API.")
+            logger.warning(f"   ⚠️ Match {sport} {api_id} not found on the API.")
             return db_match["status"] == "finished"
             
         parsed_data = self._parse_api_payload(sport, raw, db_match)
@@ -64,7 +64,7 @@ class FBMatchUpserter:
                 return data[0]
             return None
         except Exception as e:
-            logger.error(f"Erreur HTTP ({sport}) lors de la récupération de {api_id}: {e}")
+            logger.error(f"HTTP error ({sport}) while fetching {api_id}: {e}")
             return None
 
     def _parse_api_payload(self, sport: str, raw: dict, db_match: dict) -> dict:
@@ -97,16 +97,16 @@ class FBMatchUpserter:
             
         new_status = self._normalize_status(sport, short_status, db_match.get("status"), date_time or db_match.get("date_time"))
         
-        # P2: Nettoyer status_short quand le match est reporté/annulé
+        # Clear status_short when the match is postponed/cancelled
         if new_status == "postponed":
-            time_display = "Reporté"
+            time_display = "Postponed"
         
-        # P4: Reset score si le match est reporté (éviter d'afficher un score obsolète)
+        # Reset score if the match is postponed (avoid showing a stale score)
         if new_status == "postponed":
             home_score = None
             away_score = None
         
-        # S'assurer de retomber sur les valeurs pre-existantes si on ne parvient pas a parser
+        # Fall back to the pre-existing values if parsing fails
         if not date_time: date_time = db_match.get("date_time")
         
         return {
@@ -125,11 +125,11 @@ class FBMatchUpserter:
         if sport == "football" and short_status in FT_FOOTBALL: return "finished"
         if sport == "basketball" and short_status in FT_BASKET: return "finished"
 
-        # P1: Ajout de POST, SUSP, INT aux statuts reportés
+        # Added POST, SUSP, INT to the postponed statuses
         if short_status in ["PST", "POST", "CANC", "ABD", "AWD", "WO", "SUSP", "INT"]: return "postponed"
 
         if short_status in ["NS", "TBD"]:
-            # Calculer dynamiquement si le match est imminent (dans les 3h)
+            # Dynamically compute whether the match is imminent (within 3h)
             if date_time_str:
                 try:
                     dt = datetime.fromisoformat(date_time_str.replace("Z", "+00:00"))
@@ -156,7 +156,7 @@ class FBMatchUpserter:
         if parsed["home_score"] != db_match.get("home_score") and parsed["home_score"] is not None:
             payload["home_score"] = parsed["home_score"]
         
-        # P4: Permettre le reset du score à None si match reporté
+        # Allow resetting the score to None if the match is postponed
         if parsed["status"] == "postponed" and db_match.get("home_score") is not None:
             payload["home_score"] = 0
             payload["away_score"] = 0
@@ -168,14 +168,14 @@ class FBMatchUpserter:
             payload["status_short"] = parsed["status_short"]
             
         if not payload:
-            logger.info(f"   💤 Match {sport} {api_id}: Aucun changement détecté.")
+            logger.info(f"   💤 Match {sport} {api_id}: No change detected.")
             return False
             
         try:
             self.db.update(f"{sport}_matches", payload, {"api_id": api_id})
             updates_str = ", ".join([f"{k}={v}" for k, v in payload.items()])
-            logger.info(f"   ✅ Match {sport} {api_id} mis à jour : {updates_str}")
+            logger.info(f"   ✅ Match {sport} {api_id} updated: {updates_str}")
             return True
         except Exception as e:
-            logger.error(f"   ❌ Erreur DB lors de l'update {sport} {api_id} : {e}")
+            logger.error(f"   ❌ DB error while updating {sport} {api_id}: {e}")
             return False

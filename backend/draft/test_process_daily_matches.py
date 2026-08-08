@@ -17,9 +17,9 @@ class LogCaptureHandler(logging.Handler):
         self.logs.append(self.format(record))
 
 async def main():
-    print("🚀 Début du test: exécution de process_daily_matches.py...")
+    print("🚀 Starting test: running process_daily_matches.py...")
     
-    # Interception des logs de process_daily_matches
+    # Intercepting logs from process_daily_matches
     logger = logging.getLogger("betix.updates")
     capture_handler = LogCaptureHandler()
     capture_handler.setFormatter(logging.Formatter("%(message)s"))
@@ -35,7 +35,7 @@ async def main():
         logger.removeHandler(capture_handler)
         
     print("\n" + "="*60)
-    print("📊 PROCESS DAILY MATCHES : RAPPORT D'EXÉCUTION DU TEST")
+    print("📊 PROCESS DAILY MATCHES: TEST EXECUTION REPORT")
     print("="*60)
     
     total_found = 0
@@ -64,10 +64,10 @@ async def main():
         elif "Match" in line and "FINISHED! Triggering Sequence" in line and "Robustness" not in line:
             total_triggered_sequence += 1
 
-    print(f"Total des matchs détectés (actifs ou prévus dans la fenêtre) : {total_found}")
-    print(f"Total des matchs mis à jour en base de données              : {total_updated}")
-    print(f"Total des envois à la chaîne (Stats, H2H, Rolling)          : {total_triggered_sequence}")
-    print(f"  --> dont déclenchements de ROBUSTESSE (stats manquantes)  : {total_robustness_triggers}")
+    print(f"Total matches detected (active or scheduled in the window) : {total_found}")
+    print(f"Total matches updated in the database                       : {total_updated}")
+    print(f"Total pipeline dispatches (Stats, H2H, Rolling)             : {total_triggered_sequence}")
+    print(f"  --> of which ROBUSTNESS triggers (missing stats)          : {total_robustness_triggers}")
     print("="*60)
 
 if __name__ == "__main__":

@@ -34,7 +34,7 @@ async def main():
     settings = get_settings()
     db = SupabaseREST(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY, schema="analytics")
     
-    # 1. Obtenir les matchs terminés de tennis
+    # 1. Fetch finished tennis matches
     from datetime import datetime, timezone, timedelta
     now = datetime.now(timezone.utc)
     ten_days_ago = (now - timedelta(days=10)).strftime("%Y-%m-%dT00:00:00Z")

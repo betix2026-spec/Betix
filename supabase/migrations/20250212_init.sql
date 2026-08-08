@@ -1,12 +1,12 @@
 -- ============================================================
--- BETIX — Script de Migration Initial (Supabase / PostgreSQL)
--- Date : 2025-02-12
--- Description : Crée les schémas public.* (App) et analytics.*
---               (Moteur IA) avec index, contraintes et triggers.
+-- BETIX — Initial Migration Script (Supabase / PostgreSQL)
+-- Date: 2025-02-12
+-- Description: Creates the public.* (App) and analytics.*
+--               (AI Engine) schemas with indexes, constraints and triggers.
 -- ============================================================
 
 -- ============================================================
--- PARTIE 0 : EXTENSIONS & SCHÉMA ANALYTICS
+-- PART 0: EXTENSIONS & ANALYTICS SCHEMA
 -- ============================================================
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -14,8 +14,8 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE SCHEMA IF NOT EXISTS analytics;
 
 -- ============================================================
--- PARTIE 1 : SCHÉMA APP (public.*)
--- Tables UI-Driven pour l'application frontend
+-- PART 1: APP SCHEMA (public.*)
+-- UI-driven tables for the frontend application
 -- ============================================================
 
 -- ----------------------------------------------------------
@@ -79,7 +79,7 @@ CREATE TABLE public.user_badges (
 );
 
 -- ----------------------------------------------------------
--- 1.3 Module Betting Engine (Simplifié)
+-- 1.3 Betting Engine Module (Simplified)
 -- ----------------------------------------------------------
 
 CREATE TABLE public.matches (
@@ -110,7 +110,7 @@ CREATE TABLE public.predictions (
     odds                real,
     analysis_short      text,
     analysis_full       text,
-    generation_snapshot jsonb,        -- Preuve d'intégrité
+    generation_snapshot jsonb,        -- Integrity proof
     is_locked           boolean NOT NULL DEFAULT false,
     created_at          timestamptz NOT NULL DEFAULT now()
 );
@@ -164,12 +164,12 @@ CREATE TABLE public.app_config (
 
 
 -- ============================================================
--- PARTIE 2 : SCHÉMA ANALYTICS (analytics.*)
--- Tables pour le Moteur de Prédiction IA
+-- PART 2: ANALYTICS SCHEMA (analytics.*)
+-- Tables for the AI Prediction Engine
 -- ============================================================
 
 -- ----------------------------------------------------------
--- 2.1 Tables Partagées (Cross-Sport)
+-- 2.1 Shared Tables (Cross-Sport)
 -- ----------------------------------------------------------
 
 CREATE TABLE analytics.leagues (
@@ -209,7 +209,7 @@ CREATE TABLE analytics.players (
     api_id   int NOT NULL,
     sport    text NOT NULL CHECK (sport IN ('football', 'basketball', 'tennis')),
     name     text NOT NULL,
-    team_id  int REFERENCES analytics.teams(id),  -- NULL pour Tennis
+    team_id  int REFERENCES analytics.teams(id),  -- NULL for Tennis
     position text,
     UNIQUE (api_id, sport)
 );
@@ -219,12 +219,12 @@ CREATE INDEX idx_players_team ON analytics.players(team_id);
 
 CREATE TABLE analytics.odds_snapshots (
     id              bigserial PRIMARY KEY,
-    match_id        int NOT NULL,      -- FK logique vers la table match du sport
+    match_id        int NOT NULL,      -- Logical FK to the sport's match table
     sport           text NOT NULL CHECK (sport IN ('football', 'basketball', 'tennis')),
     bookmaker       text NOT NULL,
     snapshot_at     timestamptz NOT NULL DEFAULT now(),
     home_win        decimal(5,2),
-    draw            decimal(5,2),      -- NULL pour Tennis/Basket
+    draw            decimal(5,2),      -- NULL for Tennis/Basketball
     away_win        decimal(5,2),
     over_under_line decimal(5,1),
     over_odds       decimal(5,2),
@@ -236,7 +236,7 @@ CREATE INDEX idx_odds_snapshot_time ON analytics.odds_snapshots(snapshot_at DESC
 
 
 -- ----------------------------------------------------------
--- 2.2 Tables Football
+-- 2.2 Football Tables
 -- ----------------------------------------------------------
 
 CREATE TABLE analytics.football_matches (
@@ -247,7 +247,7 @@ CREATE TABLE analytics.football_matches (
     date_time     timestamptz NOT NULL,
     home_team_id  int NOT NULL REFERENCES analytics.teams(id),
     away_team_id  int NOT NULL REFERENCES analytics.teams(id),
-    home_score    int,           -- NULL si pas encore joué
+    home_score    int,           -- NULL if not yet played
     away_score    int,
     status        text NOT NULL DEFAULT 'scheduled'
                       CHECK (status IN ('scheduled', 'live', 'finished', 'postponed')),
@@ -273,7 +273,7 @@ CREATE TABLE analytics.football_match_stats (
     corners        int,
     yellow_cards   int,
     red_cards      int,
-    expected_goals decimal(4,2),  -- NULL si ligue mineure
+    expected_goals decimal(4,2),  -- NULL for minor leagues
     PRIMARY KEY (match_id, team_id)
 );
 
@@ -281,7 +281,7 @@ CREATE TABLE analytics.football_injuries (
     id          serial PRIMARY KEY,
     player_id   int NOT NULL REFERENCES analytics.players(id),
     team_id     int NOT NULL REFERENCES analytics.teams(id),
-    match_id    int REFERENCES analytics.football_matches(id),  -- NULL si blessure entraînement
+    match_id    int REFERENCES analytics.football_matches(id),  -- NULL for a training injury
     type        text NOT NULL CHECK (type IN ('injury', 'suspension', 'other')),
     reason      text,
     status      text NOT NULL CHECK (status IN ('out', 'doubtful', 'day_to_day')),
@@ -392,7 +392,7 @@ CREATE TABLE analytics.basketball_match_stats (
     steals       int,
     blocks       int,
     fouls        int,
-    -- Métriques calculées (Dean Oliver)
+    -- Computed metrics (Dean Oliver)
     possessions  decimal(5,1),
     ortg         decimal(5,1),   -- Offensive Rating
     drtg         decimal(5,1),   -- Defensive Rating
@@ -409,7 +409,7 @@ CREATE TABLE analytics.basketball_injuries (
     team_id     int NOT NULL REFERENCES analytics.teams(id),
     status      text NOT NULL CHECK (status IN ('out', 'gtd', 'probable')),
     reason      text,
-    ppg_impact  decimal(4,1),   -- Points/match perdus
+    ppg_impact  decimal(4,1),   -- Points/match lost
     usg_pct     decimal(4,1),   -- Usage Rate du joueur
     reported_at date NOT NULL DEFAULT CURRENT_DATE
 );
@@ -430,7 +430,7 @@ CREATE TABLE analytics.basketball_team_rolling (
     l10_ortg         decimal(5,1),
     l10_drtg         decimal(5,1),
     l10_net_rtg      decimal(5,1),
-    -- Saison
+    -- Season
     season_ortg      decimal(5,1),
     season_drtg      decimal(5,1),
     -- Fatigue
@@ -456,7 +456,7 @@ CREATE TABLE analytics.basketball_h2h (
 
 
 -- ----------------------------------------------------------
--- 2.4 Tables Tennis
+-- 2.4 Tennis Tables
 -- ----------------------------------------------------------
 
 CREATE TABLE analytics.tennis_tournaments (
@@ -482,13 +482,13 @@ CREATE TABLE analytics.tennis_matches (
     date_time       timestamptz NOT NULL,
     player1_id      int NOT NULL REFERENCES analytics.players(id),
     player2_id      int NOT NULL REFERENCES analytics.players(id),
-    winner_id       int REFERENCES analytics.players(id),  -- NULL si pas joué
+    winner_id       int REFERENCES analytics.players(id),  -- NULL if not played
     score           text,              -- "6-4, 3-6, 7-6(5)"
     duration_minutes int,
     sets_played     int,
     status          text NOT NULL DEFAULT 'scheduled'
                         CHECK (status IN ('scheduled', 'live', 'finished', 'retired', 'walkover')),
-    surface         text,              -- Dénormalisé pour perf
+    surface         text,              -- Denormalized for performance
     indoor_outdoor  text
 );
 
@@ -510,7 +510,7 @@ CREATE TABLE analytics.tennis_match_stats (
     bp_saved_pct         decimal(4,1),
     bp_converted_pct     decimal(4,1),
     total_points_won     int,
-    -- Métriques calculées
+    -- Computed metrics
     return_won_pct       decimal(4,1),
     service_games_held   int,
     return_games_won     int,
@@ -597,16 +597,21 @@ CREATE INDEX idx_confidence_sport_match ON analytics.confidence_factors(sport, m
 
 
 -- ============================================================
--- PARTIE 3 : SEED DATA (Données de référence initiales)
+-- PART 3: SEED DATA (Initial reference data)
+-- NOTE: The seed values below (plan/badge/config-flag text) are historical
+-- French seed data from this initial migration — not code comments. They
+-- were superseded in production by the later plans/features localization
+-- work (per-locale columns + AI backfill), so left untouched here as a
+-- historical record rather than rewritten.
 -- ============================================================
 
--- Plans d'abonnement
+-- Subscription plans
 INSERT INTO public.plans (id, name, price, features) VALUES
     ('free', 'Free Tier', 0.00, '["2 prédictions gratuites/jour", "Analyses basiques"]'::jsonb),
     ('premium_monthly', 'The Insider (Mensuel)', 9.99, '["Prédictions illimitées", "Analyses détaillées", "Alertes temps réel"]'::jsonb),
     ('premium_annual', 'The Insider (Annuel)', 79.99, '["Tout Premium", "2 mois offerts", "Accès prioritaire"]'::jsonb);
 
--- Badges de base
+-- Base badges
 INSERT INTO public.badges (id, name, description, icon_ref, rarity) VALUES
     ('first_bet', 'Première Mise', 'Suivre votre premier pronostic', 'target', 'common'),
     ('streak_3', 'Hat-Trick', '3 pronostics gagnants consécutifs', 'flame', 'common'),
@@ -617,7 +622,7 @@ INSERT INTO public.badges (id, name, description, icon_ref, rarity) VALUES
     ('sharpshooter', 'Sniper', 'Win rate > 70% sur 50 paris', 'crosshair', 'epic'),
     ('legend', 'Légende', 'Niveau 50 atteint', 'star', 'legendary');
 
--- Feature flags par défaut
+-- Default feature flags
 INSERT INTO public.app_config (key, value, description) VALUES
     ('maintenance_mode', 'false'::jsonb, 'Active le mode maintenance (bannière + blocage actions)'),
     ('signup_enabled', 'true'::jsonb, 'Autorise les nouvelles inscriptions'),
@@ -626,10 +631,10 @@ INSERT INTO public.app_config (key, value, description) VALUES
 
 
 -- ============================================================
--- PARTIE 4 : FONCTIONS UTILITAIRES
+-- PART 4: UTILITY FUNCTIONS
 -- ============================================================
 
--- Fonction : Auto-créer le profil après inscription Supabase Auth
+-- Function: Auto-create the profile after Supabase Auth signup
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
 BEGIN
@@ -652,41 +657,41 @@ CREATE OR REPLACE TRIGGER on_auth_user_created
 
 
 -- ============================================================
--- PARTIE 5 : ROW LEVEL SECURITY (RLS)
+-- PART 5: ROW LEVEL SECURITY (RLS)
 -- ============================================================
 
--- Activer RLS sur les tables sensibles
+-- Enable RLS on sensitive tables
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_stats ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_badges ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
 
--- Profiles : lecture publique, écriture propre
+-- Profiles: public read, own-row write
 CREATE POLICY "Profiles are viewable by everyone"
     ON public.profiles FOR SELECT USING (true);
 CREATE POLICY "Users can update own profile"
     ON public.profiles FOR UPDATE USING (auth.uid() = id);
 
--- Settings : propre utilisateur uniquement
+-- Settings: own user only
 CREATE POLICY "Users can view own settings"
     ON public.user_settings FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can update own settings"
     ON public.user_settings FOR UPDATE USING (auth.uid() = user_id);
 
--- Stats : lecture publique (leaderboard), écriture système
+-- Stats: public read (leaderboard), system write
 CREATE POLICY "Stats are viewable by everyone"
     ON public.user_stats FOR SELECT USING (true);
 
--- Badges : lecture publique
+-- Badges: public read
 CREATE POLICY "Badges are viewable by everyone"
     ON public.user_badges FOR SELECT USING (true);
 
--- Subscriptions : propre utilisateur
+-- Subscriptions: own user only
 CREATE POLICY "Users can view own subscription"
     ON public.subscriptions FOR SELECT USING (auth.uid() = user_id);
 
--- Matches & Predictions : lecture publique
+-- Matches & Predictions: public read
 ALTER TABLE public.matches ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Matches are viewable by everyone"
     ON public.matches FOR SELECT USING (true);
@@ -697,9 +702,9 @@ CREATE POLICY "Predictions are viewable by everyone"
 
 
 -- ============================================================
--- FIN DU SCRIPT
+-- END OF SCRIPT
 -- ============================================================
--- Total Tables Créées :
+-- Total Tables Created:
 --   public.*    : 10 tables (profiles, user_settings, user_stats, badges,
 --                            user_badges, matches, predictions, plans,
 --                            subscriptions, system_logs, app_config)

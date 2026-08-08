@@ -1,10 +1,10 @@
 """
 BETIX — Compute Rolling Stats (Basic version)
-Calcule les stats rolling (L5/L10) pour chaque équipe à chaque date de match.
+Computes rolling stats (L5/L10) for each team at each match date.
 Tables cibles : analytics.football_team_rolling, analytics.basketball_team_rolling
 
-Version "basique" : utilise uniquement les scores (pas les xG ni ortg/drtg).
-Sera enrichi après la Phase 2 (match_stats).
+Version "basic": uses scores only (no xG or ortg/drtg).
+Will be enriched after Phase 2 (match_stats).
 
 Usage :
     python -m app.services.enrichment.compute_rolling
@@ -24,8 +24,8 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 
 def _compute_football_rolling_for_team(matches: list[dict], team_id: int) -> list[dict]:
     """
-    Calcule les rolling stats pour une équipe de football.
-    Retourne une liste de snapshots (un par date de match, par venue).
+    Computes rolling stats for a football team.
+    Returns a list of snapshots (one per match date, per venue).
     """
     rows = []
 
@@ -95,7 +95,7 @@ def _compute_football_rolling_for_team(matches: list[dict], team_id: int) -> lis
 
 def _compute_basketball_rolling_for_team(matches: list[dict], team_id: int) -> list[dict]:
     """
-    Calcule les rolling stats pour une équipe de basketball.
+    Computes rolling stats for a basketball team.
     Version basique : fatigue metrics only (rest_days, b2b, games_in_7_days).
     ortg/drtg/efg added after Phase 2.
     """

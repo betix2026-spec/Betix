@@ -1,29 +1,29 @@
 -- ============================================================
--- BETIX — Ajout de la table d'audit des analyses IA
--- Date : 2026-02-25
--- Description : Stocke le contexte complet et le résultat de l'IA
---               pour chaque match analysé.
+-- BETIX — Add the AI analysis audit table
+-- Date: 2026-02-25
+-- Description: Stores the full context and result of the AI
+--               for each analyzed match.
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS public.ai_match_audits (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    match_id INT NOT NULL, -- ID interne de la table analytics.*_matches
+    match_id INT NOT NULL, -- Internal ID from the analytics.*_matches table
     sport TEXT NOT NULL CHECK (sport IN ('football', 'basketball', 'tennis')),
-    snapshot_at TIMESTAMPTZ, -- Date de la snapshot Bet365 utilisée
-    odds JSONB,             -- Cotes utilisées lors de l'analyse
-    h2h JSONB,              -- Données Face-à-Face
-    rolling_stats JSONB,    -- Statistiques de forme (Rolling)
-    ai_analysis JSONB,      -- Le JSON brut retourné par l'IA
+    snapshot_at TIMESTAMPTZ, -- Date of the Bet365 snapshot used
+    odds JSONB,             -- Odds used during the analysis
+    h2h JSONB,              -- Head-to-Head data
+    rolling_stats JSONB,    -- Rolling form stats
+    ai_analysis JSONB,      -- The raw JSON returned by the AI
     created_at TIMESTAMPTZ DEFAULT NOW(),
     
-    -- Un seul audit par match pour le moment (UPSERT possible)
+    -- Only one audit per match for now (UPSERT possible)
     UNIQUE(match_id, sport)
 );
 
--- Index pour recherche rapide
+-- Index for fast lookups
 CREATE INDEX idx_match_audits_match_id ON public.ai_match_audits(match_id);
 CREATE INDEX idx_match_audits_sport ON public.ai_match_audits(sport);
 CREATE INDEX idx_match_audits_created ON public.ai_match_audits(created_at DESC);
 
--- Commentaire de table
-COMMENT ON TABLE public.ai_match_audits IS 'Table d''archive stockant le contexte complet et le résultat des analyses produites par le moteur IA.';
+-- Table comment
+COMMENT ON TABLE public.ai_match_audits IS 'Archive table storing the full context and result of analyses produced by the AI engine.';

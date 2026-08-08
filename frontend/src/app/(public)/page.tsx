@@ -166,7 +166,7 @@ export default async function LandingPage() {
                     </div>
 
                     <BentoGrid>
-                        {/* 1. Collecte de Données (Le Cerveau Connecté) */}
+                        {/* 1. Data Collection (The Connected Brain) */}
                         <BentoGridItem
                             title={t(locale, "featureDataTitle")}
                             description={t(locale, "featureDataDescription")}

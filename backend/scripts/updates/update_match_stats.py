@@ -1,9 +1,9 @@
 """
 BETIX — update_match_stats.py
-Mise à jour ciblée des statistiques pour UN match spécifique.
-Permet de corriger ou de forcer la mise à jour d'un match sans scanner toute la base.
+Targeted stats update for ONE specific match.
+Lets you fix or force-refresh a single match's stats without scanning the whole DB.
 
-Usage :
+Usage:
     python update_match_stats.py --sport football --match-id 123456
     python update_match_stats.py --sport basketball --match-id 456789
 """
@@ -16,14 +16,14 @@ import os
 import httpx
 from typing import Optional
 
-# Ajout du chemin pour les imports app
+# Path setup for app imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from app.config import get_settings
 from app.services.ingestion.base_client import SupabaseREST
 
-# Réutilisation des parseurs de fetch_match_stats.py
-# On les duplique ici pour l'indépendance du script (évite import circulaire complexe)
+# Parsers duplicated from fetch_match_stats.py to keep this script
+# independent (avoids a complex circular import).
 def _parse_pct(value) -> Optional[float]:
     if value is None: return None
     if isinstance(value, str): value = value.replace("%", "").strip()

@@ -1,13 +1,16 @@
 """
 BETIX — audit_engine.py
-Le Moteur d'Audit IA (ConfidenceFactor Auditor).
+The AI Audit Engine (ConfidenceFactor Auditor).
 
-Ce module orchestre l'analyse complète d'un match :
-1. Agrège toutes les données (stats, ELO, H2H, odds) via DataAggregator.
-2. Envoie le contexte structuré à l'IA (Gemini/GPT/Claude) via ChatModel.
-3. Parse la réponse IA pour extraire la classification et le raisonnement.
-4. Persiste le résultat dans analytics.confidence_factors.
+This module orchestrates the full analysis of a match:
+1. Aggregates all data (stats, ELO, H2H, odds) via DataAggregator.
+2. Sends the structured context to the AI (Gemini/GPT/Claude) via ChatModel.
+3. Parses the AI response to extract the classification and reasoning.
+4. Persists the result to analytics.confidence_factors.
 """
+# NOTE: SYSTEM_PROMPT below (and the user_prompt built from it further down)
+# are written in French on purpose — same product behavior documented in
+# app/engine/prompt_builder.py. Not touched by this English sweep.
 
 import asyncio
 import json
@@ -106,7 +109,7 @@ class AuditEngine:
     
     async def audit_match(self, sport: str, match_id: int) -> Optional[Dict[str, Any]]:
         """
-        Audite un match et retourne le résultat de l'analyse IA.
+        Audits a match and returns the AI analysis result.
         
         Returns:
             Dict with: category, confidence_score, analysis, recommended_bet, alternative_bets
@@ -114,7 +117,7 @@ class AuditEngine:
         """
         logger.info(f"🔍 Auditing {sport} match #{match_id}...")
         
-        # 1. Agréger le contexte
+        # 1. Aggregate the context
         try:
             context = await self._build_context(sport, match_id)
         except Exception as e:
@@ -125,7 +128,7 @@ class AuditEngine:
             logger.warning(f"⚠️ Empty context for {sport} #{match_id}, skipping")
             return None
         
-        # 2. Soumettre à l'IA
+        # 2. Submit to the AI
         try:
             ai_result = await self._call_ai(context)
         except Exception as e:
@@ -136,7 +139,7 @@ class AuditEngine:
             logger.warning(f"⚠️ AI returned empty for {sport} #{match_id}")
             return None
         
-        # 3. Persister le résultat
+        # 3. Persist the result
         try:
             self._persist_result(sport, match_id, ai_result)
             logger.info(f"✅ Audit saved: {sport} #{match_id} → {ai_result['category']} "
