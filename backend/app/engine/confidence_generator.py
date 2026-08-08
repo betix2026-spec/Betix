@@ -1,10 +1,10 @@
 """
 BETIX — confidence_generator.py
-Génère les analyses de confiance IA pour les matchs sportifs.
+Generates AI confidence analyses for sports matches.
 
-Flux : Agrégateur → Prompt Builder → ChatModel (Gemini/GPT/Claude) → JSON structuré
+Flow: Aggregator → Prompt Builder → ChatModel (Gemini/GPT/Claude) → structured JSON
 
-Usage CLI:
+CLI usage:
     python -m app.engine.confidence_generator football 2629
     python -m app.engine.confidence_generator tennis 3028 --provider gemini
     python -m app.engine.confidence_generator basketball 2141 --provider gpt
@@ -23,41 +23,41 @@ from app.config import get_settings
 logger = logging.getLogger("betix.confidence_generator")
 
 # ═══════════════════════════════════════════════════════════════════
-# CONFIGURATION IA
+# AI CONFIGURATION
 # ═══════════════════════════════════════════════════════════════════
 
-# Config optimisée pour l'analyse de paris (JSON structuré, pas créatif)
-# max_tokens relevé (8192 -> 11000) car l'analyse et sa traduction 4-langues
-# sont désormais produites en UN SEUL appel au lieu de deux.
+# Config optimized for betting analysis (structured JSON, not creative)
+# max_tokens raised (8192 -> 11000) because the analysis and its 4-language
+# translation are now produced in a SINGLE call instead of two.
 AI_CONFIG = {
-    "temperature": 0.4,       # Légèrement plus exploratoire pour éviter le biais de confirmation
-    "max_tokens": 11000,      # JSON riche + 4 langues = besoin d'espace
+    "temperature": 0.4,       # Slightly exploratory to avoid confirmation bias
+    "max_tokens": 11000,      # Rich JSON + 4 languages needs room
     "top_p": 0.85,
-    "top_k": 40,              # Plus de diversité dans les raisonnements explorés
+    "top_k": 40,              # More diversity in the reasoning explored
 }
 
 DEFAULT_MODEL = "claude-haiku-4-5-20251001"
 
 
 # ═══════════════════════════════════════════════════════════════════
-# PARSING DE LA RÉPONSE IA
+# AI RESPONSE PARSING
 # ═══════════════════════════════════════════════════════════════════
 
 def parse_ai_response(raw: str) -> Optional[Dict[str, Any]]:
     """
-    Parse la réponse brute de l'IA pour extraire le JSON structuré.
-    Gère les cas où l'IA entoure le JSON de markdown (```json ... ```).
+    Parses the raw AI response to extract the structured JSON.
+    Handles cases where the AI wraps the JSON in markdown (```json ... ```).
     """
     if not raw:
         return None
 
-    # Tentative 1 : JSON direct
+    # Attempt 1: direct JSON
     try:
         return json.loads(raw)
     except json.JSONDecodeError:
         pass
 
-    # Tentative 2 : Extraction du bloc ```json ... ```
+    # Attempt 2: extract the ```json ... ``` block
     match = re.search(r'```(?:json)?\s*\n?(.*?)\n?```', raw, re.DOTALL)
     if match:
         try:
@@ -65,7 +65,7 @@ def parse_ai_response(raw: str) -> Optional[Dict[str, Any]]:
         except json.JSONDecodeError:
             pass
 
-    # Tentative 3 : Trouver le premier { ... } dans le texte
+    # Attempt 3: find the first { ... } in the text
     match = re.search(r'\{.*\}', raw, re.DOTALL)
     if match:
         try:
@@ -73,13 +73,13 @@ def parse_ai_response(raw: str) -> Optional[Dict[str, Any]]:
         except json.JSONDecodeError:
             pass
 
-    logger.error("❌ Impossible de parser la réponse IA. Exportation du raw complet vers debug_ai_raw.log")
+    logger.error("❌ Could not parse the AI response. Exporting the full raw output to debug_ai_raw.log")
     try:
         with open("debug_ai_raw.log", "w", encoding="utf-8") as f:
             f.write(raw)
     except Exception as e:
         logger.error(f"Failed to write debug log: {e}")
-        
+
     return None
 
 
@@ -88,11 +88,11 @@ LANGS = ("fr", "en", "es", "de")
 
 def normalize_language_fields(data: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Le modèle produit désormais `match_summary`/`market`/`selection`/`analysis`
-    directement en 4 langues en un seul appel (voir prompt_builder.OUTPUT_FORMAT) —
-    il n'y a plus d'appel de traduction séparé. Cette fonction ne fait que
-    combler une langue manquante par le français si le modèle en a oublié une,
-    pour qu'aucun champ ne soit jamais vide côté frontend.
+    The model now produces `match_summary`/`market`/`selection`/`analysis`
+    directly in 4 languages in a single call (see prompt_builder.OUTPUT_FORMAT) —
+    there is no more separate translation call. This function only backfills
+    a missing language with the French text if the model forgot one, so no
+    field is ever empty on the frontend.
     """
     def fill(obj):
         if not isinstance(obj, dict):
@@ -120,9 +120,9 @@ VALID_OUTCOME_TYPES = {
 
 def normalize_outcome_fields(data: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Garantit que chaque sélection porte un champ `outcome` structuré et valide,
-    même si le modèle l'a omis ou a inventé un `type` hors taxonomie — pour que
-    la vérification automatique (Phase 3) n'ait jamais à null-checker ce champ.
+    Guarantees that every pick carries a valid, structured `outcome` field,
+    even if the model omitted it or invented a `type` outside the taxonomy —
+    so automatic grading (Phase 3) never has to null-check this field.
     """
     categories = data.get("categories", {})
     for cat in ("high_confidence", "medium_confidence", "risky"):
@@ -134,30 +134,30 @@ def normalize_outcome_fields(data: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def validate_analysis(data: Dict[str, Any]) -> bool:
-    """Vérifie que le JSON de l'IA contient les champs obligatoires."""
+    """Checks that the AI's JSON contains the required fields."""
     required = ["match_summary", "data_quality", "categories"]
     missing = [k for k in required if k not in data]
     if missing:
-        logger.warning(f"Champs manquants dans l'analyse : {missing}")
+        logger.warning(f"Missing fields in the analysis: {missing}")
         return False
 
     categories = data.get("categories", {})
     cat_keys = ["high_confidence", "medium_confidence", "risky"]
     missing_cats = [k for k in cat_keys if k not in categories]
     if missing_cats:
-        logger.warning(f"Catégories manquantes : {missing_cats}")
+        logger.warning(f"Missing categories: {missing_cats}")
         return False
 
     for cat in cat_keys:
         items = categories.get(cat, [])
         if not isinstance(items, list) or len(items) > 3:
-            logger.warning(f"Catégorie '{cat}' invalide (taille: {len(items) if isinstance(items, list) else 'non-list'}, max: 3).")
+            logger.warning(f"Invalid category '{cat}' (size: {len(items) if isinstance(items, list) else 'non-list'}, max: 3).")
             return False
 
     # At least 1 bet total across all categories
     total_bets = sum(len(categories.get(c, [])) for c in cat_keys)
     if total_bets < 1:
-        logger.warning("Aucun pari proposé dans l'analyse.")
+        logger.warning("No pick proposed in the analysis.")
         return False
 
     # Validate confidence scores are within expected ranges per category
@@ -169,13 +169,13 @@ def validate_analysis(data: Dict[str, Any]) -> bool:
                 lo, hi = score_ranges[cat]
                 if not (lo <= score <= hi):
                     market_label = (item.get("market") or {}).get("fr", item.get("market"))
-                    logger.warning(f"Score {score} hors range [{lo}-{hi}] pour catégorie '{cat}' (market: {market_label}).")
+                    logger.warning(f"Score {score} out of range [{lo}-{hi}] for category '{cat}' (market: {market_label}).")
 
     return True
 
 
 # ═══════════════════════════════════════════════════════════════════
-# GÉNÉRATEUR DE CONFIANCE
+# CONFIDENCE GENERATOR
 # ═══════════════════════════════════════════════════════════════════
 
 async def generate_confidence(
@@ -186,30 +186,30 @@ async def generate_confidence(
     context: Optional[Dict[str, Any]] = None,
 ) -> Optional[Dict[str, Any]]:
     """
-    Génère une analyse de confiance IA pour un match donné.
+    Generates an AI confidence analysis for a given match.
 
     Args:
-        sport: "football", "basketball", ou "tennis"
-        match_id: ID interne du match
-        provider: Fournisseur IA ("gemini", "gpt", "claude")
-        model_name: Modèle spécifique (optionnel)
+        sport: "football", "basketball", or "tennis"
+        match_id: internal match ID
+        provider: AI provider ("gemini", "gpt", "claude")
+        model_name: specific model (optional)
 
     Returns:
-        Dict JSON structuré avec l'analyse ou None en cas d'erreur.
+        Structured JSON dict with the analysis, or None on error.
     """
-    # 1. Construire les prompts via le prompt_builder
-    logger.info(f"🎯 Génération de confiance pour {sport} #{match_id} (provider={provider})")
+    # 1. Build the prompts via prompt_builder
+    logger.info(f"🎯 Generating confidence for {sport} #{match_id} (provider={provider})")
 
     try:
         system_prompt, user_prompt, context = await build_audit_prompt(sport, match_id, context=context)
     except (ValueError, RuntimeError) as e:
-        logger.error(f"❌ Erreur prompt_builder: {e}")
+        logger.error(f"❌ prompt_builder error: {e}")
         return None
 
-    # 2. Initialiser le modèle IA
+    # 2. Initialize the AI model
     settings = get_settings()
 
-    # Récupérer la clé API selon le provider
+    # Fetch the API key for the provider
     api_key = None
     if provider == "gemini":
         api_key = getattr(settings, "GEMINI_API_KEY", None)
@@ -225,34 +225,34 @@ async def generate_confidence(
         **AI_CONFIG
     )
 
-    # 3. Appeler l'IA
-    logger.info(f"🤖 Appel IA ({provider}/{ai.target_model_name})...")
+    # 3. Call the AI
+    logger.info(f"🤖 Calling AI ({provider}/{ai.target_model_name})...")
     raw_response = await ai.generate_response(
         message=user_prompt,
         system_instruction=system_prompt
     )
 
     if not raw_response or raw_response.startswith("Error:"):
-        logger.error(f"❌ Réponse IA invalide : {raw_response[:200]}")
+        logger.error(f"❌ Invalid AI response: {raw_response[:200]}")
         raise RuntimeError(f"AI Provider Error: {raw_response}")
 
-    # 4. Parser la réponse
+    # 4. Parse the response
     analysis = parse_ai_response(raw_response)
     if not analysis:
-        logger.error("❌ Parsing JSON échoué.")
+        logger.error("❌ JSON parsing failed.")
         return None
 
-    # 4b. Garantir un champ `outcome` structuré sur chaque sélection,
-    # et un texte pour chacune des 4 langues (l'IA traduit en un seul appel —
-    # voir prompt_builder.OUTPUT_FORMAT — ceci ne fait que combler les trous).
+    # 4b. Guarantee a structured `outcome` field on every pick, and a text
+    # for each of the 4 languages (the AI translates in a single call —
+    # see prompt_builder.OUTPUT_FORMAT — this only backfills gaps).
     analysis = normalize_outcome_fields(analysis)
     analysis = normalize_language_fields(analysis)
 
-    # 5. Valider la structure
+    # 5. Validate the structure
     if not validate_analysis(analysis):
-        logger.warning("⚠️ Analyse incomplète mais retournée quand même.")
+        logger.warning("⚠️ Incomplete analysis, returned anyway.")
 
-    # 6. Enrichir avec les métadonnées
+    # 6. Enrich with metadata
     analysis["_meta"] = {
         "sport": sport,
         "match_id": match_id,
@@ -260,24 +260,24 @@ async def generate_confidence(
         "model": ai.target_model_name,
     }
 
-    logger.info(f"✅ Analyse générée : {analysis.get('data_quality', '?')} quality, structure full (9 évènements) respectée.")
+    logger.info(f"✅ Analysis generated: {analysis.get('data_quality', '?')} quality, full structure respected.")
 
     return analysis
 
 
 # ═══════════════════════════════════════════════════════════════════
-# CLI — Test direct
+# CLI — Direct test
 # ═══════════════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="BETIX — Générateur de Confiance IA")
+    parser = argparse.ArgumentParser(description="BETIX — AI Confidence Generator")
     parser.add_argument("sport", choices=["football", "basketball", "tennis"])
     parser.add_argument("match_id", type=int)
     parser.add_argument("--provider", default="claude", choices=["gemini", "gpt", "claude"],
-                        help="Fournisseur IA (défaut: claude)")
-    parser.add_argument("--model", default=DEFAULT_MODEL, help="Nom du modèle spécifique")
+                        help="AI provider (default: claude)")
+    parser.add_argument("--model", default=DEFAULT_MODEL, help="Specific model name")
     args = parser.parse_args()
 
     async def main():
@@ -296,7 +296,7 @@ if __name__ == "__main__":
         if result:
             print(json.dumps(result, indent=2, ensure_ascii=False))
         else:
-            print("❌ Échec de la génération. Vérifiez les logs.")
+            print("❌ Generation failed. Check the logs.")
 
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     asyncio.run(main())

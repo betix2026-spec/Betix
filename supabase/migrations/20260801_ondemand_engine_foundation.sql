@@ -1,38 +1,36 @@
 -- ============================================================
--- BETIX — Foundation pour le moteur de generation a la demande
--- Date : 2026-08-01
--- Description :
---   1. Ajoute un statut (pending/ready/failed) sur ai_match_audits
---      pour servir de verrou de concurrence : un seul appel IA en
---      vol par match a la fois, que le declencheur soit le batch
---      proactif (~24h avant coup d'envoi) ou un clic utilisateur.
---   2. Un nouveau passage de generation ecrit desormais sous
---      run_id = 'live' et met a jour la ligne existante (UPSERT)
---      plutot que d'en creer une nouvelle a chaque fois — une seule
---      analyse "courante" par match. Les anciennes lignes datees
---      (run_id = 'YYYY-MM-DD_runN') restent intactes comme historique
---      de l'ancien systeme ; rien n'est supprime ici.
+-- BETIX — Foundation for the on-demand generation engine
+-- Date: 2026-08-01
+-- Description:
+--   1. Adds a status (pending/ready/failed) on ai_match_audits to act as a
+--      concurrency lock: only one AI call in flight per match at a time,
+--      whether the trigger is the proactive batch (~24h before kickoff) or
+--      a user click.
+--   2. A new generation pass now writes under run_id = 'live' and updates
+--      the existing row (UPSERT) instead of creating a new one every time —
+--      a single "current" analysis per match. The old dated rows
+--      (run_id = 'YYYY-MM-DD_runN') are left intact as history from the
+--      previous system; nothing is deleted here.
 -- ============================================================
 
--- 1. Colonne de statut
+-- 1. Status column
 ALTER TABLE public.ai_match_audits
     ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'ready'
         CHECK (status IN ('pending', 'ready', 'failed'));
 
--- 2. Horodatage de la derniere tentative (utile pour detecter un
---    'pending' bloque — ex: process mort avant d'avoir pu marquer
---    ready/failed — et l'autoriser a etre repris)
+-- 2. Timestamp of the last attempt (used to detect a stuck 'pending' — e.g.
+--    the process died before it could mark ready/failed — and allow it to be resumed)
 ALTER TABLE public.ai_match_audits
     ADD COLUMN IF NOT EXISTS attempted_at TIMESTAMPTZ;
 
--- 3. Message d'erreur optionnel quand status = 'failed'
+-- 3. Optional error message when status = 'failed'
 ALTER TABLE public.ai_match_audits
     ADD COLUMN IF NOT EXISTS error_message TEXT;
 
--- 4. Index pour les requetes du scheduler et du fallback a la demande
+-- 4. Index for the scheduler's and the on-demand fallback's queries
 CREATE INDEX IF NOT EXISTS idx_match_audits_status ON public.ai_match_audits(status);
 
 COMMENT ON COLUMN public.ai_match_audits.status IS
-    'pending = generation en cours (verrou anti-doublon) ; ready = analyse disponible ; failed = derniere tentative en echec, peut etre retentee.';
+    'pending = generation in progress (duplicate-prevention lock); ready = analysis available; failed = last attempt failed, can be retried.';
 COMMENT ON COLUMN public.ai_match_audits.attempted_at IS
-    'Horodatage du dernier passage en pending. Sert a detecter un verrou bloque (process mort) et l''expirer.';
+    'Timestamp of the last transition to pending. Used to detect a stuck lock (dead process) and let it expire.';

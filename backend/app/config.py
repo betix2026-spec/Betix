@@ -47,12 +47,12 @@ class Settings(BaseSettings):
     # --- Ingestion ---
     CURRENT_SEASON: int = 2024
 
-    # --- Service interne (protege les endpoints appeles uniquement par le
-    # frontend server-side, ex: le trigger de generation IA a la demande) ---
+    # --- Internal service secret (protects endpoints called only by the
+    # server-side frontend, e.g. the on-demand AI generation trigger) ---
     INTERNAL_API_SECRET: str = ""
 
     model_config = {
-        # Charge le .env relative à ce fichier (backend/.env)
+        # Loads the .env relative to this file (backend/.env)
         "env_file": os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env"),
         "env_file_encoding": "utf-8",
         "case_sensitive": True,

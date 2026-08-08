@@ -1,13 +1,12 @@
 """
-BETIX — Router Audits
-Endpoint de génération d'analyse IA à la demande.
+BETIX — Audits Router
+On-demand AI analysis generation endpoint.
 
-Appelé UNIQUEMENT par le server action Next.js (frontend/src/app/actions/match.ts)
-après qu'il a déjà vérifié que l'utilisateur est premium — cet endpoint ne
-refait pas cette vérification, il fait confiance à l'appelant interne.
-Protégé par un secret partagé pour qu'il ne puisse pas être appelé
-directement par un client (ce qui recréerait exactement le problème de coût
-que ce moteur a été construit pour éliminer).
+Called ONLY by the Next.js server action (frontend/src/app/actions/match.ts)
+after it has already verified the user is premium — this endpoint does not
+repeat that check, it trusts the internal caller. Protected by a shared
+secret so it can't be called directly by a client, which would recreate
+exactly the cost problem this engine was built to eliminate.
 """
 
 import logging
@@ -57,9 +56,9 @@ async def ensure_audit_endpoint(
     x_internal_secret: Optional[str] = Header(None),
 ):
     """
-    Renvoie l'analyse existante si elle est prête et fraîche, sinon déclenche
-    une génération (en tâche de fond) et renvoie immédiatement "pending" —
-    le frontend affiche un état "préparation en cours" et re-interroge sous peu.
+    Returns the existing analysis if it's ready and fresh, otherwise
+    triggers a generation (in the background) and returns "pending"
+    immediately — the frontend shows a "preparing" state and polls shortly after.
     """
     _check_internal_secret(x_internal_secret)
 

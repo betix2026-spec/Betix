@@ -1,14 +1,14 @@
 """
-!! RETIRE (2026-08-01) !! Ne plus lancer ce script.
-Remplace par scripts/updates/scheduled_audit_pass.py (une seule generation
-par match top-tier, ~24h avant coup d'envoi) + routers/audits.py (generation
-a la demande). Le dedoublonnage par run_id date ci-dessous ne detectait que
-les doublons DANS LA MEME JOURNEE -- un match restant dans la fenetre de 3
-jours etait donc re-audite en entier chaque jour, jusqu'a 16x pour un meme
-match. Conserve ici pour l'historique/reference uniquement.
+!! RETIRED (2026-08-01) !! Do not run this script anymore.
+Replaced by scripts/updates/scheduled_audit_pass.py (a single generation per
+top-tier match, ~24h before kickoff) + routers/audits.py (on-demand
+generation). The dedup-by-dated-run_id below only ever detected duplicates
+WITHIN THE SAME DAY -- a match remaining in the 3-day window was therefore
+fully re-audited every day, up to 16x for a single match. Kept here for
+history/reference only.
 
 BETIX -- batch_audit_next_days.py
-Batch d'audit IA avec frequences configurables par sport.
+AI audit batch with configurable frequency per sport.
 
 Frequences par defaut :
   - Football   : 2 runs/jour

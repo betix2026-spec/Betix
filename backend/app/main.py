@@ -1,5 +1,5 @@
 """
-BETIX Backend — Point d'entrée FastAPI
+BETIX Backend — FastAPI entry point
 """
 
 import logging
@@ -21,11 +21,11 @@ async def lifespan(app: FastAPI):
     # --- Startup ---
     logger.info("=== Starting BETIX Backend ===")
     
-    # Configuration du Scheduler
+    # Scheduler configuration
     scheduler = AsyncIOScheduler()
     orchestrator = IngestionOrchestrator()
-    
-    # Planification du rafraîchissement live toutes les 5 minutes
+
+    # Schedule the live refresh every 5 minutes
     scheduler.add_job(
         orchestrator.run_live_sync,
         "interval",
@@ -34,11 +34,11 @@ async def lifespan(app: FastAPI):
         replace_existing=True
     )
 
-    # Passage IA proactif : genere une analyse UNE FOIS par match top-tier
-    # dans les ~24h avant coup d'envoi. Remplace l'ancien worker_ai
-    # (orchestrator_ai.py, retire) qui re-analysait chaque match jusqu'a 16x
-    # sur 3 jours. Le filet de securite reste la generation a la demande
-    # (routers/audits.py) pour tout ce que ce passage n'a pas encore couvert.
+    # Proactive AI pass: generates an analysis ONCE per top-tier match
+    # within ~24h of kickoff. Replaces the old worker_ai (orchestrator_ai.py,
+    # retired) which re-analyzed every match up to 16x over 3 days. The
+    # safety net remains on-demand generation (routers/audits.py) for
+    # anything this pass hasn't reached yet.
     scheduler.add_job(
         run_scheduled_pass,
         "interval",
@@ -48,7 +48,7 @@ async def lifespan(app: FastAPI):
     )
 
     scheduler.start()
-    logger.info("Planificateur (APScheduler) démarré : live 5min, audits IA proactifs 30min.")
+    logger.info("Scheduler (APScheduler) started: live sync every 5min, proactive AI audits every 30min.")
     
     yield
     
@@ -76,7 +76,7 @@ app.add_middleware(
 # --- Health Check ---
 @app.get("/api/health")
 async def health_check():
-    """Vérification de l'état du serveur."""
+    """Server health check."""
     return {
         "status": "healthy",
         "app": settings.APP_NAME,

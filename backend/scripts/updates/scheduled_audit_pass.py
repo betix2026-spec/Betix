@@ -1,22 +1,22 @@
 """
 BETIX — scheduled_audit_pass.py
-Passage planifié léger : génère une analyse UNE FOIS par match top-tier dans
-les ~24h avant coup d'envoi, s'il n'en a pas déjà une fraîche. Remplace
-l'ancien batch (orchestrator_ai.py / batch_audit_next_days.py) qui
-re-analysait chaque match jusqu'à 16 fois sur une fenêtre glissante de 3 jours.
+Lightweight scheduled pass: generates an analysis ONCE per top-tier match
+within ~24h of kickoff, if it doesn't already have a fresh one. Replaces the
+old batch (orchestrator_ai.py / batch_audit_next_days.py) which re-analyzed
+every match up to 16 times over a rolling 3-day window.
 
-Le "vrai" filet de sécurité reste la génération à la demande (routers/audits.py) :
-un match hors scope, ou pas encore atteint par ce passage, génère quand même
-son analyse au premier clic d'un utilisateur premium.
+The "real" safety net remains on-demand generation (routers/audits.py): a
+match out of scope, or not yet reached by this pass, still generates its
+analysis the moment a premium user asks for it.
 
-Tourne toutes les 30 minutes via APScheduler (voir app/main.py).
+Runs every 30 minutes via APScheduler (see app/main.py).
 
-LIMITE CONNUE (tennis) : le schéma actuel n'a pas de colonne tour/genre sur
-tennis_tournaments — impossible de distinguer ATP/WTA en base pour l'instant.
-Le filtre "hommes uniquement" n'est donc PAS appliqué ci-dessous ; seul le
-filtre par catégorie (grand_slam/masters_1000/atp_500) l'est. Ajouter cette
-colonne (+ la remplir à l'ingestion) est un prérequis pour appliquer le
-scope complet tel que décidé.
+KNOWN LIMITATION (tennis): the current schema has no tour/gender column on
+tennis_tournaments — there's no way to distinguish ATP/WTA in the database
+yet. The "men only" filter is therefore NOT applied below; only the
+category filter (grand_slam/masters_1000/atp_500) is. Adding that column
+(and populating it at ingestion time) is a prerequisite for enforcing the
+full scope as decided.
 """
 
 import logging
@@ -68,14 +68,14 @@ async def _eligible_tennis(db: SupabaseREST) -> List[int]:
     eligible = []
     for r in rows:
         category = (r.get("tournament") or {}).get("category")
-        # tour="ATP" forcé faute de donnée en base — voir LIMITE CONNUE ci-dessus.
+        # tour="ATP" is forced here since there's no such data in the DB yet — see KNOWN LIMITATION above.
         if is_tennis_top_tier(category, tour="ATP"):
             eligible.append(r["id"])
     return eligible
 
 
 async def run_scheduled_pass() -> dict:
-    """Point d'entrée appelé par APScheduler (voir app/main.py)."""
+    """Entry point called by APScheduler (see app/main.py)."""
     settings = get_settings()
     db_analytics = SupabaseREST(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY, schema="analytics")
     db_public = SupabaseREST(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY, schema="public")
@@ -90,22 +90,22 @@ async def run_scheduled_pass() -> dict:
         + [("tennis", mid) for mid in tennis_ids]
     )
 
-    logger.info(f"Passage planifié : {len(targets)} matchs top-tier dans les {LOOKAHEAD_HOURS}h.")
+    logger.info(f"Scheduled pass: {len(targets)} top-tier matches within {LOOKAHEAD_HOURS}h.")
 
     ready, errors = 0, 0
     for sport, match_id in targets:
         try:
-            # ensure_audit ne fait rien (lecture seule, pas d'appel IA) si une
-            # analyse fraîche existe déjà — c'est ce qui rend ce passage
-            # idempotent d'un tour à l'autre plutôt que de re-générer en boucle.
+            # ensure_audit is a no-op (read-only, no AI call) if a fresh
+            # analysis already exists — this is what makes the pass
+            # idempotent between runs instead of regenerating in a loop.
             result = await ensure_audit(db_public, sport, match_id, generate_inline=True)
             if result["state"] == "ready":
                 ready += 1
         except Exception as e:
             errors += 1
-            logger.error(f"Erreur passage planifié {sport}#{match_id}: {e}")
+            logger.error(f"Scheduled pass error {sport}#{match_id}: {e}")
 
-    logger.info(f"Passage planifié terminé : {ready}/{len(targets)} prêtes, {errors} erreurs.")
+    logger.info(f"Scheduled pass done: {ready}/{len(targets)} ready, {errors} errors.")
     return {"scanned": len(targets), "ready": ready, "errors": errors}
 
 

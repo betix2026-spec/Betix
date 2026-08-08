@@ -1,20 +1,20 @@
 """
 BETIX — tier_scope.py
-Définit les compétitions "top tier" : celles qui reçoivent une génération IA
-proactive (~24h avant coup d'envoi) et un badge de confiance sur le dashboard.
+Defines the "top tier" competitions: the ones that get proactive AI
+generation (~24h before kickoff) and a confidence badge on the dashboard.
 
-Les matchs hors scope restent visibles et génèrent toujours une analyse à la
-demande si un utilisateur premium ouvre la fiche — ils n'ont simplement pas de
-badge et pas de passage proactif. Voir le plan (Phase 0 / Phase 1).
+Out-of-scope matches stay visible and still generate an analysis on demand
+if a premium user opens the page — they just don't get a badge or a
+proactive pass. See the plan (Phase 0 / Phase 1).
 
-Défini comme donnée, pas comme logique câblée en dur, pour pouvoir ajuster le
-scope sans toucher au moteur de génération.
+Defined as data, not hardcoded logic, so the scope can be adjusted without
+touching the generation engine.
 """
 
 from typing import Optional
 
 # =============================================================================
-# FOOTBALL — league_id (analytics.leagues.api_id, cf. ingestion/constants.py)
+# FOOTBALL — league_id (analytics.leagues.api_id, see ingestion/constants.py)
 # =============================================================================
 FOOTBALL_TOP_TIER_LEAGUE_IDS = {
     39,   # Premier League
@@ -23,7 +23,7 @@ FOOTBALL_TOP_TIER_LEAGUE_IDS = {
 }
 
 # =============================================================================
-# BASKETBALL — les 3 ligues suivies sont déjà toutes "top tier" (aucune à exclure)
+# BASKETBALL — all 3 tracked leagues are already "top tier" (nothing to exclude)
 # =============================================================================
 BASKETBALL_TOP_TIER_LEAGUE_IDS = {
     12,   # NBA
@@ -32,15 +32,15 @@ BASKETBALL_TOP_TIER_LEAGUE_IDS = {
 }
 
 # =============================================================================
-# TENNIS — pas de "ligue" fixe : le scope est défini par catégorie de tournoi
-# + genre du tour (ATP = hommes uniquement, cf. update_tennis_rankings.py)
+# TENNIS — no fixed "league": scope is defined by tournament category
+# + tour gender (ATP = men only, see update_tennis_rankings.py)
 # =============================================================================
 TENNIS_TOP_TIER_CATEGORIES = {
     "grand_slam",
     "masters_1000",
     "atp_500",
 }
-TENNIS_TOP_TIER_TOUR = "ATP"  # exclut WTA
+TENNIS_TOP_TIER_TOUR = "ATP"  # excludes WTA
 
 
 def is_football_top_tier(league_id: Optional[int]) -> bool:
