@@ -3349,6 +3349,29 @@ const literalTranslations: Record<string, Partial<Record<Locale, string>>> = {
     "Terminés": { en: "Finished", es: "Finalizados", de: "Beendet" },
     "Trialing": { fr: "Essai", es: "En prueba", de: "Testphase" },
     "À venir": { en: "Upcoming", es: "Próximos", de: "Bevorstehend" },
+
+    // Phase 3 — Admin AI accuracy tracking (backend/scripts/updates/grade_predictions_pass.py)
+    "30 derniers jours": { en: "Last 30 days", es: "Últimos 30 días", de: "Letzte 30 Tage" },
+    "Aucune donnée pour l'instant": { en: "No data yet", es: "Aún no hay datos", de: "Noch keine Daten" },
+    "Historique complet": { en: "Full history", es: "Historial completo", de: "Gesamter Verlauf" },
+    "Impossible de charger les statistiques.": { en: "Couldn't load the stats.", es: "No se pudieron cargar las estadísticas.", de: "Statistiken konnten nicht geladen werden." },
+    "Les analyses sont notées automatiquement dès qu'un match se termine. Revenez une fois les premiers matchs joués.": {
+        en: "Analyses are graded automatically once a match finishes. Check back once the first matches have been played.",
+        es: "Los análisis se califican automáticamente en cuanto termina un partido. Vuelve cuando se hayan jugado los primeros partidos.",
+        de: "Analysen werden automatisch bewertet, sobald ein Spiel endet. Schau vorbei, sobald die ersten Spiele gespielt wurden.",
+    },
+    "Par sport": { en: "By sport", es: "Por deporte", de: "Nach Sportart" },
+    "Pas encore de résultat": { en: "No result yet", es: "Aún sin resultado", de: "Noch kein Ergebnis" },
+    "Précision IA": { en: "AI Accuracy", es: "Precisión IA", de: "KI-Genauigkeit" },
+    "Taux de réussite réel des analyses, calculé automatiquement une fois les matchs terminés.": {
+        en: "The analyses' real win rate, computed automatically once matches finish.",
+        es: "La tasa de acierto real de los análisis, calculada automáticamente al terminar los partidos.",
+        de: "Die tatsächliche Trefferquote der Analysen, automatisch berechnet, sobald die Spiele beendet sind.",
+    },
+    "analyses notées": { en: "graded analyses", es: "análisis calificados", de: "bewertete Analysen" },
+    "paris vérifiés": { en: "picks checked", es: "apuestas verificadas", de: "geprüfte Tipps" },
+    "push": { en: "push", es: "push", de: "Push" },
+    "verifiés": { en: "checked", es: "verificadas", de: "geprüft" },
 };
 
 export function isLocale(value: string | undefined | null): value is Locale {

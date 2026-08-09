@@ -13,6 +13,7 @@ import {
     Bell,
     ArrowLeft,
     Terminal,
+    Target,
 } from "lucide-react";
 import { useI18n } from "@/lib/use-i18n";
 
@@ -23,6 +24,7 @@ export function AdminSidebar({ className }: { className?: string }) {
         { href: `/${locale}/admin`, label: copy("Dashboard"), icon: LayoutDashboard },
         { href: `/${locale}/admin/users`, label: copy("Utilisateurs"), icon: Users },
         { href: `/${locale}/admin/subscriptions`, label: copy("Abonnements"), icon: CreditCard },
+        { href: `/${locale}/admin/accuracy`, label: copy("Précision IA"), icon: Target },
         { href: `/${locale}/admin/settings`, label: copy("Configuration"), icon: Settings },
         { href: `/${locale}/admin/notifications`, label: copy("Notifications"), icon: Bell, badge: 3 },
         { href: `/${locale}/admin/logs`, label: copy("System Logs"), icon: Terminal },
