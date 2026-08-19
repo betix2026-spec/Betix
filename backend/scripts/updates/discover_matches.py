@@ -71,24 +71,46 @@ async def ingest_missing(client, missing_items: list[dict]):
     # Load the ID maps (needed for build_public_match)
     if not client._team_id_map: client._load_team_id_map()
     if not client._league_id_map: client._load_league_id_map()
-    
+
     analytics_rows = []
-    public_rows = []
-    
+
     for item in missing_items:
         row = client._transform_match(item)
         if row:
             analytics_rows.append(row)
-                
-    if analytics_rows:
+
+    if not analytics_rows:
+        return 0
+
+    try:
+        # Prefer: return=representation means this returns the rows as
+        # actually stored, including the DB-assigned "id" that
+        # _build_public_match() needs below.
+        upserted_rows = client.analytics.upsert(
+            client._get_analytics_matches_table(), analytics_rows, on_conflict="api_id"
+        )
+    except Exception as e:
+        logger.error(f"   ❌ Ingestion error (analytics): {e}")
+        return 0
+
+    # Explicitly sync to public.matches instead of assuming a DB-side
+    # trigger will do it — that assumption is what left public.matches
+    # empty (analytics kept filling up silently while nothing ever reached
+    # the table the dashboard reads from). Upsert is idempotent, so this is
+    # safe to run even if such a trigger does exist and still works.
+    public_rows = []
+    for row in upserted_rows:
+        public_row = client._build_public_match(row)
+        if public_row:
+            public_rows.append(public_row)
+
+    if public_rows:
         try:
-            # Upsert Analytics (Triggers handle public sync)
-            client.analytics.upsert(client._get_analytics_matches_table(), analytics_rows, on_conflict="api_id")
-            return len(analytics_rows)
+            client.public.upsert("matches", public_rows, on_conflict="api_sport_id,sport")
         except Exception as e:
-            logger.error(f"   ❌ Ingestion error: {e}")
-            
-    return 0
+            logger.error(f"   ❌ Ingestion error (public sync): {e}")
+
+    return len(upserted_rows)
 
 async def discovery_football(start_date: str, end_date: str):
     logger.info(f"⚽ [FOOTBALL] Scanning range {start_date} to {end_date}...")

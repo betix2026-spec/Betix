@@ -372,14 +372,22 @@ class BaseSportClient(ABC):
 
         # UPSERT into analytics table
         if all_analytics_rows:
-            self.analytics.upsert(
+            # Must use the upsert's return value (Prefer: return=representation),
+            # not all_analytics_rows, to build the public rows below.
+            # _build_public_match() requires analytics_row["id"] — the
+            # DB-assigned primary key — which doesn't exist yet on the
+            # pre-insert transform output. Passing the pre-upsert list here
+            # raised KeyError on every single call, silently swallowed by the
+            # caller's try/except, which is why public.matches was never
+            # actually getting populated.
+            upserted_rows = self.analytics.upsert(
                 self._get_analytics_matches_table(),
                 all_analytics_rows,
                 "api_id",
             )
 
-            # Build public.matches from the analytics rows
-            for row in all_analytics_rows:
+            # Build public.matches from the upserted (post-insert) rows
+            for row in upserted_rows:
                 public_row = self._build_public_match(row)
                 if public_row:
                     all_public_rows.append(public_row)
@@ -466,14 +474,16 @@ class BaseSportClient(ABC):
 
         # 3. Upsert Results
         if all_analytics_rows:
-            # UPSERT analytics
-            self.analytics.upsert(
+            # UPSERT analytics (return value has the DB-assigned "id" that
+            # _build_public_match() needs — see ingest_matches() above for
+            # why this can't be the pre-upsert list).
+            upserted_rows = self.analytics.upsert(
                 self._get_analytics_matches_table(),
                 all_analytics_rows,
                 "api_id",
             )
             # UPSERT public
-            for row in all_analytics_rows:
+            for row in upserted_rows:
                 public_row = self._build_public_match(row)
                 if public_row:
                     all_public_rows.append(public_row)
