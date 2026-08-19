@@ -3372,6 +3372,11 @@ const literalTranslations: Record<string, Partial<Record<Locale, string>>> = {
     "paris vérifiés": { en: "picks checked", es: "apuestas verificadas", de: "geprüfte Tipps" },
     "push": { en: "push", es: "push", de: "Push" },
     "verifiés": { en: "checked", es: "verificadas", de: "geprüft" },
+
+    // Admin Users — CSV export (frontend/src/app/(admin)/admin/users/page.tsx)
+    "Aucun utilisateur à exporter.": { en: "No users to export.", es: "No hay usuarios para exportar.", de: "Keine Benutzer zum Exportieren." },
+    "{count} utilisateurs exportés.": { en: "{count} users exported.", es: "{count} usuarios exportados.", de: "{count} Benutzer exportiert." },
+    "Échec de l'export.": { en: "Export failed.", es: "Fallo en la exportación.", de: "Export fehlgeschlagen." },
 };
 
 export function isLocale(value: string | undefined | null): value is Locale {
