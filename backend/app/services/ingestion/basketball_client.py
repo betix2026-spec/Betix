@@ -210,7 +210,6 @@ class BasketballClient(BaseSportClient):
             meta["country"] = league_info.get("country", "")
 
         return {
-            "internal_match_id": analytics_row["id"],
             "api_sport_id": str(analytics_row["api_id"]),
             "sport": self.sport,
             "league_name": league_info.get("name", "") if league_info else "",

@@ -49,8 +49,13 @@ async def backfill_sport(client, days: int | None):
 
     if days is not None:
         now = datetime.now(timezone.utc)
-        start = (now - timedelta(days=days)).isoformat()
-        end = (now + timedelta(days=days)).isoformat()
+        # Use a 'Z' suffix instead of .isoformat()'s '+00:00' — a literal
+        # '+' in a URL query string is decoded as a space, silently
+        # corrupting the filter (breaks the query with a 400, since the
+        # resulting date string is no longer valid). Same fix as used
+        # elsewhere in this codebase (e.g. update_match_rolling.py).
+        start = (now - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        end = (now + timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
         query = f"select=*&date_time=gte.{start}&date_time=lte.{end}&order=date_time.asc"
     else:
         query = "select=*&order=date_time.asc"
