@@ -286,7 +286,6 @@ class TennisClient(BaseSportClient):
             meta["round"] = f"{tournament_name} - {analytics_row['round']}" if tournament_name else analytics_row["round"]
 
         return {
-            "internal_match_id": analytics_row["id"],
             "api_sport_id": str(analytics_row["api_id"]),
             "sport": self.sport,
             "league_name": tournament_info.get("name", "") if tournament_info else "",
