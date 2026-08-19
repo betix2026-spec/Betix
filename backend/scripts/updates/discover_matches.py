@@ -19,6 +19,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 from app.services.ingestion.football_client import FootballClient
 from app.services.ingestion.basketball_client import BasketballClient
 from app.services.ingestion.tennis_client import TennisClient
+from app.services.ingestion.constants import CURRENT_SEASON
 
 # Silence verbose logs
 logging.getLogger("httpx").setLevel(logging.WARNING)
@@ -118,7 +119,7 @@ async def discovery_football(start_date: str, end_date: str):
     try:
         all_api_items = []
         for api_league_id in client.league_ids.keys():
-            params = {"league": api_league_id, "season": 2025, "from": start_date, "to": end_date}
+            params = {"league": api_league_id, "season": CURRENT_SEASON, "from": start_date, "to": end_date}
             data = await client._api_get("/fixtures", params)
             all_api_items.extend(data.get("response", []))
             await asyncio.sleep(0.1)

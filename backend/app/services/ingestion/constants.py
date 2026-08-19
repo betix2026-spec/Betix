@@ -3,7 +3,14 @@ BETIX — Ingestion Constants
 Defines the target leagues and status mappings.
 """
 
-CURRENT_SEASON = 2025  # 2024-2025 season (Pro plan active)
+# API-Sports season identifier (the year a season starts, e.g. 2026 for the
+# 2026-27 season). Most tracked leagues start their season in August, so
+# this needs bumping by hand once a year around then — nothing computes it
+# automatically. Stale value here silently starves the whole football/
+# basketball pipeline (discovery, team fetch, H2H, referee stats all key
+# off this) since queries for the wrong season simply return zero results
+# instead of erroring.
+CURRENT_SEASON = 2026
 
 # =============================================================================
 # FOOTBALL (API-Sports v3)
