@@ -1,6 +1,6 @@
 """
 BETIX Backend — Configuration
-Charge les variables d'environnement et expose la config globale.
+Loads environment variables and exposes the global config.
 """
 
 import os
@@ -9,7 +9,7 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    """Configuration de l'application BETIX."""
+    """BETIX application configuration."""
 
     # --- App ---
     APP_NAME: str = "BETIX API"
@@ -51,6 +51,14 @@ class Settings(BaseSettings):
     # server-side frontend, e.g. the on-demand AI generation trigger) ---
     INTERNAL_API_SECRET: str = ""
 
+    # --- Supabase webhook secret (protects endpoints called only by a
+    # Supabase Database Webhook, e.g. the new-user -> EmailOctopus sync) ---
+    SUPABASE_WEBHOOK_SECRET: str = ""
+
+    # --- EmailOctopus ---
+    EMAILOCTOPUS_API_KEY: str = ""
+    EMAILOCTOPUS_LIST_ID: str = ""
+
     model_config = {
         # Loads the .env relative to this file (backend/.env)
         "env_file": os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env"),
@@ -62,5 +70,5 @@ class Settings(BaseSettings):
 
 @lru_cache()
 def get_settings() -> Settings:
-    """Retourne l'instance singleton des settings."""
+    """Returns the singleton settings instance."""
     return Settings()

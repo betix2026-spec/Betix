@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from app.config import get_settings
-from app.routers import matches, predictions, system, audits
+from app.routers import matches, predictions, system, audits, webhooks
 from app.services.ingestion.orchestrator import IngestionOrchestrator
 from scripts.updates.scheduled_audit_pass import run_scheduled_pass
 from scripts.updates.grade_predictions_pass import run_grading_pass
@@ -105,3 +105,4 @@ app.include_router(matches.router, prefix="/api/matches", tags=["Matches"])
 app.include_router(predictions.router, prefix="/api/predictions", tags=["Predictions"])
 app.include_router(system.router, prefix="/api/system", tags=["System"])
 app.include_router(audits.router, prefix="/api", tags=["Audits"])
+app.include_router(webhooks.router, prefix="/api", tags=["Webhooks"])
