@@ -84,6 +84,34 @@ export interface AdminUser {
 export type AdminUserSortField = "created_at" | "username" | "last_active" | "total_predictions" | "win_rate" | "status";
 export type SortDirection = "asc" | "desc";
 
+export interface AccuracyCategoryStats {
+    won: number;
+    lost: number;
+    push: number;
+    ungraded: number;
+    winRate: number | null;
+}
+
+export interface SportAccuracyStats {
+    sport: "football" | "basketball" | "tennis";
+    safe: AccuracyCategoryStats;
+    value: AccuracyCategoryStats;
+    risky: AccuracyCategoryStats;
+    gradedAudits: number;
+}
+
+export interface AccuracyOverview {
+    bySport: SportAccuracyStats[];
+    overall: {
+        safe: AccuracyCategoryStats;
+        value: AccuracyCategoryStats;
+        risky: AccuracyCategoryStats;
+    };
+    gradedAudits: number;
+    gradedPicks: number;
+    windowDays: number | null;
+}
+
 export interface AdminUserFilters {
     search: string;
     role: string | null;

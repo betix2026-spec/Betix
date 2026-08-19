@@ -12,6 +12,7 @@ from app.config import get_settings
 from app.routers import matches, predictions, system, audits
 from app.services.ingestion.orchestrator import IngestionOrchestrator
 from scripts.updates.scheduled_audit_pass import run_scheduled_pass
+from scripts.updates.grade_predictions_pass import run_grading_pass
 
 logger = logging.getLogger("app.main")
 settings = get_settings()
@@ -47,8 +48,22 @@ async def lifespan(app: FastAPI):
         replace_existing=True,
     )
 
+    # Phase 3 grading pass: checks finished matches' audits against the real
+    # result and records won/lost/push per pick. Read/DB-only (no AI calls),
+    # so it's safe to run on the same cadence as the generation pass.
+    scheduler.add_job(
+        run_grading_pass,
+        "interval",
+        minutes=30,
+        id="ai_prediction_grading_pass",
+        replace_existing=True,
+    )
+
     scheduler.start()
-    logger.info("Scheduler (APScheduler) started: live sync every 5min, proactive AI audits every 30min.")
+    logger.info(
+        "Scheduler (APScheduler) started: live sync every 5min, "
+        "proactive AI audits every 30min, prediction grading every 30min."
+    )
     
     yield
     
@@ -59,7 +74,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
-    description="API Backend pour BETIX — Plateforme de Pronostics Sportifs IA",
+    description="API Backend for BETIX — AI Sports Prediction Platform",
     lifespan=lifespan,
 )
 

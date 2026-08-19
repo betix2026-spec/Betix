@@ -91,7 +91,7 @@ export function AllSportsIcon({ className, size = 20 }: SportIconProps) {
     );
 }
 
-/** Composant utilitaire qui rend l'icône du sport par nom */
+/** Utility component that renders the sport icon by name */
 export function SportIcon({
     sport,
     className,

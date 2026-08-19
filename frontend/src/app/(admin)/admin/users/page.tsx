@@ -11,10 +11,36 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Download, Search, UserPlus, Filter, Loader2, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { toast } from "sonner";
 
 import { AdminUser, AdminUserSortField, SortDirection } from "@/types/admin";
 import { getAdminUsersAction, getPlansAction } from "@/app/(admin)/admin/users/actions";
 import { useI18n } from "@/lib/use-i18n";
+
+const CSV_COLUMNS: { key: keyof AdminUser; header: string }[] = [
+    { key: "username", header: "Username" },
+    { key: "email", header: "Email" },
+    { key: "role", header: "Role" },
+    { key: "plan_id", header: "Plan" },
+    { key: "status", header: "Status" },
+    { key: "totalPredictions", header: "Total Predictions" },
+    { key: "win_rate", header: "Win Rate" },
+    { key: "favoriteSport", header: "Favorite Sport" },
+    { key: "joinDate", header: "Joined" },
+    { key: "lastActive", header: "Last Active" },
+];
+
+function toCsvField(value: unknown): string {
+    const str = value === null || value === undefined ? "" : String(value);
+    if (/[",\n]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
+    return str;
+}
+
+function usersToCsv(rows: AdminUser[]): string {
+    const header = CSV_COLUMNS.map((c) => toCsvField(c.header)).join(",");
+    const lines = rows.map((row) => CSV_COLUMNS.map((c) => toCsvField(row[c.key])).join(","));
+    return [header, ...lines].join("\n");
+}
 
 const PAGE_SIZE = 25;
 
@@ -43,6 +69,7 @@ export default function AdminUsersPage() {
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [filtersOpen, setFiltersOpen] = useState(false);
+    const [exporting, setExporting] = useState(false);
 
     // Debounce free-text search before it hits the server
     useEffect(() => {
@@ -141,6 +168,46 @@ export default function AdminUsersPage() {
         setPage(1);
     };
 
+    // Exports every user matching the current search/filters (not just the
+    // current page) as a CSV download. Sort is not applied — the export is a
+    // full snapshot, not a display order.
+    const handleExport = async () => {
+        setExporting(true);
+        try {
+            const result = await getAdminUsersAction({
+                search, role, status, plan,
+                page: 1,
+                pageSize: Math.max(totalCount, 1),
+            });
+
+            if (!result.success) throw new Error(result.error || "Failed to fetch users");
+
+            const rows = (result.data || []).map(mapUser);
+            if (rows.length === 0) {
+                toast.info(copy("Aucun utilisateur à exporter."));
+                return;
+            }
+
+            const csv = usersToCsv(rows);
+            const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = `betix-users-${new Date().toISOString().slice(0, 10)}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+
+            toast.success(copy("{count} utilisateurs exportés.").replace("{count}", String(rows.length)));
+        } catch (err: any) {
+            console.error("Error exporting users:", err);
+            toast.error(copy("Échec de l'export."));
+        } finally {
+            setExporting(false);
+        }
+    };
+
     const activeFilterCount = [role, status, plan].filter(Boolean).length;
 
     const clearFilters = () => {
@@ -172,8 +239,15 @@ export default function AdminUsersPage() {
                     <p className="text-sm font-mono text-neutral-500 mt-1">{copy("Gérez les comptes utilisateurs")}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" className="bg-black border-white/10 hover:bg-white/5 text-neutral-400 gap-2 font-mono text-xs h-9">
-                        <Download className="size-3.5" /> {copy("Exporter")}
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="bg-black border-white/10 hover:bg-white/5 text-neutral-400 gap-2 font-mono text-xs h-9"
+                        onClick={handleExport}
+                        disabled={exporting}
+                    >
+                        {exporting ? <Loader2 className="size-3.5 animate-spin" /> : <Download className="size-3.5" />}
+                        {copy("Exporter")}
                     </Button>
                     <Button
                         size="sm"
