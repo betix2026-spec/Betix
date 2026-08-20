@@ -71,11 +71,13 @@ async def _eligible_by_league(db: SupabaseREST, table: str, is_top_tier_fn) -> L
 async def _eligible_tennis(db: SupabaseREST) -> List[int]:
     now = datetime.now(timezone.utc)
     window_end = now + timedelta(hours=LOOKAHEAD_HOURS)
+    now_str = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+    window_end_str = window_end.strftime("%Y-%m-%dT%H:%M:%SZ")
     rows = db.select_raw(
         "tennis_matches",
         "select=id,tournament:tournament_id(category)"
-        f"&date_time=gte.{now.isoformat()}"
-        f"&date_time=lte.{window_end.isoformat()}"
+        f"&date_time=gte.{now_str}"
+        f"&date_time=lte.{window_end_str}"
         "&status=eq.scheduled",
     )
     eligible = []
