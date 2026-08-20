@@ -150,6 +150,10 @@ export type MarketTeaser = {
     source: "odds" | "form";
     homePct: number;
     awayPct: number;
+    // Raw decimal odds — only present when source is "odds" (the "form"
+    // fallback has no market price to show).
+    homeOdds?: number;
+    awayOdds?: number;
 };
 
 const PRIMARY_MARKET: Record<string, string> = {
@@ -172,7 +176,7 @@ function labelSide(label: string): "home" | "away" | "draw" | null {
  * null if the market can't be read cleanly (missing/zero odds, no
  * recognizable home+away entries).
  */
-function impliedWinPct(oddsData: { label: string; odds: number }[]): { homePct: number; awayPct: number } | null {
+function impliedWinPct(oddsData: { label: string; odds: number }[]): { homePct: number; awayPct: number; home: number; away: number } | null {
     let home: number | null = null;
     let away: number | null = null;
     let draw: number | null = null;
@@ -200,6 +204,8 @@ function impliedWinPct(oddsData: { label: string; odds: number }[]): { homePct: 
     return {
         homePct: Math.round((invHome / total) * 100),
         awayPct: Math.round((invAway / total) * 100),
+        home,
+        away,
     };
 }
 
@@ -277,7 +283,13 @@ export async function getMarketTeasers(
                 const oddsData = typeof row.odds_data === "string" ? JSON.parse(row.odds_data) : row.odds_data;
                 const pct = Array.isArray(oddsData) ? impliedWinPct(oddsData) : null;
                 if (pct) {
-                    result[publicId] = { source: "odds", ...pct };
+                    result[publicId] = {
+                        source: "odds",
+                        homePct: pct.homePct,
+                        awayPct: pct.awayPct,
+                        homeOdds: pct.home,
+                        awayOdds: pct.away,
+                    };
                     stillNeedTeaser.delete(row.match_id);
                 }
             }

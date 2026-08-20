@@ -23,10 +23,14 @@ export function ConfidenceBadge({
     badge,
     topPrediction,
     marketTeaser,
+    homeTeamShort,
+    awayTeamShort,
 }: {
     badge?: Match["confidenceBadge"];
     topPrediction?: Prediction;
     marketTeaser?: Match["marketTeaser"];
+    homeTeamShort?: string;
+    awayTeamShort?: string;
 }) {
     const { copy } = useI18n();
 
@@ -69,18 +73,22 @@ export function ConfidenceBadge({
     // No AI analysis for this match at all — fall back to a free, non-AI
     // signal so the row still shows something rather than being blank.
     // Deliberately gray/neutral, not a confidence color, so it's never
-    // mistaken for an actual AI pick.
+    // mistaken for an actual AI pick. Names the favored team rather than
+    // just showing a bare percentage with a generic "Odds"/"Form" label —
+    // a number with no team attached to it means nothing at a glance.
     if (marketTeaser) {
-        const favoredPct = Math.max(marketTeaser.homePct, marketTeaser.awayPct);
+        const isHomeFavored = marketTeaser.homePct >= marketTeaser.awayPct;
+        const favoredPct = isHomeFavored ? marketTeaser.homePct : marketTeaser.awayPct;
+        const favoredTeam = isHomeFavored ? homeTeamShort : awayTeamShort;
         const Icon = marketTeaser.source === "odds" ? TrendingUp : Activity;
-        const label = marketTeaser.source === "odds" ? copy("Cotes") : copy("Forme");
         return (
             <Badge
                 variant="outline"
-                className="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 h-5 border-white/10 bg-white/5 text-neutral-400 shrink-0 gap-1"
+                className="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 h-5 border-white/10 bg-white/5 text-neutral-400 shrink-0 gap-1 max-w-[110px]"
+                title={marketTeaser.source === "odds" ? copy("Cotes") : copy("Forme")}
             >
-                <Icon className="size-2.5" />
-                <span className="hidden sm:inline">{label}</span>
+                <Icon className="size-2.5 shrink-0" />
+                <span className="truncate">{favoredTeam ?? (marketTeaser.source === "odds" ? copy("Cotes") : copy("Forme"))}</span>
                 {favoredPct}%
             </Badge>
         );

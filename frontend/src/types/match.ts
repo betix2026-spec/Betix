@@ -69,6 +69,8 @@ export interface Match {
         source: "odds" | "form";
         homePct: number;
         awayPct: number;
+        homeOdds?: number;
+        awayOdds?: number;
     };
     aiAudit?: {
         snapshot_at: string;

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar, LayoutGrid, List, ChevronDown, Search, Swords, Radio } from "lucide-react";
+import { Calendar, LayoutGrid, List, ChevronDown, Search, Swords, Radio, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 import { MatchCard } from "@/components/dashboard/MatchCard";
@@ -27,6 +27,7 @@ export default function DashboardPage() {
     const [visibleCount, setVisibleCount] = useState(6);
     const [searchTeamA, setSearchTeamA] = useState("");
     const [searchTeamB, setSearchTeamB] = useState("");
+    const [searchExpanded, setSearchExpanded] = useState(false);
     const [matches, setMatches] = useState<Match[]>([]);
     const [selectedLeague, setSelectedLeague] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
@@ -146,6 +147,22 @@ export default function DashboardPage() {
         setSearchTeamA("");
         setSearchTeamB("");
         setSelectedLeague(null);
+        setSearchExpanded(false);
+
+        // "Finished" defaults to today, which is usually empty (today's
+        // matches likely haven't finished yet) — jump to the most recent
+        // date that actually has a finished match instead, unless the
+        // currently-selected date already has one.
+        if (activeTab === "finished") {
+            const finishedDates = matches
+                .filter(m => m.status === "finished" && (currentSport === "all" || m.sport === currentSport))
+                .map(m => m.date)
+                .sort();
+            if (finishedDates.length > 0 && !finishedDates.includes(selectedDate)) {
+                setSelectedDate(finishedDates[finishedDates.length - 1]);
+            }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentSport, activeTab]);
 
     const dateLocale = { fr: "fr-FR", en: "en-US", es: "es-ES", de: "de-DE" }[locale];
@@ -425,9 +442,21 @@ export default function DashboardPage() {
                     </Select>
                 </div>
 
-                {/* VS Search Bar - Prominent Glow Design (Ultra Compact Mobile) */}
-                {currentSport !== "all" && (
-                    <div className="w-full max-w-5xl mx-auto mt-0 mb-0 sm:mt-2 sm:mb-2">
+                {/* VS Search Bar - Prominent Glow Design (Ultra Compact Mobile) — collapsed by
+                    default, it was taking up a full-width row for something rarely used. */}
+                {currentSport !== "all" && !searchExpanded && (
+                    <div className="w-full flex justify-center mt-0 mb-0 sm:mt-2 sm:mb-2">
+                        <button
+                            onClick={() => setSearchExpanded(true)}
+                            className="flex items-center gap-1.5 h-7 sm:h-8 px-3 text-[10px] sm:text-xs rounded-full border border-white/10 bg-white/5 text-neutral-400 hover:bg-white/10 hover:text-white transition-all"
+                        >
+                            <Search className="size-3 sm:size-3.5" />
+                            {copy("Rechercher un affrontement")}
+                        </button>
+                    </div>
+                )}
+                {currentSport !== "all" && searchExpanded && (
+                    <div className="w-full max-w-5xl mx-auto mt-0 mb-0 sm:mt-2 sm:mb-2 animate-in fade-in slide-in-from-top-2 duration-200">
                         <div className="flex flex-row items-center gap-1.5 sm:gap-4 relative group">
                             {/* Team 1 Input */}
                             <div className="relative flex-1 w-full flex items-center bg-[#050505]/95 backdrop-blur-xl border border-white/10 rounded-lg sm:rounded-2xl p-1 sm:p-2 transition-all duration-300 hover:border-white/20 focus-within:border-blue-500/50 focus-within:bg-[#0a0a0a] focus-within:shadow-[0_0_30px_-5px_rgba(37,99,235,0.2)]">
@@ -462,6 +491,15 @@ export default function DashboardPage() {
                                     onChange={(e) => setSearchTeamB(e.target.value)}
                                 />
                             </div>
+
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => { setSearchExpanded(false); setSearchTeamA(""); setSearchTeamB(""); }}
+                                className="shrink-0 h-7 w-7 sm:h-8 sm:w-8 text-neutral-500 hover:text-white"
+                            >
+                                <X className="size-4" />
+                            </Button>
                         </div>
                     </div>
                 )}
