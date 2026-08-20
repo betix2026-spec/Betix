@@ -9,13 +9,11 @@ apples-to-apples comparison, not a fresh fetch per model.
 
 This does NOT change DEFAULT_MODEL anywhere — evaluation only.
 
-Known model IDs as of writing (verify — Anthropic occasionally retires
-older ones): claude-haiku-4-5-20251001 (current production default),
-claude-sonnet-5, claude-opus-5. "Sonnet 4.6" was requested but this
-environment has no confirmation that ID exists — claude-sonnet-4-5-20250929
-(Sonnet 4.5) is included as the closest verified alternative below; the
-script will report a clean per-model error rather than crash if any ID is
-wrong, so trying an unconfirmed one is safe.
+Known model IDs: claude-haiku-4-5-20251001 (current production default),
+claude-sonnet-5, claude-opus-5, claude-sonnet-4-6 (confirmed real — found
+as the ai_model value on a real stored audit, see
+draft/check_one_audit_shape.py's output). The script reports a clean
+per-model error rather than crash if any ID turns out wrong.
 
 Usage:
     python draft/check_model_tokens.py football 16525
@@ -43,7 +41,7 @@ DEFAULT_MODELS = [
     DEFAULT_MODEL,                    # current production baseline (Haiku 4.5)
     "claude-sonnet-5",
     "claude-opus-5",
-    "claude-sonnet-4-5-20250929",     # closest verified alt to the requested "Sonnet 4.6"
+    "claude-sonnet-4-6",              # confirmed real — found in ai_model on a stored audit
 ]
 
 
@@ -115,7 +113,10 @@ async def main():
 
     settings = get_settings()
     from anthropic import AsyncAnthropic
-    client = AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
+    # No timeout was set before — a stalled connection would hang forever
+    # instead of failing. 120s is generous (a normal call takes ~30-60s for
+    # this prompt size) but still bounded.
+    client = AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY, timeout=120.0)
 
     print(f"Building prompt once for {args.sport} #{args.match_id} (shared across all models)...")
     system_prompt, user_prompt, ceiling = await build_audit_prompt(args.sport, args.match_id)
