@@ -84,14 +84,21 @@ def main():
     print("\n" + "=" * 70)
     print("  ATTEMPTED_AT DATE RANGE — audits with a usable outcome vs. without")
     print("=" * 70)
-    if has_outcome_dates:
-        print(f"  WITH a real outcome type   : {min(has_outcome_dates)}  to  {max(has_outcome_dates)}  (n={len(has_outcome_dates)})")
+    has_dates_clean = sorted(d for d in has_outcome_dates if d)
+    no_dates_clean = sorted(d for d in no_outcome_dates if d)
+    if has_dates_clean:
+        print(f"  WITH a real outcome type   : {has_dates_clean[0]}  to  {has_dates_clean[-1]}  (n={len(has_dates_clean)})")
     else:
         print("  WITH a real outcome type   : none found in this sample")
-    if no_outcome_dates:
-        print(f"  WITHOUT (missing/'other')  : {min(no_outcome_dates)}  to  {max(no_outcome_dates)}  (n={len(no_outcome_dates)})")
+    if no_dates_clean:
+        print(f"  WITHOUT (missing/'other')  : {no_dates_clean[0]}  to  {no_dates_clean[-1]}  (n={len(no_dates_clean)})")
+        print(f"  Most recent 5 WITHOUT an outcome: {no_dates_clean[-5:]}")
     else:
         print("  WITHOUT (missing/'other')  : none found in this sample")
+
+    missing_attempted_at = sum(1 for d in no_outcome_dates if not d) + sum(1 for d in has_outcome_dates if not d)
+    if missing_attempted_at:
+        print(f"\n  ({missing_attempted_at} row(s) had no attempted_at at all — excluded from the range above)")
 
     print("\nRead: if the 'WITHOUT' date range is entirely older than 'WITH', that")
     print("confirms the structured outcome field was added partway through this")
