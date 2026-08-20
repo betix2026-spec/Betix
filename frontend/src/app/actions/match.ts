@@ -2,6 +2,7 @@
 
 import { createClient } from "@supabase/supabase-js"
 import { createClient as createServerClient } from "@/lib/supabase/server"
+import { after } from "next/server"
 
 export async function getAiAuditForMatch(apiId: string, sport: string) {
     if (!apiId || !sport) return null;
@@ -113,15 +114,31 @@ export async function getAiAuditForMatch(apiId: string, sport: string) {
             auditData = data;
         }
 
-        // 3. Nothing in the DB, or a stuck 'pending' lock / a 'failed' analysis —
-        //    trigger an on-demand generation, but ONLY for a premium user
-        //    (nobody else can see the result, so nobody else should trigger its cost).
-        const needsTrigger =
+        // 3. Nothing in the DB, a stuck 'pending' lock, or a 'failed' analysis —
+        //    trigger an on-demand generation and block on it, but ONLY for a
+        //    premium user (nobody else can see the result, so nobody else
+        //    should trigger its cost).
+        const needsBlockingTrigger =
             !auditData ||
             auditData.status === "failed" ||
             (auditData.status === "pending" && isStuckPending(auditData.attempted_at));
 
-        if (needsTrigger && isPremium && internalId) {
+        // A 'ready' audit that's old enough to be stale (mirrors
+        // STALE_AFTER_HOURS in app/engine/audit_orchestration.py) still has
+        // perfectly good cached content to show right now — it should
+        // refresh quietly in the background, not flash "Generating..." over
+        // data that's already there. Without this, a 'ready' audit was
+        // served forever regardless of age: the backend's own staleness
+        // check only runs when something calls ensure_audit(), and this was
+        // the only caller that never did for 'ready' rows (the 30-min
+        // scheduled pass does call it directly, but only for top-tier
+        // matches within a 24h lookahead).
+        const needsBackgroundRefresh =
+            !needsBlockingTrigger &&
+            auditData?.status === "ready" &&
+            isStaleReady(auditData.attempted_at);
+
+        if (needsBlockingTrigger && isPremium && internalId) {
             const triggered = await triggerAudit(sport, internalId);
             if (triggered?.state === "ready" && triggered.audit) {
                 auditData = triggered.audit;
@@ -129,6 +146,13 @@ export async function getAiAuditForMatch(apiId: string, sport: string) {
                 // "pending" — generation kicked off in the background on the backend.
                 return { locked: false, pending: true, ai_analysis: null };
             }
+        } else if (needsBackgroundRefresh && isPremium && internalId) {
+            // Runs after the response is sent — a bare un-awaited call risks
+            // being killed mid-flight once this serverless function returns.
+            // The stale (but valid) auditData below is still shown immediately.
+            const refreshSport = sport;
+            const refreshMatchId = internalId;
+            after(() => triggerAudit(refreshSport, refreshMatchId));
         }
 
         if (!auditData) {
@@ -161,6 +185,12 @@ function isStuckPending(attemptedAt: string | null | undefined): boolean {
     if (!attemptedAt) return true;
     const ageMs = Date.now() - new Date(attemptedAt).getTime();
     return ageMs > 5 * 60 * 1000; // same threshold as PENDING_LOCK_TIMEOUT_MINUTES on the backend
+}
+
+function isStaleReady(attemptedAt: string | null | undefined): boolean {
+    if (!attemptedAt) return true;
+    const ageMs = Date.now() - new Date(attemptedAt).getTime();
+    return ageMs > 18 * 60 * 60 * 1000; // same threshold as STALE_AFTER_HOURS on the backend
 }
 
 async function triggerAudit(sport: string, matchId: number): Promise<{ state: string; audit: Record<string, unknown> | null } | null> {
