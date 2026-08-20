@@ -133,8 +133,12 @@ def normalize_outcome_fields(data: Dict[str, Any]) -> Dict[str, Any]:
     return data
 
 
-def validate_analysis(data: Dict[str, Any]) -> bool:
-    """Checks that the AI's JSON contains the required fields."""
+def validate_analysis(data: Dict[str, Any], ceiling: Optional[int] = None) -> bool:
+    """Checks that the AI's JSON contains the required fields, and clamps
+    each pick's confidence_score to its category's band and (if given) the
+    match's data-completeness ceiling — the LLM is instructed to respect
+    both in the prompt, but a prompt instruction alone isn't trustworthy,
+    so this enforces it rather than just logging a mismatch."""
     required = ["match_summary", "data_quality", "categories"]
     missing = [k for k in required if k not in data]
     if missing:
@@ -160,16 +164,31 @@ def validate_analysis(data: Dict[str, Any]) -> bool:
         logger.warning("No pick proposed in the analysis.")
         return False
 
-    # Validate confidence scores are within expected ranges per category
+    # Confidence scores: clamp to the category's band, and to the match's
+    # data-completeness ceiling if one was computed (see confidence_ceiling.py).
+    # Previously this only logged a warning and left an out-of-range score
+    # untouched — the "80-99/60-79/30-59" promise was never actually enforced.
     score_ranges = {"high_confidence": (80, 99), "medium_confidence": (60, 79), "risky": (30, 59)}
     for cat in cat_keys:
         for item in categories.get(cat, []):
             score = item.get("confidence_score")
-            if score is not None:
-                lo, hi = score_ranges[cat]
-                if not (lo <= score <= hi):
-                    market_label = (item.get("market") or {}).get("fr", item.get("market"))
-                    logger.warning(f"Score {score} out of range [{lo}-{hi}] for category '{cat}' (market: {market_label}).")
+            if score is None:
+                continue
+            lo, hi = score_ranges[cat]
+            if ceiling is not None:
+                hi = min(hi, ceiling)
+            # If the ceiling collapsed below this category's own floor (e.g. a
+            # HIGH pick, band 80-99, on a match with a ceiling of 60), the
+            # ceiling wins — clamp down to it rather than forcing the score
+            # back up to `lo`, which would silently ignore the ceiling.
+            clamped = min(hi, score) if hi < lo else max(lo, min(hi, score))
+            if clamped != score:
+                market_label = (item.get("market") or {}).get("fr", item.get("market"))
+                logger.warning(
+                    f"Clamped confidence_score {score} -> {clamped} for category '{cat}' "
+                    f"(band [{lo}-{hi}], ceiling={ceiling}, market: {market_label})."
+                )
+                item["confidence_score"] = clamped
 
     return True
 
@@ -201,7 +220,7 @@ async def generate_confidence(
     logger.info(f"🎯 Generating confidence for {sport} #{match_id} (provider={provider})")
 
     try:
-        system_prompt, user_prompt, context = await build_audit_prompt(sport, match_id, context=context)
+        system_prompt, user_prompt, ceiling = await build_audit_prompt(sport, match_id, context=context)
     except (ValueError, RuntimeError) as e:
         logger.error(f"❌ prompt_builder error: {e}")
         return None
@@ -248,8 +267,9 @@ async def generate_confidence(
     analysis = normalize_outcome_fields(analysis)
     analysis = normalize_language_fields(analysis)
 
-    # 5. Validate the structure
-    if not validate_analysis(analysis):
+    # 5. Validate the structure, and clamp scores to their band + the
+    # computed ceiling (see build_audit_prompt/confidence_ceiling.py)
+    if not validate_analysis(analysis, ceiling=ceiling):
         logger.warning("⚠️ Incomplete analysis, returned anyway.")
 
     # 6. Enrich with metadata

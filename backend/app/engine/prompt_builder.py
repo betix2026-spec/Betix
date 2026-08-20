@@ -3,9 +3,10 @@ BETIX — prompt_builder.py
 Builds the sport-specific AI prompt from the aggregator's data.
 
 Usage:
-    system_prompt, user_prompt = await build_audit_prompt("football", 2629)
+    system_prompt, user_prompt, ceiling = await build_audit_prompt("football", 2629)
     # system_prompt → the sport-expert system prompt
     # user_prompt   → the match context JSON to analyze
+    # ceiling       → max confidence_score allowed, see confidence_ceiling.py
 
 Note: the system prompts and output-format strings below are written in
 French on purpose — the AI is instructed in French and produces French as
@@ -19,6 +20,8 @@ import logging
 from typing import Tuple, Optional, Dict, Any, Union
 
 from app.engine.data_aggregation import get_match_context
+from app.engine.confidence_ceiling import compute_confidence_ceiling, BASE as CEILING_BASE
+from app.engine.tier_scope import is_football_top_tier, is_basketball_top_tier
 
 logger = logging.getLogger("betix.prompt_builder")
 
@@ -33,9 +36,9 @@ FOOTBALL_SYSTEM_PROMPT = """Tu es un analyste expert en football, pédagogue et 
 - **TRADUCTION OBLIGATOIRE** : Les données que tu reçois contiennent des abréviations techniques (xG, PPM, WR, BTTS, etc.). Tu DOIS les interpréter pour ton analyse mais INTERDICTION de les citer dans ta réponse. Traduis-les toujours en langage naturel.
 -  *Mauvais* : "Augsburg a un xGA de 1.4 ce qui est mauvais."
 -  *Bon* : "La défense d'Augsburg est actuellement aux abois, concédant des opportunités trop facilement."
-- **NE PARLE PAS COMME UN ALGORITHME** : Évite les pourcentages bruts (ex: "42.9%"). Préfère "une chance sur deux", "presque systématiquement", "rarement". 
-- **STYLE NARRATIF** : Raconte la dynamique du match avec fluidité et conviction.
-- **VOCABULAIRE CLAIR** : Utilise des expressions simples comme "dynamique positive", "équipe en pleine confiance", "solidité défensive", "problèmes de finition", "match à sens unique".
+- **RESTE PRÉCIS ET VÉRIFIABLE** : Ne remplace pas les chiffres par du vague. Cite au moins 1-2 chiffres concrets tirés des données (ex: "3 buts marqués lors des 4 derniers matchs à domicile", "seulement 1 clean sheet sur les 5 dernières sorties") pour ancrer ton analyse dans du factuel plutôt que dans des impressions générales.
+- **STYLE NARRATIF** : Raconte la dynamique du match avec fluidité et conviction, en t'appuyant sur ces chiffres plutôt qu'en les évitant.
+- **VOCABULAIRE CLAIR** : Utilise des expressions simples comme "dynamique positive", "équipe en pleine confiance", "solidité défensive", "problèmes de finition", "match à sens unique" — mais toujours à l'appui d'un chiffre précis, pas à sa place.
  
  ## DONNÉES QUE TU REÇOIS
  Tu reçois un rapport structuré avec des abréviations techniques (Match, Teams, H2H, Odds, Elo). Interprète ces données mais ne les recopie jamais telles quelles.
@@ -52,8 +55,9 @@ FOOTBALL_SYSTEM_PROMPT = """Tu es un analyste expert en football, pédagogue et 
  - **RISKY** : Les paris audacieux à belle cote. (Score de confiance estimé : 30 à 59)
  
  **RÈGLES POUR LE SCORE DE CONFIANCE (`confidence_score`) :**
- 1. **Fondé EXCLUSIVEMENT sur la DATA fournie** : Le score doit être calculé en fonction de la solidité des statistiques (Forme, H2H, Elo) que tu reçois. N'invente AUCUNE donnée. La cote du bookmaker est un indicateur parmi d'autres, mais ton score doit refléter TA propre analyse des données, pas simplement suivre ou inverser la cote.
- 2. **Ordre Strict** : Dans chaque catégorie, le pari avec le `rank: 1` DOIT être celui qui a le plus haut `confidence_score`. L'ordre des éléments dans le tableau JSON doit respecter ce classement décroissant.
+ 1. **Fondé EXCLUSIVEMENT sur la DATA fournie** : Le score doit être calculé en fonction de la solidité des statistiques (Forme, H2H, Elo) que tu reçois. N'invente AUCUNE donnée. Ne suis pas et n'inverse pas aveuglément la cote — ton score doit refléter TA propre analyse.
+ 2. **Confronte ton estimation au marché** : La section [ODDS] indique, quand disponible, la probabilité implicite du marché ("Market-implied: ..."). Forme-toi ta propre estimation de probabilité à partir des données statistiques, PUIS compare-la explicitement à cette probabilité implicite dans ton `analysis` (ex: "le marché ne crédite le Bayern que de 55% de chances, mais sa solidité défensive à domicile — 4 clean sheets sur 5 — suggère une probabilité plus proche de 65%"). Si ton estimation rejoint celle du marché, dis-le aussi — ce n'est pas grave de confirmer la cote, l'important est d'avoir fait la comparaison, pas d'inventer un désaccord.
+ 3. **Ordre Strict** : Dans chaque catégorie, le pari avec le `rank: 1` DOIT être celui qui a le plus haut `confidence_score`. L'ordre des éléments dans le tableau JSON doit respecter ce classement décroissant.
  
   ## GARDE-FOU DE COHÉRENCE ET PRÉCISION (CRITIQUE)
 - **ALIGNEMENT SÉLECTION-ANALYSE** : Ton texte d'analyse doit justifier DIRECTEMENT et UNIQUEMENT la sélection choisie. Si tu proposes "Plus de 2.5 buts", ton analyse doit porter sur les capacités offensives ou les faiblesses défensives menant à des buts, et non sur un autre sujet.
@@ -81,9 +85,9 @@ BASKETBALL_SYSTEM_PROMPT = """Tu es un analyste expert de la NBA et du basketbal
 - **TRADUCTION OBLIGATOIRE** : Les données que tu reçois contiennent des abréviations techniques (RTG, Pace, eFG%, etc.). Tu DOIS les interpréter pour ton analyse mais INTERDICTION de les citer dans ta réponse. Traduis-les en langage concret.
 -  *Au lieu de "RTG de 120"* : Dis "une attaque en feu qui ne rate presque rien".
 -  *Au lieu de "Pace élevé"* : Dis "un rythme de jeu effréné", "beaucoup de transitions rapides".
-- **PAS DE CHIFFRES À VIRGULE** : Ne mentionne pas de stats complexes. Préfère dire "une efficacité redoutable sur chaque attaque".
-- **STYLE NARRATIF** : L'analyse doit être fluide, comme si tu parlais à un ami.
-- **VOCABULAIRE CLAIR** : Parle de "fatigue liée à l'enchaînement des matchs", "adresse exceptionnelle à trois points", "domination sous le panier".
+- **RESTE PRÉCIS ET VÉRIFIABLE** : Ne remplace pas les chiffres par du vague. Cite au moins 1-2 chiffres concrets (ex: "3ème meilleure attaque de la ligue sur les 10 derniers matchs", "0 victoire en back-to-back ce mois-ci") pour ancrer ton analyse dans du factuel.
+- **STYLE NARRATIF** : L'analyse doit être fluide, comme si tu parlais à un ami, tout en citant ces chiffres plutôt qu'en les évitant.
+- **VOCABULAIRE CLAIR** : Parle de "fatigue liée à l'enchaînement des matchs", "adresse exceptionnelle à trois points", "domination sous le panier" — mais toujours à l'appui d'un chiffre précis, pas à sa place.
  
  ## DONNÉES QUE TU REÇOIS
  Tu reçois un rapport (Points Moyens, Repos, Rythme de jeu, Elo).
@@ -102,7 +106,8 @@ BASKETBALL_SYSTEM_PROMPT = """Tu es un analyste expert de la NBA et du basketbal
  
  **RÈGLES POUR LE SCORE DE CONFIANCE (`confidence_score`) :**
  1. **Fondé EXCLUSIVEMENT sur la DATA fournie** : Le score doit refléter l'évidence statistique et la dynamique de l'équipe, pas simplement suivre ou inverser la cote du bookmaker. N'invente AUCUNE donnée.
- 2. **Ordre Strict** : Dans le JSON, les paris de chaque catégorie doivent être triés par ordre de confiance décroissant.
+ 2. **Confronte ton estimation au marché** : Quand la section [ODDS] indique une probabilité implicite ("Market-implied: ..."), forme-toi ta propre estimation à partir des stats PUIS compare-la explicitement à celle du marché dans ton `analysis` — dis si tu es d'accord ou non, et pourquoi.
+ 3. **Ordre Strict** : Dans le JSON, les paris de chaque catégorie doivent être triés par ordre de confiance décroissant.
  
   ## GARDE-FOU DE COHÉRENCE ET PRÉCISION (CRITIQUE)
 - **ALIGNEMENT SÉLECTION-ANALYSE** : L'analyse doit être le miroir de ton pari. Si tu recommandes un "Over", ton texte doit expliquer pourquoi le score sera élevé (rythme, adresse), et non parler uniquement du vainqueur.
@@ -150,7 +155,8 @@ TENNIS_SYSTEM_PROMPT = """Tu es un analyste expert en tennis, capable de décryp
  
  **RÈGLES POUR LE SCORE DE CONFIANCE (`confidence_score`) :**
  1. **Fondé EXCLUSIVEMENT sur la DATA fournie** : Le score doit refléter la forme, la fatigue et le H2H. N'invente AUCUNE donnée. La cote est un indicateur, pas le seul guide.
- 2. **Ordre Strict** : Trie tes sélections par ordre de confiance décroissant dans chaque catégorie.
+ 2. **Confronte ton estimation au marché** : Quand la section [ODDS] indique une probabilité implicite ("Market-implied: ..."), forme-toi ta propre estimation à partir des stats PUIS compare-la explicitement à celle du marché dans ton `analysis` — dis si tu es d'accord ou non, et pourquoi.
+ 3. **Ordre Strict** : Trie tes sélections par ordre de confiance décroissant dans chaque catégorie.
  
   ## GARDE-FOU DE COHÉRENCE ET PRÉCISION (CRITIQUE)
 - **ALIGNEMENT SÉLECTION-ANALYSE** : Ton texte d'analyse doit prouver pourquoi la sélection spécifique que tu as faite est la meilleure. Ne fais pas une analyse générale de l'état de forme pour chaque pari; personnalise l'argumentaire en fonction du marché (Vainqueur, Nombre de Sets, etc.).
@@ -249,7 +255,7 @@ RAPPEL IMPORTANT : Chaque catégorie (`high_confidence`, `medium_confidence`, `r
 # MAIN FUNCTION
 # ═══════════════════════════════════════════════════════════════════
 
-async def build_audit_prompt(sport: str, match_id: int, context: Optional[Union[str, Dict[str, Any]]] = None) -> Tuple[str, str, str]:
+async def build_audit_prompt(sport: str, match_id: int, context: Optional[Union[str, Dict[str, Any]]] = None) -> Tuple[str, str, int]:
     """
     Builds the full AI audit prompt for a match.
 
@@ -259,19 +265,28 @@ async def build_audit_prompt(sport: str, match_id: int, context: Optional[Union[
         context: the match text (str) or raw data (dict).
 
     Returns:
-        Tuple (system_prompt, user_prompt, context_str).
+        Tuple (system_prompt, user_prompt, confidence_ceiling) — the ceiling
+        is the max confidence_score allowed for this match given real
+        data-completeness signals (see confidence_ceiling.py); also embedded
+        as a hard instruction in user_prompt, but returned separately so the
+        caller can enforce it server-side too (confidence_generator.
+        validate_analysis) rather than trusting the prompt alone.
     """
     if sport not in SPORT_PROMPTS:
         raise ValueError(f"Unsupported sport: {sport}. Choices: {list(SPORT_PROMPTS.keys())}")
 
-    # 1. Fetch or transform the context
-    from app.engine.data_aggregation import get_match_context, format_context
+    # 1. Fetch or transform the context, keeping the raw dict around (when
+    #    available) to compute the confidence ceiling from real signals.
+    from app.engine.data_aggregation import get_match_raw_context, format_context
 
+    raw_context: Optional[Dict[str, Any]] = None
     if context is None:
         logger.info(f"📊 Building prompt for {sport} #{match_id} (Fetching context)...")
-        context_str = await get_match_context(sport, match_id)
+        raw_context = await get_match_raw_context(sport, match_id)
+        context_str = format_context(sport, raw_context)
     elif isinstance(context, dict):
         logger.info(f"📊 Building prompt for {sport} #{match_id} (Formatting raw dict)...")
+        raw_context = context
         context_str = format_context(sport, context)
     else:
         context_str = context
@@ -279,14 +294,40 @@ async def build_audit_prompt(sport: str, match_id: int, context: Optional[Union[
     if not context_str or "[MATCH" not in context_str:
         raise RuntimeError(f"Invalid or empty context for {sport} #{match_id}.")
 
+    # 1b. Confidence ceiling — deterministic, computed here rather than left
+    # to the LLM. Tier lookup only covers football/basketball (tennis's
+    # tour/gender data isn't in the DB yet — see tier_scope.py); unknown
+    # tier is treated as neutral, not guessed at.
+    is_top_tier = None
+    if raw_context:
+        league_api_id = ((raw_context.get("match") or {}).get("league") or {}).get("api_id")
+        if league_api_id is not None:
+            if sport == "football":
+                is_top_tier = is_football_top_tier(league_api_id)
+            elif sport == "basketball":
+                is_top_tier = is_basketball_top_tier(league_api_id)
+        ceiling = compute_confidence_ceiling(sport, raw_context, is_top_tier)
+    else:
+        # Pre-built text context with no raw dict to inspect — can't assess
+        # completeness, so don't penalize what we can't see.
+        ceiling = CEILING_BASE
+
     # 2. Select the matching system prompt
     system_prompt = SPORT_PROMPTS[sport]
 
-    # 3. Build the user_prompt = text report + expected format
-    user_prompt = f"Analyse ce match à partir du rapport suivant et produis ton audit JSON :\n\n{context_str}{OUTPUT_FORMAT}"
+    # 3. Build the user_prompt = text report + ceiling instruction + expected format
+    ceiling_section = (
+        f"\n\n[CONFIDENCE CEILING]\n"
+        f"Aucun confidence_score de cette analyse ne peut dépasser {ceiling}, quelle que soit "
+        f"la catégorie (HIGH/MEDIUM/RISKY) — ce plafond reflète la qualité/complétude réelle "
+        f"des données disponibles pour ce match (niveau de compétition, présence des cotes, "
+        f"présence d'un historique H2H). Si ton évaluation naturelle dépasserait ce plafond, "
+        f"utilise le plafond comme score maximum."
+    )
+    user_prompt = f"Analyse ce match à partir du rapport suivant et produis ton audit JSON :\n\n{context_str}{ceiling_section}{OUTPUT_FORMAT}"
 
-    logger.info(f"✅ Prompt built: system={len(system_prompt)} chars, user={len(user_prompt)} chars")
-    return system_prompt, user_prompt, context
+    logger.info(f"✅ Prompt built: system={len(system_prompt)} chars, user={len(user_prompt)} chars, ceiling={ceiling}")
+    return system_prompt, user_prompt, ceiling
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -304,8 +345,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     async def main():
-        system_prompt, user_prompt, context = await build_audit_prompt(args.sport, args.match_id)
-        
+        system_prompt, user_prompt, ceiling = await build_audit_prompt(args.sport, args.match_id)
+        print(f"Confidence ceiling: {ceiling}")
+
         if args.system:
             print("═" * 60)
             print("SYSTEM PROMPT")
