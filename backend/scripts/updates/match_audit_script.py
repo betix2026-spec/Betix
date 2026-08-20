@@ -11,8 +11,15 @@ import asyncio
 import json
 import logging
 import argparse
+import sys
+import os
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional
+
+# Path setup so this also works run directly (python scripts/updates/match_audit_script.py),
+# not just imported from within the running app (which already has the
+# project root on sys.path via how uvicorn starts it).
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from app.engine.data_aggregation import get_match_context
 from app.engine.confidence_generator import generate_confidence, DEFAULT_MODEL

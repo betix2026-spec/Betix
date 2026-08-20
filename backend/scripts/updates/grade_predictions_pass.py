@@ -13,7 +13,14 @@ several passes.
 """
 
 import logging
+import sys
+import os
 from datetime import datetime, timezone
+
+# Path setup so this also works run directly (python scripts/updates/grade_predictions_pass.py),
+# not just imported from within the running app (which already has the
+# project root on sys.path via how uvicorn starts it).
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from app.config import get_settings
 from app.services.ingestion.base_client import SupabaseREST
