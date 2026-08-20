@@ -2,6 +2,7 @@
 import asyncio
 import logging
 import json
+import httpx
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 
@@ -527,13 +528,63 @@ class DataAggregator:
                     # Replace generic Home/Away with actual team/player names
                     label = label.replace("Home", home_name).replace("Away", away_name)
                     formatted_sel.append(f"{label}: {s.get('odds')}")
-                
-                lines.append(f"{market_renames.get(market, market)}: {' | '.join(formatted_sel)}")
+
+                renamed_market = market_renames.get(market, market)
+                line = f"{renamed_market}: {' | '.join(formatted_sel)}"
+
+                # For the primary market only: append the market-implied
+                # probability (de-vigged: 1/odds, normalized so it doesn't
+                # include the bookmaker's overround). The AI is bad at doing
+                # this arithmetic itself and was previously handed raw odds
+                # with nothing to reason against — this gives it an actual
+                # number to compare its own view to instead of vague "the
+                # odds suggest..." narrative.
+                if renamed_market == "Match Winner":
+                    implied = self._implied_probabilities(selections, home_name, away_name)
+                    if implied:
+                        line += f" (Market-implied: {implied})"
+
+                lines.append(line)
             except Exception:
                 continue
-        
+
         return "\n".join(lines)
-    
+
+    @staticmethod
+    def _implied_probabilities(selections: list, home_name: str, away_name: str) -> Optional[str]:
+        """De-vigged implied win% from a market's selections — same math as
+        the frontend's dashboard market teaser (matchList.ts's
+        impliedWinPct): 1/odds per outcome, normalized so they sum to 100%,
+        which removes the bookmaker's overround. Returns None if the
+        home/away odds can't be read cleanly."""
+        home_odds = away_odds = draw_odds = None
+        for s in selections:
+            label = str(s.get("label", "")).strip().lower()
+            odds = s.get("odds")
+            if not odds or odds <= 0:
+                continue
+            if label == "home":
+                home_odds = odds
+            elif label == "away":
+                away_odds = odds
+            elif label == "draw":
+                draw_odds = odds
+
+        if not home_odds or not away_odds:
+            return None
+
+        inv_home = 1 / home_odds
+        inv_away = 1 / away_odds
+        inv_draw = (1 / draw_odds) if draw_odds else 0
+        total = inv_home + inv_away + inv_draw
+        if total <= 0:
+            return None
+
+        parts = [f"{home_name} {round(inv_home / total * 100)}%", f"{away_name} {round(inv_away / total * 100)}%"]
+        if draw_odds:
+            parts.insert(1, f"Draw {round(inv_draw / total * 100)}%")
+        return " / ".join(parts)
+
     @staticmethod
     def _filter_relevant_selections(selections: list, keep: int = 20) -> list:
         """Filter high-volume markets to keep only the most relevant selections.
@@ -581,10 +632,13 @@ class DataAggregator:
 
     async def fetch_match_details(self, sport: str, match_id: int) -> Dict[str, Any]:
         table = f"{sport}_matches"
-        columns = "date_time,venue,status,league_id"
+        # league:league_id(api_id) — the external API-Sports league ID, needed to
+        # check tier_scope.is_football_top_tier()/is_basketball_top_tier() for the
+        # confidence ceiling (those take the external id, not this table's internal FK).
+        columns = "date_time,venue,status,league_id,league:league_id(api_id)"
         if sport == 'football':
             columns += ",round,referee_name,weather"
-        
+
         rows = self.db.select(table, columns, {"id": match_id})
         if not rows:
             return {}
@@ -710,7 +764,79 @@ class DataAggregator:
         return {"home": home_elo, "away": away_elo}
 
     async def fetch_injuries(self, sport: str, match_id: int) -> Dict[str, List[Any]]:
-        return {"home": [], "away": []}
+        """
+        Football only — no confirmed API-Basketball injuries endpoint exists
+        (or is referenced anywhere in this codebase); rather than guess at
+        one, basketball/tennis stay honestly empty until a real source is
+        confirmed, same as before this method did anything at all.
+
+        Live fetch (not pre-ingested/stored) — injury news changes right up
+        to kickoff, and this only runs at analysis-generation time (proactive
+        pass within ~24h of kickoff, or on-demand), not on every dashboard
+        page load, so the extra API call is bounded and the data is always
+        as fresh as it can be.
+
+        Returns pre-formatted strings (e.g. "Messi (out, hamstring)"), matching
+        what _format_team_form()'s ', '.join(injuries) already expects.
+        """
+        empty = {"home": [], "away": []}
+        if sport != "football":
+            return empty
+
+        try:
+            match_rows = self.db.select(
+                "football_matches", "api_id,home_team_id,away_team_id", {"id": match_id}
+            )
+            if not match_rows or not match_rows[0].get("api_id"):
+                return empty
+            fixture_api_id = match_rows[0]["api_id"]
+            home_team_id = match_rows[0].get("home_team_id")
+            away_team_id = match_rows[0].get("away_team_id")
+
+            team_rows = self.db.select_raw(
+                "teams", f"select=id,api_id&id=in.({home_team_id},{away_team_id})"
+            )
+            team_side_by_api_id = {}
+            for row in team_rows or []:
+                if row.get("id") == home_team_id:
+                    team_side_by_api_id[row.get("api_id")] = "home"
+                elif row.get("id") == away_team_id:
+                    team_side_by_api_id[row.get("api_id")] = "away"
+
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(
+                    f"{self.settings.API_FOOTBALL_BASE_URL}/injuries",
+                    headers={"x-apisports-key": self.settings.API_SPORTS_KEY},
+                    params={"fixture": fixture_api_id},
+                )
+                resp.raise_for_status()
+                data = resp.json()
+
+            result = {"home": [], "away": []}
+            for item in data.get("response", []) or []:
+                if not isinstance(item, dict):
+                    continue
+                team_api_id = (item.get("team") or {}).get("id")
+                side = team_side_by_api_id.get(team_api_id)
+                if not side:
+                    continue
+                player_name = (item.get("player") or {}).get("name")
+                if not player_name:
+                    continue
+                status = (item.get("player") or {}).get("type") or item.get("type") or "unknown"
+                reason = (item.get("player") or {}).get("reason") or item.get("reason")
+                label = f"{player_name} ({status}, {reason})" if reason else f"{player_name} ({status})"
+                result[side].append(label)
+
+            return result
+        except Exception as e:
+            # Never let an injuries-API hiccup break the whole analysis —
+            # same "return safe defaults" convention as every other fetcher
+            # in this aggregator (see the asyncio.gather(..., return_exceptions=True)
+            # call site, which already handles this, but a defensive try/except
+            # here keeps a partial failure from producing a malformed result shape).
+            logger.warning(f"⚠️ Injuries fetch failed for football match {match_id}: {e}")
+            return empty
 
     # =========================================================================
     # TENNIS FETCHERS
