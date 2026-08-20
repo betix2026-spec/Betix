@@ -813,6 +813,11 @@ class DataAggregator:
                 data = resp.json()
 
             result = {"home": [], "away": []}
+            # API-Football's /injuries?fixture= has been observed returning the
+            # same player twice with identical data (confirmed via a live
+            # smoke test — see draft/check_injuries_api.py) — dedupe by
+            # (side, player_id) rather than trust the response is unique.
+            seen = set()
             for item in data.get("response", []) or []:
                 if not isinstance(item, dict):
                     continue
@@ -820,11 +825,18 @@ class DataAggregator:
                 side = team_side_by_api_id.get(team_api_id)
                 if not side:
                     continue
-                player_name = (item.get("player") or {}).get("name")
+                player = item.get("player") or {}
+                player_id = player.get("id")
+                player_name = player.get("name")
                 if not player_name:
                     continue
-                status = (item.get("player") or {}).get("type") or item.get("type") or "unknown"
-                reason = (item.get("player") or {}).get("reason") or item.get("reason")
+                dedupe_key = (side, player_id if player_id is not None else player_name)
+                if dedupe_key in seen:
+                    continue
+                seen.add(dedupe_key)
+
+                status = player.get("type") or item.get("type") or "unknown"
+                reason = player.get("reason") or item.get("reason")
                 label = f"{player_name} ({status}, {reason})" if reason else f"{player_name} ({status})"
                 result[side].append(label)
 
