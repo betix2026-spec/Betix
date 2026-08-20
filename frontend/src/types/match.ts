@@ -58,6 +58,8 @@ export interface Match {
         topLevel?: PredictionLevel;
         topConfidence?: number;
         topOdds?: number;
+        topMarket?: string;
+        topSelection?: string;
     };
     // Always-on, non-AI fallback teaser (implied odds win%, or recent-form
     // when odds aren't available) — see getMarketTeasers() in

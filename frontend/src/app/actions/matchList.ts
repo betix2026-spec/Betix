@@ -1,6 +1,7 @@
 "use server"
 
 import { createClient } from "@supabase/supabase-js"
+import { localizeAnalysisText, type Locale } from "@/lib/i18n"
 
 // Same top-tier scope as backend/app/engine/tier_scope.py, matched here by
 // league display name since public.matches has no league_id — only
@@ -24,6 +25,8 @@ export type AuditSummary = {
     topLevel?: "safe" | "value" | "risky";
     topConfidence?: number;
     topOdds?: number;
+    topMarket?: string;
+    topSelection?: string;
 };
 
 export type MatchListItem = {
@@ -52,7 +55,8 @@ function isInScope(sport: string, leagueName: string): boolean {
  * generated — the detail page still generates on demand either way).
  */
 export async function getAuditSummaries(
-    matches: MatchListItem[]
+    matches: MatchListItem[],
+    locale?: Locale | null
 ): Promise<Record<string, AuditSummary>> {
     const result: Record<string, AuditSummary> = {};
 
@@ -133,6 +137,8 @@ export async function getAuditSummaries(
                 topLevel: highest ? "safe" : medium ? "value" : "risky",
                 topConfidence: top.confidence_score,
                 topOdds: top.odds,
+                topMarket: top.market ? localizeAnalysisText(top.market, locale) : undefined,
+                topSelection: top.selection ? localizeAnalysisText(top.selection, locale) : undefined,
             };
         }
     }

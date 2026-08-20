@@ -3316,6 +3316,7 @@ const literalTranslations: Record<string, Partial<Record<Locale, string>>> = {
     "semaine": { en: "week", es: "semana", de: "Woche" },
     "semestre": { en: "half-year", es: "semestre", de: "Halbjahr" },
     "trimestre": { en: "quarter", es: "trimestre", de: "Quartal" },
+    "vs": { en: "vs", es: "vs", de: "vs" },
     "vs 30j": { en: "vs 30d", es: "vs 30d", de: "vs 30T" },
     "0 absents majeurs": { en: "0 major absences", es: "0 ausencias importantes", de: "0 wichtige Ausfaelle" },
     "Close": { fr: "Fermer", es: "Cerrar", de: "Schliessen" },

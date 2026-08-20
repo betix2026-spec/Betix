@@ -42,10 +42,8 @@ export function MatchTable({ items }: MatchTableProps) {
                         <TableHead className="w-[80px] sm:w-[100px] text-xs uppercase tracking-wider font-semibold text-muted-foreground">{copy("Heure")}</TableHead>
                         {/* League: Hidden on mobile */}
                         <TableHead className="hidden md:table-cell w-[180px] text-xs uppercase tracking-wider font-semibold text-muted-foreground">{copy("Ligue")}</TableHead>
-                        {/* Match: Visible - Expanded on mobile */}
+                        {/* Match: Visible - Expanded on mobile. Score is merged inline once the match has one. */}
                         <TableHead className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">{copy("Match")}</TableHead>
-                        {/* Score: Hidden on mobile (merged into Match) */}
-                        <TableHead className="hidden md:table-cell text-center w-[100px] text-xs uppercase tracking-wider font-semibold text-muted-foreground">{copy("Score")}</TableHead>
                         {/* IA: Visible (compact mobile) */}
                         <TableHead className="w-[80px] md:w-[140px] text-xs uppercase tracking-wider font-semibold text-muted-foreground text-right md:text-left">{copy("Confiance")}</TableHead>
                         <TableHead className="w-[40px] md:w-[50px]"></TableHead>
@@ -184,7 +182,13 @@ export function MatchTable({ items }: MatchTableProps) {
                                                     )}
                                                 </div>
                                             </div>
-                                            <span className="text-xs text-muted-foreground font-mono">vs</span>
+                                            <span className={cn("text-xs font-mono shrink-0", (isLive || isFinished) ? "text-white font-bold text-sm" : "text-muted-foreground")}>
+                                                {isLive || isFinished
+                                                    ? (match.sport === "tennis" && match.scoreDisplay
+                                                        ? match.scoreDisplay
+                                                        : `${match.homeScore ?? 0}:${match.awayScore ?? 0}`)
+                                                    : copy("vs")}
+                                            </span>
                                             <div className="flex items-center gap-3 flex-1">
                                                 <div className="size-10 rounded-full bg-neutral-900 border border-white/10 flex items-center justify-center overflow-hidden shrink-0">
                                                     {match.awayTeam.logo ? (
@@ -198,26 +202,12 @@ export function MatchTable({ items }: MatchTableProps) {
                                         </div>
                                     </TableCell>
 
-                                    {/* 4. Score (Desktop Only) */}
-                                    <TableCell className="text-center hidden md:table-cell">
-                                        {isLive || match.status === "finished" ? (
-                                            <Badge variant="outline" className="font-mono bg-neutral-900 border-white/10 text-white">
-                                                {match.sport === "tennis" && match.scoreDisplay
-                                                    ? match.scoreDisplay
-                                                    : `${match.homeScore ?? 0} - ${match.awayScore ?? 0}`
-                                                }
-                                            </Badge>
-                                        ) : (
-                                            <span className="text-xs text-muted-foreground">-</span>
-                                        )}
-                                    </TableCell>
-
-                                    {/* 5. AI Confidence */}
+                                    {/* 4. AI Confidence */}
                                     <TableCell className="text-right md:text-left">
                                         <ConfidenceBadge badge={match.confidenceBadge} topPrediction={topPrediction} marketTeaser={match.marketTeaser} />
                                     </TableCell>
 
-                                    {/* 6. Action Toggle */}
+                                    {/* 5. Action Toggle */}
                                     <TableCell>
                                         <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground">
                                             {isExpanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
@@ -228,7 +218,7 @@ export function MatchTable({ items }: MatchTableProps) {
                                 {/* Expanded Content (Accordion) */}
                                 {isExpanded && (
                                     <TableRow className="border-white/5 bg-white/[0.02] hover:bg-white/[0.02]">
-                                        <TableCell colSpan={6} className="p-0">
+                                        <TableCell colSpan={5} className="p-0">
                                             <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-6 animate-in slide-in-from-top-2 duration-200">
 
                                                 {/* Prediction Detail (Real data only) */}
@@ -249,18 +239,21 @@ export function MatchTable({ items }: MatchTableProps) {
                                                         </div>
                                                     </div>
                                                 ) : match.confidenceBadge?.status === "ready" && match.confidenceBadge.topLevel ? (
-                                                    // List-view teaser only carries level/confidence/odds, not the bet
-                                                    // description or analysis text — those need the full fetch on the
-                                                    // match detail page.
+                                                    // List-view teaser doesn't have the full analysis text (that needs
+                                                    // the match detail page's own fetch), but it does carry the pick's
+                                                    // market/selection — show that instead of restating the level and
+                                                    // confidence%, which are already visible on the collapsed row's badge.
                                                     <div className="space-y-3 md:border-r border-white/5 md:pr-6">
                                                         <h4 className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-2">
                                                             <Activity className="size-3" /> {copy("Analyse IA")}
                                                         </h4>
                                                         <div className="text-sm text-white font-medium">
-                                                            {copy("Meilleur pari")}{" "}
                                                             <span className="text-primary">
-                                                                {match.confidenceBadge.topLevel.toUpperCase()} · {match.confidenceBadge.topConfidence}%
+                                                                {[match.confidenceBadge.topMarket, match.confidenceBadge.topSelection].filter(Boolean).join(": ")}
                                                             </span>
+                                                            {match.confidenceBadge.topOdds != null && (
+                                                                <span className="text-neutral-400"> ({match.confidenceBadge.topOdds.toFixed(2)})</span>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 ) : match.confidenceBadge?.status === "pending" ? (

@@ -271,10 +271,10 @@ export default function DashboardPage() {
             sport: m.sport,
             leagueName: m.league?.name || "",
         }));
-        getAuditSummaries(items).then(setAuditSummaries).catch(() => { });
+        getAuditSummaries(items, locale).then(setAuditSummaries).catch(() => { });
         getMarketTeasers(items).then(setMarketTeasers).catch(() => { });
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [filteredIdsKey]);
+    }, [filteredIdsKey, locale]);
 
     const liveCount = matches.filter(m => (currentSport === "all" || m.sport === currentSport) && m.status === "live").length;
 
