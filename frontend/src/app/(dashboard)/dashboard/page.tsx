@@ -23,7 +23,7 @@ type SortBy = "time" | "confidence" | "odds";
 
 export default function DashboardPage() {
     const { copy, t, locale } = useI18n();
-    const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+    const [viewMode, setViewMode] = useState<"grid" | "list">("list");
     const [visibleCount, setVisibleCount] = useState(6);
     const [searchTeamA, setSearchTeamA] = useState("");
     const [searchTeamB, setSearchTeamB] = useState("");
