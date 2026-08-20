@@ -24,7 +24,7 @@ export interface KeyFactor {
 export interface Prediction {
     type: string; // e.g., "1N2", "Over/Under"
     bet: string;  // e.g., "Victoire Real"
-    odds: number;
+    odds: number | null; // null when the AI had no real market odds to cite — never fake this as 0
     confidence: number; // 0-100
     level: PredictionLevel;
     analysis: string;

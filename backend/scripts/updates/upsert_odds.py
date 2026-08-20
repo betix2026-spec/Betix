@@ -168,12 +168,24 @@ class OddsIngester:
                 params={"method": "get_odds", "date_start": today, "date_stop": stop, "APIkey": self.api_tennis_key}
             )
             resp.raise_for_status()
-            all_odds = resp.json().get("result", {})
+            data = resp.json()
         except Exception as e:
             logger.error(f"❌ Tennis API error: {e}")
             return []
-        
-        if not all_odds:
+
+        # api-tennis.com returns HTTP 200 even for account-level errors (e.g.
+        # payment required) — the error lives in the body, not the status
+        # code, as {"error": "1", "result": [{"msg": "...", ...}]} where
+        # "result" is a LIST instead of the usual {match_key: {...}} dict.
+        # Same shape rejected elsewhere (discover_matches.py) — check for it
+        # explicitly rather than assume "result" is always a dict.
+        if str(data.get("error", "0")) != "0":
+            msg = (data.get("result") or [{}])[0].get("msg", "unknown error")
+            logger.error(f"❌ Tennis API account error: {msg}")
+            return []
+
+        all_odds = data.get("result", {})
+        if not all_odds or not isinstance(all_odds, dict):
             return []
         
         # Index by api_id to match against our DB matches

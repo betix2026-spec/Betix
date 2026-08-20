@@ -1,410 +1,420 @@
-# 📐 BETIX — Cahier des Charges UI/UX Granulaire
+# 📐 BETIX — Granular UI/UX Functional Specification
 
-> Ce document spécifie chaque page, chaque section, chaque composant, ses états, ses données et son comportement responsive. Il sert de blueprint pour le développement frontend de la Phase 2.
+> This document specifies every page, every section, every component, its states, its data, and its responsive behavior. It served as the blueprint for Phase 2 frontend development.
+>
+> **Status note (added later)**: this is the original Phase 2 design blueprint — translated and lightly corrected, but not rewritten line-by-line against the live UI. Known concrete divergences from what actually shipped:
+> - **Prediction tiers**: shipped as "High Confidence / Medium Confidence / Risky" (with AI-assigned scores of 80-99 / 60-79 / 30-59), not the "Safe / Value / Risky" naming used throughout this spec.
+> - **AI provider**: "Gemini API" (e.g. §11.6, §14.3) is Anthropic Claude in production.
+> - **i18n**: this spec assumes a French-only app with a stray "FR/EN" language toggle in §7.3 — the shipped app has full 4-language i18n (English, French, Spanish, German) via `lib/i18n.ts`. See `frontend/README.md` §2.
+> - **Visual treatment**: after this blueprint, Pricing/Auth/Admin received a further stylistic pass ("High Stakes" pricing, "The Gatekeeper" auth, "Mission Control" admin) — see [`phase2_synthesis.md`](./phase2_synthesis.md) §6.
+> - **Admin dashboard & Users page**: §11 and §12 describe intent that's now actually backed by real data — the admin analytics dashboard was previously mock data and is now wired to the real DB, and the Users page's search/filters/pagination/CSV export/Admin Notes are now fully functional rather than partially wired.
+> - **Admin notifications**: §15.3 envisioned "reply via email client" — the shipped version shows sender identity and an in-app reply action instead.
+>
+> For the current architecture, see `backend/README.md` and `frontend/README.md`. This file remains useful as the original component/behavior-level spec.
 
 ---
 
-## Table des Matières
+## Table of Contents
 
-### Vue Utilisateur
-1. [Composants Globaux (Shared)](#1-composants-globaux-shared)
+### User View
+1. [Global (Shared) Components](#1-global-shared-components)
 2. [Landing Page](#2-landing-page)
-3. [Pages Auth](#3-pages-auth)
+3. [Auth Pages](#3-auth-pages)
 4. [Dashboard](#4-dashboard)
-5. [Page Détail Match](#5-page-détail-match)
-6. [Page Pricing](#6-page-pricing)
-7. [Page Profil Utilisateur](#7-page-profil-utilisateur)
-8. [États Transversaux](#8-états-transversaux)
-9. [Parcours Utilisateurs Détaillés](#9-parcours-utilisateurs-détaillés)
+5. [Match Detail Page](#5-match-detail-page)
+6. [Pricing Page](#6-pricing-page)
+7. [User Profile Page](#7-user-profile-page)
+8. [Cross-Cutting States](#8-cross-cutting-states)
+9. [Detailed User Journeys](#9-detailed-user-journeys)
 
-### Vue Admin (Tour de Contrôle)
+### Admin View (Control Tower)
 10. [Admin — Layout & Navigation](#10-admin--layout--navigation)
-11. [Admin — Dashboard Analytics](#11-admin--dashboard-analytics)
-12. [Admin — Gestion Utilisateurs](#12-admin--gestion-utilisateurs)
-13. [Admin — Gestion Abonnements & Revenus](#13-admin--gestion-abonnements--revenus)
-14. [Admin — Configuration Système](#14-admin--configuration-système)
-15. [Admin — Centre de Notifications](#15-admin--centre-de-notifications)
-16. [Admin — Parcours Admin Détaillés](#16-admin--parcours-admin-détaillés)
+11. [Admin — Analytics Dashboard](#11-admin--analytics-dashboard)
+12. [Admin — User Management](#12-admin--user-management)
+13. [Admin — Subscription & Revenue Management](#13-admin--subscription--revenue-management)
+14. [Admin — System Configuration](#14-admin--system-configuration)
+15. [Admin — Notification Center](#15-admin--notification-center)
+16. [Admin — Detailed Admin Journeys](#16-admin--detailed-admin-journeys)
 
-### Référentiel
-17. [Inventaire Complet des Composants React](#17-inventaire-complet-des-composants-react)
+### Reference
+17. [Complete React Component Inventory](#17-complete-react-component-inventory)
 
 ---
 
-## 1. Composants Globaux (Shared)
+## 1. Global (Shared) Components
 
-Ces composants apparaissent sur plusieurs pages et doivent être conçus en premier.
+These components appear on multiple pages and should be designed first.
 
-### 1.1 `<Navbar />` (Navigation Principale)
+### 1.1 `<Navbar />` (Main Navigation)
 
-**Variantes** :
-- **Public** (Landing, Pricing, Auth) : Logo + Liens (Fonctionnalités, Pricing) + CTA "Se connecter" / "S'inscrire".
-- **Privé** (Dashboard, Match, Profil) : Logo + SportSelector + CreditsCounter + UserMenu.
+**Variants**:
+- **Public** (Landing, Pricing, Auth): Logo + Links (Features, Pricing) + CTA "Log in" / "Sign up".
+- **Private** (Dashboard, Match, Profile): Logo + SportSelector + CreditsCounter + UserMenu.
 
-**Composants internes** :
-| Composant | Description | Données | Interaction |
+**Internal components**:
+| Component | Description | Data | Interaction |
 |---|---|---|---|
-| `<Logo />` | Logo BETIX cliquable | Aucune | Clic → Retour Landing (public) ou Dashboard (privé) |
-| `<NavLinks />` | Liens de navigation | Liste de routes | Clic → Navigation. Active state sur la route courante |
-| `<SportSelector />` | Tabs ⚽🏀🎾 | Sport actif (state) | Clic → Change le sport, recharge les matchs |
-| `<CreditsCounter />` | "2/2 analyses restantes" | `user.free_predictions_used` | Affiche le compteur. Pulse animation quand 0 reste |
-| `<UserMenu />` | Avatar + Dropdown | `user.name`, `user.subscription_status` | Clic → Menu (Profil, Paramètres, Déconnexion). Badge "PRO" si abonné |
+| `<Logo />` | Clickable BETIX logo | None | Click → back to Landing (public) or Dashboard (private) |
+| `<NavLinks />` | Navigation links | List of routes | Click → navigate. Active state on current route |
+| `<SportSelector />` | Tabs ⚽🏀🎾 | Active sport (state) | Click → changes sport, reloads matches |
+| `<CreditsCounter />` | "2/2 analyses remaining" | `user.free_predictions_used` | Shows the counter. Pulse animation when 0 remain |
+| `<UserMenu />` | Avatar + Dropdown | `user.name`, `user.subscription_status` | Click → menu (Profile, Settings, Log out). "PRO" badge if subscribed |
 
-**Comportement Responsive** :
-- **Desktop** (≥1024px) : Barre horizontale fixe en haut, tous les éléments visibles.
-- **Mobile** (<1024px) : Logo + Hamburger menu. SportSelector déplacé sous la navbar comme tabs scrollables horizontalement. CreditsCounter dans le menu hamburger.
+**Responsive Behavior**:
+- **Desktop** (≥1024px): fixed horizontal bar at top, all elements visible.
+- **Mobile** (<1024px): Logo + hamburger menu. SportSelector moves below the navbar as horizontally scrollable tabs. CreditsCounter moves into the hamburger menu.
 
-**États** :
-- `scrolled` : Quand l'utilisateur scrolle, la navbar passe en fond `bg-slate-900/80 backdrop-blur-lg` (glassmorphism).
-- `menu-open` : Sur mobile, le menu s'ouvre en overlay plein écran avec animation slide-in.
+**States**:
+- `scrolled`: When the user scrolls, the navbar switches to `bg-slate-900/80 backdrop-blur-lg` (glassmorphism).
+- `menu-open`: On mobile, the menu opens as a full-screen overlay with a slide-in animation.
 
 ---
 
 ### 1.2 `<Footer />`
 
-**Utilisé sur** : Landing, Pricing uniquement (pas dans le Dashboard).
+**Used on**: Landing, Pricing only (not in the Dashboard).
 
-**Sections** :
-| Section | Contenu |
+**Sections**:
+| Section | Content |
 |---|---|
-| Colonne 1 — Brand | Logo + Tagline ("Pronostics IA pour parieurs exigeants") |
-| Colonne 2 — Produit | Liens : Fonctionnalités, Pricing, FAQ |
-| Colonne 3 — Légal | Liens : CGU, Politique de confidentialité, Mentions légales |
-| Colonne 4 — Contact | Email support, Réseaux sociaux (icônes) |
-| Barre du bas | "© 2026 BETIX. Tous droits réservés." + Avertissement jeu responsable |
+| Column 1 — Brand | Logo + Tagline ("AI predictions for demanding bettors") |
+| Column 2 — Product | Links: Features, Pricing, FAQ |
+| Column 3 — Legal | Links: Terms of Service, Privacy Policy, Legal Notices |
+| Column 4 — Contact | Support email, social icons |
+| Bottom bar | "© 2026 BETIX. All rights reserved." + responsible gambling notice |
 
-**Responsive** : 4 colonnes desktop → 2 colonnes tablette → 1 colonne mobile (empilées).
+**Responsive**: 4 columns desktop → 2 columns tablet → 1 column mobile (stacked).
 
 ---
 
 ### 1.3 `<Toast />` (Notifications)
 
-Notifications éphémères qui apparaissent en bas à droite (desktop) ou en haut (mobile).
+Ephemeral notifications appearing bottom-right (desktop) or top (mobile).
 
-| Type | Couleur | Icône | Exemple |
+| Type | Color | Icon | Example |
 |---|---|---|---|
-| `success` | Emerald | ✅ | "Abonnement activé avec succès !" |
-| `error` | Red | ❌ | "Erreur de paiement. Veuillez réessayer." |
-| `info` | Blue | ℹ️ | "Nouvelle analyse disponible pour PSG vs Marseille" |
-| `warning` | Amber | ⚠️ | "Il ne vous reste qu'une analyse gratuite" |
+| `success` | Emerald | ✅ | "Subscription activated successfully!" |
+| `error` | Red | ❌ | "Payment error. Please try again." |
+| `info` | Blue | ℹ️ | "New analysis available for PSG vs Marseille" |
+| `warning` | Amber | ⚠️ | "You have only one free analysis left" |
 
-**Comportement** : Apparaît avec animation slide-in, disparaît après 5s ou au clic sur "×".
+**Behavior**: appears with a slide-in animation, disappears after 5s or when the "×" is clicked.
 
 ---
 
 ### 1.4 `<LoadingSkeleton />`
 
-Placeholder animé (shimmer effect) affiché pendant le chargement des données.
+Animated placeholder (shimmer effect) shown while data loads.
 
-**Variantes** :
-- `skeleton-card` : Forme de carte match (rectangle arrondi).
-- `skeleton-text` : Lignes de texte (3-4 barres de hauteurs variables).
-- `skeleton-gauge` : Cercle pour la jauge de confiance.
+**Variants**:
+- `skeleton-card`: match-card shape (rounded rectangle).
+- `skeleton-text`: text lines (3-4 bars of varying widths).
+- `skeleton-gauge`: circle for the confidence gauge.
 
 ---
 
 ### 1.5 `<PaywallOverlay />`
 
-Composant de blocage qui apparaît par-dessus le contenu pour les utilisateurs gratuits ayant épuisé leur quota.
+Blocking component shown over content for free users who've used up their quota.
 
-**Structure** :
-- Fond : `backdrop-blur-md` (le contenu réel est flouté en arrière-plan, visible mais illisible).
-- Cadre central :
-  - Icône 🔒
-  - Titre : "Débloquez l'analyse complète"
-  - Sous-titre : "Accédez à toutes les analyses IA pour seulement 1€/mois"
-  - `<Button variant="primary" size="lg">` → "Passer Premium"
-  - Lien discret : "Voir les offres"
+**Structure**:
+- Background: `backdrop-blur-md` (real content is blurred behind it, visible but unreadable).
+- Central frame:
+  - 🔒 icon
+  - Title: "Unlock the full analysis"
+  - Subtitle: "Get every AI analysis for just €1/month"
+  - `<Button variant="primary" size="lg">` → "Go Premium"
+  - Discreet link: "See plans"
 
-**Données requises** : `user.subscription_status`, `user.free_predictions_used`.
+**Required data**: `user.subscription_status`, `user.free_predictions_used`.
 
 ---
 
 ## 2. Landing Page
 
-**Route** : `/`
-**Objectif** : Conversion visiteur → inscription.
-**Layout** : Page scroll unique (one-page), pas de sidebar.
+**Route**: `/`
+**Goal**: visitor → signup conversion.
+**Layout**: single-scroll page (one-page), no sidebar.
 
-### 2.1 Section Hero
+### 2.1 Hero Section
 
-| Composant | Détail |
+| Component | Detail |
 |---|---|
-| `<HeroHeadline />` | Titre principal : ex. "L'IA qui bat les bookmakers". Police `text-5xl font-bold` desktop, `text-3xl` mobile. Gradient text (blue → indigo) |
-| `<HeroSubtitle />` | Sous-titre explicatif (1-2 lignes). `text-lg text-slate-400` |
-| `<HeroCTA />` | Deux boutons : "Essai Gratuit" (Primary, grand) + "Voir une démo" (Ghost). Espacement horizontal desktop, empilés verticalement mobile |
-| `<HeroVisual />` | Image ou illustration animée d'un dashboard. Positionnée à droite (desktop) ou en dessous (mobile). Effet parallaxe léger au scroll |
-| `<TrustBadges />` | Bandeau sous le hero : "🔒 Données sécurisées · ⚡ Analyses en temps réel · 🎯 +10 000 pronostics générés". `text-sm text-slate-500` |
+| `<HeroHeadline />` | Main title: e.g. "The AI that beats the bookmakers". `text-5xl font-bold` desktop, `text-3xl` mobile. Gradient text (blue → indigo) |
+| `<HeroSubtitle />` | Explanatory subtitle (1-2 lines). `text-lg text-slate-400` |
+| `<HeroCTA />` | Two buttons: "Free Trial" (Primary, large) + "See a demo" (Ghost). Horizontal spacing desktop, stacked vertically mobile |
+| `<HeroVisual />` | Animated image/illustration of a dashboard. Positioned right (desktop) or below (mobile). Light parallax effect on scroll |
+| `<TrustBadges />` | Strip below the hero: "🔒 Secure data · ⚡ Real-time analysis · 🎯 10,000+ predictions generated". `text-sm text-slate-500` |
 
-**Données** : Statiques (pas d'appel API).
+**Data**: static (no API call).
 
 ---
 
-### 2.2 Section "Comment ça marche" (How It Works)
+### 2.2 "How It Works" Section
 
-3 étapes illustrées en colonnes :
-| Étape | Icône | Titre | Description |
+3 steps illustrated in columns:
+| Step | Icon | Title | Description |
 |---|---|---|---|
-| 1 | 📊 | "On collecte les données" | "Stats de forme, blessures, confrontations directes, météo... Notre IA digère des centaines de points de données." |
-| 2 | 🧠 | "L'IA analyse" | "Notre moteur d'intelligence artificielle croise les données et génère 3 scénarios de pari." |
-| 3 | 🎯 | "Vous décidez" | "Choisissez le niveau de risque qui vous correspond : Safe, Intermédiaire, ou Risqué." |
+| 1 | 📊 | "We collect the data" | "Form stats, injuries, head-to-heads, weather... Our AI digests hundreds of data points." |
+| 2 | 🧠 | "The AI analyzes" | "Our AI engine cross-references the data and generates 3 betting scenarios." |
+| 3 | 🎯 | "You decide" | "Pick the risk level that suits you: Safe, Balanced, or Risky." |
 
-**Composant** : `<StepCard />` avec icône animée au scroll (fade-in + slide-up).
-**Responsive** : 3 colonnes desktop → empilées verticalement mobile.
+**Component**: `<StepCard />` with icon animating on scroll (fade-in + slide-up).
+**Responsive**: 3 columns desktop → stacked vertically mobile.
 
 ---
 
-### 2.3 Section "Sports Couverts"
+### 2.3 "Sports Covered" Section
 
-3 cartes Sport côte à côte :
-| Composant | Détail |
+3 sport cards side by side:
+| Component | Detail |
 |---|---|
-| `<SportShowcaseCard />` | Grande carte avec : Icône sport + Nom + Exemples de ligues couvertes + Nombre de matchs analysés par jour (mock). Effet hover : légère élévation + border glow couleur sport |
+| `<SportShowcaseCard />` | Large card with: sport icon + name + example covered leagues + number of matches analyzed per day (mock). Hover effect: slight lift + sport-colored border glow |
 
-**Sports** :
-- ⚽ Football : "Premier League, Liga, Ligue 1, Champions League..."
-- 🏀 Basketball : "NBA, Euroleague, Liga ACB..."
-- 🎾 Tennis : "ATP, WTA, Grand Slams..."
-
----
-
-### 2.4 Section "Exemple de Prédiction" (Live Demo)
-
-**Composant** : `<DemoPredictor />`
-
-C'est un **mini-widget interactif** montrant un exemple de prédiction fictive. L'utilisateur peut cliquer sur les onglets Safe/Medium/Risky pour voir les différents niveaux.
-
-**Structure** :
-- En-tête : Match fictif ("PSG vs Marseille — Ligue 1").
-- 3 onglets cliquables (Safe 🟢 / Value 🟡 / Risky 🔴).
-- Contenu de l'onglet actif :
-  - Prédiction : "Victoire PSG + Plus de 2.5 buts"
-  - Cote : "1.65"
-  - Confiance : Jauge à 82%
-  - Résumé : 2-3 lignes d'analyse
-  - Facteurs clés : 3 bullets (✅ Forme domicile, ⚠️ Mbappé incertain, ✅ H2H favorable)
-- **Appel à l'action** sous le widget : "Recevez cette analyse pour vos matchs → Inscription gratuite"
-
-**Note** : Toutes les données sont codées en dur (mock). Pas d'appel API.
+**Sports**:
+- ⚽ Football: "Premier League, La Liga, Ligue 1, Champions League..."
+- 🏀 Basketball: "NBA, Euroleague, Liga ACB..."
+- 🎾 Tennis: "ATP, WTA, Grand Slams..."
 
 ---
 
-### 2.5 Section Témoignages / Social Proof
+### 2.4 "Example Prediction" Section (Live Demo)
 
-| Composant | Détail |
+**Component**: `<DemoPredictor />`
+
+A **mini interactive widget** showing a fictional example prediction. The user can click the Safe/Medium/Risky tabs to see the different tiers.
+
+**Structure**:
+- Header: fictional match ("PSG vs Marseille — Ligue 1").
+- 3 clickable tabs (Safe 🟢 / Value 🟡 / Risky 🔴).
+- Active tab content:
+  - Prediction: "PSG win + Over 2.5 goals"
+  - Odds: "1.65"
+  - Confidence: gauge at 82%
+  - Summary: 2-3 lines of analysis
+  - Key factors: 3 bullets (✅ Home form, ⚠️ Mbappé uncertain, ✅ Favorable H2H)
+- **Call to action** below the widget: "Get this analysis for your matches → Free signup"
+
+**Note**: all data is hardcoded (mock). No API call.
+
+---
+
+### 2.5 Testimonials / Social Proof Section
+
+| Component | Detail |
 |---|---|
-| `<TestimonialCard />` | Photo (avatar), nom, citation, note (★★★★★). Border gauche colorée |
-| Carousel | 3 témoignages, scroll auto ou swipe sur mobile |
+| `<TestimonialCard />` | Photo (avatar), name, quote, rating (★★★★★). Colored left border |
+| Carousel | 3 testimonials, auto-scroll or swipe on mobile |
 
-**Données** : Statiques (fictifs pour le MVP, remplacés par de vrais avis plus tard).
+**Data**: static (fictional for the MVP, replaced with real reviews later).
 
 ---
 
-### 2.6 Section Pricing (Preview)
+### 2.6 Pricing Section (Preview)
 
-Aperçu rapide des tarifs avec un CTA vers la page `/pricing` complète.
+Quick pricing overview with a CTA to the full `/pricing` page.
 
-| Élément | Détail |
+| Element | Detail |
 |---|---|
-| Titre | "Des analyses IA à partir de 1€/mois" |
-| 2 cartes côte à côte | "Gratuit" vs "Premium" avec la liste des fonctionnalités |
-| CTA | "Voir tous les plans" → lien vers `/pricing` |
+| Title | "AI predictions starting at €1/month" |
+| 2 cards side by side | "Free" vs "Premium" with feature list |
+| CTA | "See all plans" → link to `/pricing` |
 
 ---
 
-### 2.7 Section FAQ
+### 2.7 FAQ Section
 
-**Composant** : `<AccordionFAQ />`
-- Liste de questions/réponses en accordéon (clic pour déplier).
-- Questions clés :
-  1. "Est-ce que BETIX garantit des gains ?"
-  2. "Comment fonctionne l'analyse IA ?"
-  3. "Quels sports sont couverts ?"
-  4. "Comment annuler mon abonnement ?"
-  5. "Les données sont-elles fiables ?"
-
----
-
-### 2.8 Section CTA Final
-
-Bandeau plein écran avec gradient (blue → indigo) :
-- Titre : "Prêt à passer au niveau supérieur ?"
-- CTA : "Commencer gratuitement" (bouton blanc sur fond coloré).
+**Component**: `<AccordionFAQ />`
+- List of Q&As in an accordion (click to expand).
+- Key questions:
+  1. "Does BETIX guarantee winnings?"
+  2. "How does the AI analysis work?"
+  3. "Which sports are covered?"
+  4. "How do I cancel my subscription?"
+  5. "Is the data reliable?"
 
 ---
 
-## 3. Pages Auth
+### 2.8 Final CTA Section
 
-### 3.1 Page Login (`/login`)
+Full-width banner with gradient (blue → indigo):
+- Title: "Ready to level up?"
+- CTA: "Get started for free" (white button on colored background).
 
-**Layout** : Split screen (desktop). Gauche = formulaire, Droite = visuel/illustration.
+---
 
-**Composants du formulaire** :
-| Composant | Détail |
+## 3. Auth Pages
+
+### 3.1 Login Page (`/login`)
+
+**Layout**: split screen (desktop). Left = form, right = visual/illustration.
+
+**Form components**:
+| Component | Detail |
 |---|---|
-| `<InputField label="Email" type="email" />` | Validation : format email. État erreur : bordure rouge + message |
-| `<InputField label="Mot de passe" type="password" />` | Toggle visibilité (icône œil). Min 8 caractères |
-| `<Button type="submit">` | "Se connecter" — Disabled si champs vides. Loading spinner pendant la requête |
-| `<OAuthButton provider="google" />` | "Continuer avec Google" — Icône Google + texte |
-| `<Link />` | "Mot de passe oublié ?" → `/reset-password` |
-| `<Link />` | "Pas encore de compte ? S'inscrire" → `/signup` |
+| `<InputField label="Email" type="email" />` | Validation: email format. Error state: red border + message |
+| `<InputField label="Password" type="password" />` | Visibility toggle (eye icon). Min 8 characters |
+| `<Button type="submit">` | "Log in" — disabled if fields are empty. Loading spinner during the request |
+| `<OAuthButton provider="google" />` | "Continue with Google" — Google icon + text |
+| `<Link />` | "Forgot password?" → `/reset-password` |
+| `<Link />` | "Don't have an account? Sign up" → `/signup` |
 
-**États du formulaire** :
-- `idle` : Formulaire vierge.
-- `loading` : Bouton disabled + spinner.
-- `error` : Message sous le champ fautif ("Email ou mot de passe incorrect").
-- `success` : Redirect vers `/dashboard`.
+**Form states**:
+- `idle`: blank form.
+- `loading`: button disabled + spinner.
+- `error`: message under the offending field ("Incorrect email or password").
+- `success`: redirect to `/dashboard`.
 
-**Responsive** : Split screen desktop → formulaire centré plein écran mobile (visuel masqué).
+**Responsive**: split screen desktop → centered full-screen form mobile (visual hidden).
 
 ---
 
-### 3.2 Page Signup (`/signup`)
+### 3.2 Signup Page (`/signup`)
 
-Identique au Login avec les champs supplémentaires :
-| Composant | Détail |
+Same as Login with extra fields:
+| Component | Detail |
 |---|---|
-| `<InputField label="Nom complet" />` | Min 2 caractères |
-| `<InputField label="Email" />` | Validation format + unicité (vérification côté serveur) |
-| `<InputField label="Mot de passe" />` | Min 8 chars, indicateur de force (faible/moyen/fort) |
-| `<InputField label="Confirmer le mot de passe" />` | Doit correspondre au champ précédent |
-| `<Checkbox />` | "J'accepte les CGU et la politique de confidentialité" (obligatoire) |
-| `<Button>` | "Créer mon compte" |
-| `<OAuthButton provider="google" />` | "S'inscrire avec Google" |
+| `<InputField label="Full name" />` | Min 2 characters |
+| `<InputField label="Email" />` | Format + uniqueness validation (server-side check) |
+| `<InputField label="Password" />` | Min 8 chars, strength indicator (weak/medium/strong) |
+| `<InputField label="Confirm password" />` | Must match the previous field |
+| `<Checkbox />` | "I agree to the Terms of Service and Privacy Policy" (required) |
+| `<Button>` | "Create my account" |
+| `<OAuthButton provider="google" />` | "Sign up with Google" |
 
-**Post-inscription** : Redirect vers un écran d'Onboarding.
+**Post-signup**: redirect to an Onboarding screen.
 
 ---
 
-### 3.3 Onboarding Post-Inscription (`/onboarding`)
+### 3.3 Post-Signup Onboarding (`/onboarding`)
 
-**3 étapes (Stepper)** :
+**3 steps (Stepper)**:
 
-| Étape | Composant | Détail |
+| Step | Component | Detail |
 |---|---|---|
-| 1 — "Vos Sports" | `<SportSelectionGrid />` | 3 cartes cliquables (Football, Basketball, Tennis). Multi-sélection. Au moins 1 obligatoire. Effet "selected" = bordure bleue + checkmark |
-| 2 — "Votre Profil" | `<ProfileSetup />` | Niveau d'expérience (Débutant / Intermédiaire / Expert) via `<RadioGroup />` |
-| 3 — "C'est parti !" | `<OnboardingSummary />` | Résumé des choix + CTA "Accéder au Dashboard" |
+| 1 — "Your Sports" | `<SportSelectionGrid />` | 3 clickable cards (Football, Basketball, Tennis). Multi-select. At least 1 required. "Selected" effect = blue border + checkmark |
+| 2 — "Your Profile" | `<ProfileSetup />` | Experience level (Beginner / Intermediate / Expert) via `<RadioGroup />` |
+| 3 — "Let's go!" | `<OnboardingSummary />` | Summary of choices + CTA "Go to Dashboard" |
 
-**Indicateur de progression** : Barre de progression ou dots (●●○).
-**Skip possible** : Lien "Passer" sur chaque étape (sauf la dernière).
+**Progress indicator**: progress bar or dots (●●○).
+**Skip available**: "Skip" link on every step (except the last).
 
 ---
 
-### 3.4 Page Reset Password (`/reset-password`)
+### 3.4 Reset Password Page (`/reset-password`)
 
-| Composant | Détail |
+| Component | Detail |
 |---|---|
-| `<InputField label="Email" />` | Email de récupération |
-| `<Button>` | "Envoyer le lien de réinitialisation" |
-| **État success** | Message "Un email vous a été envoyé à xxx@xxx.com" |
+| `<InputField label="Email" />` | Recovery email |
+| `<Button>` | "Send reset link" |
+| **Success state** | Message "An email has been sent to xxx@xxx.com" |
 
 ---
 
 ## 4. Dashboard
 
-**Route** : `/dashboard`
-**Objectif** : Vue d'ensemble des matchs du jour avec accès rapide aux analyses.
-**Layout** : Navbar (top) + Contenu principal. Pas de sidebar.
+**Route**: `/dashboard`
+**Goal**: overview of today's matches with quick access to analyses.
+**Layout**: Navbar (top) + main content. No sidebar.
 
 ### 4.1 `<DashboardHeader />`
 
-| Composant | Détail |
+| Component | Detail |
 |---|---|
-| `<DateDisplay />` | "Mardi 11 Février 2026". Flèches ← → pour naviguer entre les jours. Bouton "Aujourd'hui" pour revenir |
-| `<MatchCounter />` | "12 matchs disponibles" — Mise à jour dynamique selon les filtres |
-| `<ViewToggle />` | Icônes pour basculer entre vue "Grille" (Bento) et vue "Liste" (compacte) |
+| `<DateDisplay />` | "Tuesday, February 11, 2026". ← → arrows to navigate between days. "Today" button to return |
+| `<MatchCounter />` | "12 matches available" — updates dynamically with filters |
+| `<ViewToggle />` | Icons to switch between "Grid" (Bento) and "List" (compact) views |
 
 ---
 
 ### 4.2 `<SportTabs />`
 
-Tabs horizontaux pour filtrer par sport.
+Horizontal tabs to filter by sport.
 
-| Tab | Label | Icône | Badge |
+| Tab | Label | Icon | Badge |
 |---|---|---|---|
-| Tous | "Tous" | 🏆 | Nombre total de matchs |
-| Football | "Football" | ⚽ | Nombre de matchs foot |
-| Basketball | "Basketball" | 🏀 | Nombre de matchs basket |
-| Tennis | "Tennis" | 🎾 | Nombre de matchs tennis |
+| All | "All" | 🏆 | Total match count |
+| Football | "Football" | ⚽ | Football match count |
+| Basketball | "Basketball" | 🏀 | Basketball match count |
+| Tennis | "Tennis" | 🎾 | Tennis match count |
 
-**État actif** : Background bleu + texte blanc.
-**Responsive** : Tabs scrollables horizontalement sur mobile.
+**Active state**: blue background + white text.
+**Responsive**: horizontally scrollable tabs on mobile.
 
 ---
 
 ### 4.3 `<LeagueFilter />`
 
-Filtre secondaire sous les SportTabs.
-- **Type** : Dropdown multi-sélection OU pills cliquables.
-- **Données** : Liste des ligues disponibles pour le sport sélectionné.
-- **Exemple Football** : "Premier League", "Liga", "Ligue 1", "Serie A", "Bundesliga".
-- **État par défaut** : "Toutes les ligues".
+Secondary filter under SportTabs.
+- **Type**: multi-select dropdown OR clickable pills.
+- **Data**: list of leagues available for the selected sport.
+- **Football example**: "Premier League", "La Liga", "Ligue 1", "Serie A", "Bundesliga".
+- **Default state**: "All leagues".
 
 ---
 
-### 4.4 `<MatchGrid />` (Grille des Matchs)
+### 4.4 `<MatchGrid />` (Match Grid)
 
-**Layout** : CSS Grid — 3 colonnes desktop / 2 tablette / 1 mobile.
+**Layout**: CSS Grid — 3 columns desktop / 2 tablet / 1 mobile.
 
-Chaque cellule contient un `<MatchCard />`.
+Each cell contains a `<MatchCard />`.
 
 ---
 
 ### 4.5 `<MatchCard />`
 
-C'est le composant le plus important du Dashboard. Il doit donner assez d'information pour inciter au clic sans surcharger.
+The most important Dashboard component. It must give enough information to prompt a click without being overloaded.
 
-**Structure interne** :
+**Internal structure**:
 ```
 ┌──────────────────────────────────┐
 │ ⚽ Premier League      19:45    │ ← LeagueBadge + MatchTime
 │                                  │
-│  [Logo] Arsenal  2 - 1  Chelsea [Logo] │ ← TeamRow (logos + noms + score)
+│  [Logo] Arsenal  2 - 1  Chelsea [Logo] │ ← TeamRow (logos + names + score)
 │                                  │
-│  🟢 Safe · 85% confiance        │ ← QuickPredictBadge
+│  🟢 Safe · 85% confidence       │ ← QuickPredictBadge
 │                                  │
-│  ▸ Voir l'analyse               │ ← CTA Link
+│  ▸ See analysis                 │ ← CTA Link
 └──────────────────────────────────┘
 ```
 
-| Sous-Composant | Données | Détail |
+| Sub-Component | Data | Detail |
 |---|---|---|
-| `<LeagueBadge />` | `match.league.name`, `match.league.logo` | Petit logo ligue + nom. `text-xs text-slate-500` |
-| `<MatchTime />` | `match.date` | Heure formatée. Si "LIVE" → `<LiveBadge />` animé rouge pulse |
-| `<TeamRow />` | `match.home_team`, `match.away_team` + logos | Logos 32x32, noms en `font-medium`, score en `font-bold text-xl` (si en cours/terminé) |
-| `<QuickPredictBadge />` | `prediction.confidence_level`, `prediction.confidence_score` | Badge coloré (🟢🟡🔴) + "85% confiance". Visible uniquement si une prédiction existe |
-| `<CTALink />` | — | "Voir l'analyse →". Lien vers `/dashboard/match/[id]` |
+| `<LeagueBadge />` | `match.league.name`, `match.league.logo` | Small league logo + name. `text-xs text-slate-500` |
+| `<MatchTime />` | `match.date` | Formatted time. If "LIVE" → animated red pulsing `<LiveBadge />` |
+| `<TeamRow />` | `match.home_team`, `match.away_team` + logos | 32x32 logos, `font-medium` names, `font-bold text-xl` score (if in progress/finished) |
+| `<QuickPredictBadge />` | `prediction.confidence_level`, `prediction.confidence_score` | Colored badge (🟢🟡🔴) + "85% confidence". Only visible if a prediction exists |
+| `<CTALink />` | — | "See analysis →". Link to `/dashboard/match/[id]` |
 
-**États** :
-- `upcoming` : Score non affiché. Heure visible. Badge "À venir".
-- `live` : Score mis à jour. Badge `<LiveBadge />` rouge pulsant. Bordure gauche verte.
-- `finished` : Score final. Badge "FT" (Full Time). Opacité légèrement réduite.
-- `loading` : `<LoadingSkeleton variant="card" />`.
-- `hover` : `translate-y-[-2px]`, ombre augmentée, bordure subtile bleue.
+**States**:
+- `upcoming`: score not shown. Time visible. "Upcoming" badge.
+- `live`: score updated. Pulsing red `<LiveBadge />`. Green left border.
+- `finished`: final score. "FT" (Full Time) badge. Slightly reduced opacity.
+- `loading`: `<LoadingSkeleton variant="card" />`.
+- `hover`: `translate-y-[-2px]`, increased shadow, subtle blue border.
 
-**Données API** : `GET /api/matches/today?sport={sport}&league={league}`.
+**API data**: `GET /api/matches/today?sport={sport}&league={league}`.
 
 ---
 
 ### 4.6 `<EmptyState />`
 
-Quand aucun match n'est disponible pour les filtres sélectionnés.
-- Illustration (icône triste ou calendrier vide).
-- Texte : "Aucun match de {sport} prévu aujourd'hui."
-- CTA : "Voir les matchs de demain →" ou "Explorer un autre sport".
+When no match is available for the selected filters.
+- Illustration (sad icon or empty calendar).
+- Text: "No {sport} matches scheduled today."
+- CTA: "See tomorrow's matches →" or "Explore another sport".
 
 ---
 
-## 5. Page Détail Match
+## 5. Match Detail Page
 
-**Route** : `/dashboard/match/[id]`
-**Objectif** : Consommer la prédiction IA. C'est LE cœur de la valeur produit.
-**Layout** : Pleine largeur, scroll vertical, sections empilées.
+**Route**: `/dashboard/match/[id]`
+**Goal**: consume the AI prediction. This is THE core of the product's value.
+**Layout**: full width, vertical scroll, stacked sections.
 
 ### 5.1 `<MatchHeader />`
 
-Bandeau en haut de la page avec les infos essentielles du match.
+Top banner with the match's essential info.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -413,284 +423,284 @@ Bandeau en haut de la page avec les infos essentielles du match.
 │     [Logo 64px]                    [Logo 64px]               │
 │      Arsenal          2 — 1         Chelsea                  │
 │                                                              │
-│  📍 Emirates Stadium · ☁️ 12°C · 🕐 Coup d'envoi : 20:45   │
+│  📍 Emirates Stadium · ☁️ 12°C · 🕐 Kickoff: 20:45          │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-| Sous-Composant | Données | Détail |
+| Sub-Component | Data | Detail |
 |---|---|---|
-| `<LeagueInfo />` | `match.league`, `match.round` | Logo + Nom ligue + Journée |
-| `<MatchStatus />` | `match.status`, `match.elapsed` | "LIVE 67'" (pulsant) ou "20:45" ou "Terminé" |
-| `<TeamDisplay />` | `team.name`, `team.logo`, `team.score` | Logo grande taille (64px), nom en `text-2xl font-bold`, score en `text-4xl` |
-| `<MatchContext />` | `match.venue`, `match.weather` | Stade + Météo (important pour tennis/foot). `text-sm text-slate-400` |
+| `<LeagueInfo />` | `match.league`, `match.round` | Logo + league name + matchday |
+| `<MatchStatus />` | `match.status`, `match.elapsed` | "LIVE 67'" (pulsing) or "20:45" or "Finished" |
+| `<TeamDisplay />` | `team.name`, `team.logo`, `team.score` | Large logo (64px), name in `text-2xl font-bold`, score in `text-4xl` |
+| `<MatchContext />` | `match.venue`, `match.weather` | Venue + weather (important for tennis/football). `text-sm text-slate-400` |
 
 ---
 
 ### 5.2 `<PredictionPanel />`
 
-**C'est le composant principal. Il occupe 60-70% de la largeur sur desktop.**
+**The main component. It takes up 60-70% of the width on desktop.**
 
 #### 5.2.1 `<RiskTabs />`
 
-3 onglets pour les niveaux de prédiction :
-| Onglet | Label | Couleur | Cote typique |
+3 tabs for the prediction tiers:
+| Tab | Label | Color | Typical odds |
 |---|---|---|---|
-| Safe | "🟢 Prudent" | Emerald | 1.30–1.70 |
-| Value | "🟡 Équilibré" | Amber | 1.80–2.50 |
-| Risky | "🔴 Risqué" | Red | 3.00+ |
+| Safe | "🟢 Safe" | Emerald | 1.30–1.70 |
+| Value | "🟡 Balanced" | Amber | 1.80–2.50 |
+| Risky | "🔴 Risky" | Red | 3.00+ |
 
-**État actif** : Bordure bottom colorée + fond légèrement teinté.
-**Défaut** : Onglet "Safe" actif.
+**Active state**: colored bottom border + slightly tinted background.
+**Default**: "Safe" tab active.
 
-#### 5.2.2 `<PredictionContent />` (Contenu de l'onglet actif)
+#### 5.2.2 `<PredictionContent />` (Active tab content)
 
-| Sous-Composant | Données | Détail |
+| Sub-Component | Data | Detail |
 |---|---|---|
-| `<PredictionOutcome />` | `prediction.predicted_outcome` | Ex: "Victoire Arsenal + Plus de 2.5 buts". `text-lg font-semibold` |
-| `<OddsDisplay />` | `prediction.odds_value` | Affichage de la cote : "Cote : 1.65". Avec sous-texte "Valeur estimée : ★★★☆☆" |
-| `<ConfidenceGauge />` | `prediction.confidence_score` | **Jauge circulaire SVG** animée. Pourcentage au centre. Couleur dynamique (vert >70%, jaune 50-70%, rouge <50%) |
-| `<AnalysisText />` | `prediction.prediction_text` | Texte d'analyse IA (3-5 paragraphes). Formaté en markdown (gras, italique). Scrollable si trop long |
-| `<KeyFactors />` | `prediction.key_factors[]` | Liste de 4-6 facteurs. Chaque facteur : Icône (✅❌⚠️) + Texte + Impact (Positif/Négatif/Neutre). Rendu avec `<FactorChip />` |
-| `<PredictedScore />` | `prediction.predicted_score` | Score prédit (ex: "2-1"). Affiché dans un mini-badge discret |
+| `<PredictionOutcome />` | `prediction.predicted_outcome` | E.g. "Arsenal win + Over 2.5 goals". `text-lg font-semibold` |
+| `<OddsDisplay />` | `prediction.odds_value` | Odds display: "Odds: 1.65". With subtext "Estimated value: ★★★☆☆" |
+| `<ConfidenceGauge />` | `prediction.confidence_score` | **Animated SVG circular gauge**. Percentage in the center. Dynamic color (green >70%, yellow 50-70%, red <50%) |
+| `<AnalysisText />` | `prediction.prediction_text` | AI analysis text (3-5 paragraphs). Markdown formatted (bold, italic). Scrollable if too long |
+| `<KeyFactors />` | `prediction.key_factors[]` | List of 4-6 factors. Each factor: icon (✅❌⚠️) + text + impact (Positive/Negative/Neutral). Rendered via `<FactorChip />` |
+| `<PredictedScore />` | `prediction.predicted_score` | Predicted score (e.g. "2-1"). Shown in a discreet mini-badge |
 
 #### 5.2.3 `<GatingLayer />`
 
-**Conditionnel** : Apparaît UNIQUEMENT si `user.subscription_status === 'free'` ET `user.free_predictions_used >= 2`.
-- Contenu de `<PredictionContent />` est rendu mais flouté (`blur-md`).
-- `<PaywallOverlay />` est superposé.
+**Conditional**: appears ONLY if `user.subscription_status === 'free'` AND `user.free_predictions_used >= 2`.
+- `<PredictionContent />` content is rendered but blurred (`blur-md`).
+- `<PaywallOverlay />` is overlaid.
 
 ---
 
 ### 5.3 `<StatsPanel />`
 
-**Panneau latéral (desktop) ou section scrollable (mobile) avec les données brutes.**
+**Side panel (desktop) or scrollable section (mobile) with raw data.**
 
 #### 5.3.1 `<FormChart />`
 
-| Composant | Détail |
+| Component | Detail |
 |---|---|
-| Type | Bar chart horizontal ou série de badges |
-| Données | 5 derniers matchs de chaque équipe |
-| Format | V (vert) / N (gris) / D (rouge) pour chaque match |
-| Librairie | Chart.js léger ou composant SVG custom |
+| Type | Horizontal bar chart or badge series |
+| Data | Each team's last 5 matches |
+| Format | W (green) / D (gray) / L (red) for each match |
+| Library | Lightweight Chart.js or custom SVG component |
 
 #### 5.3.2 `<H2HHistory />`
 
-| Composant | Détail |
+| Component | Detail |
 |---|---|
-| Type | Liste des 5 dernières confrontations directes |
-| Par ligne | Date + Score + Compétition |
-| Résumé | "Arsenal : 3 victoires · Nuls : 1 · Chelsea : 1 victoire" |
+| Type | List of the last 5 head-to-head meetings |
+| Per row | Date + Score + Competition |
+| Summary | "Arsenal: 3 wins · Draws: 1 · Chelsea: 1 win" |
 
 #### 5.3.3 `<StandingsWidget />`
 
-| Composant | Détail |
+| Component | Detail |
 |---|---|
-| Type | Mini-tableau de classement (5 lignes : 2 au-dessus, l'équipe, 2 en dessous) |
-| Colonnes | Position, Équipe, Pts, J, V, N, D |
-| Highlight | Ligne de chaque équipe du match surlignée |
+| Type | Mini standings table (5 rows: 2 above, the team, 2 below) |
+| Columns | Position, Team, Pts, P, W, D, L |
+| Highlight | Each match team's row highlighted |
 
 #### 5.3.4 `<TeamStatsComparison />`
 
-| Composant | Détail |
+| Component | Detail |
 |---|---|
-| Type | Barres horizontales comparatives face-à-face |
-| Stats | Buts marqués/encaissés, Possession moyenne, Tirs cadrés/match, Corners/match |
-| Rendu | Barre bleue (Home) vs barre rouge (Away) |
+| Type | Face-to-face comparative horizontal bars |
+| Stats | Goals scored/conceded, average possession, shots on target/match, corners/match |
+| Rendering | Blue bar (Home) vs red bar (Away) |
 
 ---
 
-### 5.4 Layout Responsive de la Page Match
+### 5.4 Match Page Responsive Layout
 
-- **Desktop (≥1280px)** : 2 colonnes — `<PredictionPanel />` (65%) | `<StatsPanel />` (35%).
-- **Tablette (768-1279px)** : Colonne unique. PredictionPanel puis StatsPanel empilés.
-- **Mobile (<768px)** : Colonne unique. MatchHeader compact (logos plus petits). Tabs scrollables. StatsPanel en sections dépliables (accordéon).
+- **Desktop (≥1280px)**: 2 columns — `<PredictionPanel />` (65%) | `<StatsPanel />` (35%).
+- **Tablet (768-1279px)**: single column. PredictionPanel then StatsPanel stacked.
+- **Mobile (<768px)**: single column. Compact MatchHeader (smaller logos). Scrollable tabs. StatsPanel as expandable sections (accordion).
 
 ---
 
-## 6. Page Pricing
+## 6. Pricing Page
 
-**Route** : `/pricing`
-**Objectif** : Conversion gratuit → payant.
+**Route**: `/pricing`
+**Goal**: free → paid conversion.
 
 ### 6.1 `<PricingHeader />`
 
-- Titre : "Choisissez votre plan"
-- Sous-titre : "Accédez aux analyses IA les plus précises du marché"
-- `<BillingToggle />` : Switch "Mensuel / Annuel" avec badge "-20%" sur Annuel.
+- Title: "Choose your plan"
+- Subtitle: "Access the market's most accurate AI analysis"
+- `<BillingToggle />`: "Monthly / Annual" switch with a "-20%" badge on Annual.
 
 ### 6.2 `<PricingTable />`
 
-2 ou 3 cartes côte à côte :
+2 or 3 cards side by side:
 
-| Plan | Gratuit | Premium | Premium Annuel |
+| Plan | Free | Premium | Premium Annual |
 |---|---|---|---|
-| Prix | 0€ | 9.99€/mois (1€ le 1er mois) | 95.88€/an (7.99€/mois) |
-| Analyses/jour | 2 | Illimité | Illimité |
-| Sports | Tous | Tous | Tous |
-| Niveaux de risque | Safe uniquement | Safe + Value + Risky | Safe + Value + Risky |
-| Stats détaillées | ❌ | ✅ | ✅ |
-| Alertes match | ❌ | ✅ | ✅ |
-| Support prioritaire | ❌ | ❌ | ✅ |
-| **CTA** | "Commencer" | "Essayer pour 1€" (mis en avant) | "Économiser 20%" |
+| Price | €0 | €9.99/month (€1 first month) | €95.88/year (€7.99/month) |
+| Analyses/day | 2 | Unlimited | Unlimited |
+| Sports | All | All | All |
+| Risk tiers | Safe only | Safe + Value + Risky | Safe + Value + Risky |
+| Detailed stats | ❌ | ✅ | ✅ |
+| Match alerts | ❌ | ✅ | ✅ |
+| Priority support | ❌ | ❌ | ✅ |
+| **CTA** | "Get started" | "Try for €1" (highlighted) | "Save 20%" |
 
-**Design** :
-- La carte "Premium" est surélevée (`scale-105`, `ring-2 ring-blue-500`, badge "POPULAIRE").
-- Chaque feature a une icône (✅ ou ❌).
+**Design**:
+- The "Premium" card is elevated (`scale-105`, `ring-2 ring-blue-500`, "POPULAR" badge).
+- Every feature has an icon (✅ or ❌).
 
 ### 6.3 `<PricingFAQ />`
 
-Accordéon spécifique au pricing :
-1. "Puis-je annuler à tout moment ?"
-2. "Comment fonctionne l'offre à 1€ ?"
-3. "Quels moyens de paiement acceptez-vous ?"
-4. "Y a-t-il un engagement ?"
+Pricing-specific accordion:
+1. "Can I cancel anytime?"
+2. "How does the €1 offer work?"
+3. "What payment methods do you accept?"
+4. "Is there a commitment?"
 
 ### 6.4 `<MoneyBackGuarantee />`
 
-Badge/Bandeau : "Satisfait ou remboursé pendant 14 jours. Sans question."
+Badge/banner: "Satisfaction guaranteed or your money back within 14 days. No questions asked."
 
 ---
 
-## 7. Page Profil Utilisateur
+## 7. User Profile Page
 
-**Route** : `/dashboard/profile`
-**Objectif** : Gestion du compte et de l'abonnement.
+**Route**: `/dashboard/profile`
+**Goal**: account and subscription management.
 
 ### 7.1 `<ProfileHeader />`
 
-| Composant | Détail |
+| Component | Detail |
 |---|---|
-| `<Avatar />` | Photo de profil (ou initiales). Cliquable pour changer |
-| `<UserInfo />` | Nom, Email, Date d'inscription |
-| `<SubscriptionBadge />` | "Gratuit" (gris) ou "Premium" (bleu gradient) ou "Premium Annuel" (or gradient) |
+| `<Avatar />` | Profile photo (or initials). Clickable to change |
+| `<UserInfo />` | Name, Email, Signup date |
+| `<SubscriptionBadge />` | "Free" (gray) or "Premium" (blue gradient) or "Premium Annual" (gold gradient) |
 
 ### 7.2 `<SubscriptionCard />`
 
-| Composant | Détail |
+| Component | Detail |
 |---|---|
-| Statut actuel | "Premium — Actif jusqu'au 11 Mars 2026" |
-| Bouton "Gérer l'abonnement" | Redirige vers le Stripe Customer Portal |
-| Bouton "Changer de plan" | → URL `/pricing` |
-| Historique des paiements | Liste des 5 derniers paiements (date, montant, statut) |
+| Current status | "Premium — Active until March 11, 2026" |
+| "Manage subscription" button | Redirects to the Stripe Customer Portal |
+| "Change plan" button | → `/pricing` URL |
+| Payment history | List of the last 5 payments (date, amount, status) |
 
 ### 7.3 `<PreferencesForm />`
 
-| Champ | Type | Détail |
+| Field | Type | Detail |
 |---|---|---|
-| Sports favoris | Checkbox group | ⚽🏀🎾 — Définit le filtre par défaut du Dashboard |
-| Ligues favorites | Multi-select dropdown | Ligues affichées en priorité |
-| Langue | Select | FR / EN (MVP : FR uniquement) |
-| Notifications email | Toggle switch | Activer/désactiver les résumés quotidiens |
+| Favorite sports | Checkbox group | ⚽🏀🎾 — sets the Dashboard's default filter |
+| Favorite leagues | Multi-select dropdown | Leagues shown with priority |
+| Language | Select | English / French / Spanish / German |
+| Email notifications | Toggle switch | Enable/disable daily summaries |
 
 ### 7.4 `<DangerZone />`
 
-- Bouton "Se déconnecter" (Secondary).
-- Bouton "Supprimer mon compte" (Red, avec modal de confirmation double : "Êtes-vous sûr ? Cette action est irréversible.").
+- "Log out" button (Secondary).
+- "Delete my account" button (Red, with double confirmation modal: "Are you sure? This action is irreversible.").
 
 ---
 
-## 8. États Transversaux
+## 8. Cross-Cutting States
 
-### 8.1 États d'Authentification
+### 8.1 Authentication States
 
-| État | Comportement |
+| State | Behavior |
 |---|---|
-| `anonymous` | Accès à : Landing, Pricing, Login, Signup. Dashboard redirige vers Login |
-| `authenticated_free` | Accès complet au Dashboard. Prédictions limitées à 2/jour. PaywallOverlay au 3ème |
-| `authenticated_premium` | Accès complet à tout. Pas de PaywallOverlay. Badge "PRO" dans UserMenu |
-| `authenticated_admin` | Accès à tout + Vue Admin (`/admin/*`). Badge "ADMIN" dans UserMenu. Lien "Tour de Contrôle" dans le dropdown |
-| `session_expired` | Toast "Votre session a expiré" + redirect Login |
+| `anonymous` | Access to: Landing, Pricing, Login, Signup. Dashboard redirects to Login |
+| `authenticated_free` | Full Dashboard access. Predictions limited to 2/day. PaywallOverlay on the 3rd |
+| `authenticated_premium` | Full access to everything. No PaywallOverlay. "PRO" badge in UserMenu |
+| `authenticated_admin` | Full access + Admin view (`/admin/*`). "ADMIN" badge in UserMenu. "Control Tower" link in the dropdown |
+| `session_expired` | Toast "Your session has expired" + redirect to Login |
 
-### 8.2 États de Chargement
+### 8.2 Loading States
 
-| Page/Composant | Loading State |
+| Page/Component | Loading State |
 |---|---|
-| Dashboard | Skeleton grid (6 cartes skeleton) |
-| MatchCard | Skeleton card individuelle |
-| PredictionPanel | Skeleton texte (8 lignes) + skeleton gauge |
-| StatsPanel | Skeleton barres + skeleton tableau |
+| Dashboard | Skeleton grid (6 skeleton cards) |
+| MatchCard | Individual skeleton card |
+| PredictionPanel | Skeleton text (8 lines) + skeleton gauge |
+| StatsPanel | Skeleton bars + skeleton table |
 
-### 8.3 États d'Erreur
+### 8.3 Error States
 
-| Erreur | Composant | Comportement |
+| Error | Component | Behavior |
 |---|---|---|
-| API Backend down | `<ErrorBanner />` | Bandeau rouge en haut : "Service temporairement indisponible. Réessayez dans quelques instants." + bouton "Réessayer" |
-| Match introuvable | `<NotFoundPage />` | "Ce match n'existe pas ou n'est plus disponible." + lien retour Dashboard |
-| Erreur réseau | `<OfflineNotice />` | Toast warning "Connexion perdue. Vérifiez votre réseau." |
+| Backend API down | `<ErrorBanner />` | Red banner at top: "Service temporarily unavailable. Please try again shortly." + "Retry" button |
+| Match not found | `<NotFoundPage />` | "This match doesn't exist or is no longer available." + link back to Dashboard |
+| Network error | `<OfflineNotice />` | Warning toast "Connection lost. Check your network." |
 
 ---
 
-## 9. Parcours Utilisateurs Détaillés
+## 9. Detailed User Journeys
 
-### 9.1 Parcours "Découverte → Conversion" (Nouveau Visiteur)
+### 9.1 "Discovery → Conversion" Journey (New Visitor)
 
 ```
 Landing Page
-  → Scroll → Voit le DemoPredictor widget
-  → Clique "📊 Voir l'analyse complète"
-  → [Si non connecté] Redirect → /signup
-  → Remplit le formulaire → Crée son compte
-  → /onboarding (3 étapes : Sports, Profil, Go!)
-  → /dashboard (filtré sur ses sports favoris)
-  → Clique sur un MatchCard → /dashboard/match/[id]
-  → Voit la prédiction Safe complète (1ère analyse gratuite)
-  → Retour Dashboard → Clique sur un 2ème match
-  → Voit la prédiction (2ème analyse gratuite)
-  → Retour Dashboard → Clique sur un 3ème match
-  → ⚠️ PaywallOverlay s'affiche sur la PredictionPanel
-  → Toast warning "Dernière analyse gratuite utilisée"
-  → Clique "Passer Premium" → Stripe Checkout (1€)
-  → Retour /dashboard → Toast success "Bienvenue en Premium ! 🎉"
-  → Toutes les analyses sont maintenant accessibles
+  → Scroll → sees the DemoPredictor widget
+  → Clicks "📊 See the full analysis"
+  → [If not logged in] Redirect → /signup
+  → Fills out the form → creates their account
+  → /onboarding (3 steps: Sports, Profile, Go!)
+  → /dashboard (filtered to their favorite sports)
+  → Clicks a MatchCard → /dashboard/match/[id]
+  → Sees the full Safe prediction (1st free analysis)
+  → Back to Dashboard → clicks a 2nd match
+  → Sees the prediction (2nd free analysis)
+  → Back to Dashboard → clicks a 3rd match
+  → ⚠️ PaywallOverlay appears on the PredictionPanel
+  → Warning toast "Last free analysis used"
+  → Clicks "Go Premium" → Stripe Checkout (€1)
+  → Back to /dashboard → success toast "Welcome to Premium! 🎉"
+  → Every analysis is now accessible
 ```
 
-### 9.2 Parcours "Usage Quotidien" (Abonné Premium)
+### 9.2 "Daily Usage" Journey (Premium Subscriber)
 
 ```
-Ouvre l'app (session persistante, pas de login)
-  → /dashboard affiché avec son sport favori (ex: Tennis)
-  → Scan rapide des MatchCards
-  → Repère un badge "🟢 Safe 89%"
-  → Clique → /dashboard/match/[id]
-  → Lit l'analyse Safe en 30 secondes
-  → Switch vers onglet "🟡 Value" pour comparer
-  → Consulte les stats H2H et la forme récente
-  → Prend sa décision (hors plateforme)
-  → Retour Dashboard pour le prochain match
+Opens the app (persistent session, no login)
+  → /dashboard shown with their favorite sport (e.g. Tennis)
+  → Quick scan of MatchCards
+  → Spots a "🟢 Safe 89%" badge
+  → Clicks → /dashboard/match/[id]
+  → Reads the Safe analysis in 30 seconds
+  → Switches to the "🟡 Value" tab to compare
+  → Checks H2H stats and recent form
+  → Makes their decision (off-platform)
+  → Back to Dashboard for the next match
 ```
 
-### 9.3 Parcours "Gestion Abonnement"
+### 9.3 "Subscription Management" Journey
 
 ```
-Dashboard → UserMenu → "Mon profil"
+Dashboard → UserMenu → "My profile"
   → /dashboard/profile
-  → Voit le statut "Premium — Actif"
-  → Clique "Gérer l'abonnement"
-  → [Redirect Stripe Customer Portal]
-  → Peut : changer de carte, passer annuel, annuler
-  → Retour sur BETIX
+  → Sees status "Premium — Active"
+  → Clicks "Manage subscription"
+  → [Redirect to Stripe Customer Portal]
+  → Can: change card, switch to annual, cancel
+  → Back on BETIX
 ```
 
 ---
 
 ---
 
-# 🛡️ VUE ADMIN — Tour de Contrôle
+# 🛡️ ADMIN VIEW — Control Tower
 
-> L'Admin Panel est un espace séparé (`/admin/*`) accessible uniquement aux utilisateurs avec le rôle `admin`. Il offre une **mainmise totale** sur l'application sans nécessiter de compétences techniques. C'est la tour de contrôle du gestionnaire.
+> The Admin Panel is a separate space (`/admin/*`) accessible only to users with the `admin` role. It offers **full control** over the application without requiring technical skills. It's the manager's control tower.
 
 ---
 
 ## 10. Admin — Layout & Navigation
 
-**Route de base** : `/admin`
-**Accès** : `user.role === 'admin'` uniquement. Tout autre utilisateur est redirigé vers `/dashboard` avec un toast erreur.
+**Base route**: `/admin`
+**Access**: `user.role === 'admin'` only. Any other user is redirected to `/dashboard` with an error toast.
 
 ### 10.1 `<AdminLayout />`
 
-**Structure** : Sidebar fixe (gauche) + Contenu principal (droite) + Header top.
-C'est un layout complètement différent de la vue utilisateur.
+**Structure**: fixed sidebar (left) + main content (right) + top header.
+A completely different layout from the user view.
 
 ```
 ┌───────────┬──────────────────────────────────────────┐
@@ -698,509 +708,509 @@ C'est un layout complètement différent de la vue utilisateur.
 │  BETIX    ├──────────────────────────────────────────┤
 │  ADMIN    │                                          │
 │           │                                          │
-│  📊 Dashboard  │         Contenu Principal            │
-│  👥 Utilisateurs│                                     │
-│  💳 Abonnements│                                      │
+│  📊 Dashboard  │         Main Content                 │
+│  👥 Users      │                                     │
+│  💳 Subscriptions│                                    │
 │  ⚙️ Config     │                                      │
 │  🔔 Notifications│                                    │
 │           │                                          │
 │  ─────    │                                          │
-│  ↩️ Retour App │                                      │
+│  ↩️ Back to App │                                     │
 └───────────┴──────────────────────────────────────────┘
 ```
 
 ### 10.2 `<AdminSidebar />`
 
-| Élément | Icône | Route | Description |
+| Item | Icon | Route | Description |
 |---|---|---|---|
-| Dashboard | 📊 | `/admin` | Vue d'ensemble KPIs |
-| Utilisateurs | 👥 | `/admin/users` | CRUD utilisateurs |
-| Abonnements | 💳 | `/admin/subscriptions` | Gestion plans & revenus |
-| Configuration | ⚙️ | `/admin/settings` | Clés API, paramètres système |
-| Notifications | 🔔 | `/admin/notifications` | Centre de notifications |
-| Séparateur | — | — | Ligne de séparation visuelle |
-| Retour à l'app | ↩️ | `/dashboard` | Lien vers la vue utilisateur |
+| Dashboard | 📊 | `/admin` | KPI overview |
+| Users | 👥 | `/admin/users` | User CRUD |
+| Subscriptions | 💳 | `/admin/subscriptions` | Plan & revenue management |
+| Configuration | ⚙️ | `/admin/settings` | API keys, system settings |
+| Notifications | 🔔 | `/admin/notifications` | Notification center |
+| Separator | — | — | Visual divider line |
+| Back to app | ↩️ | `/dashboard` | Link back to the user view |
 
-**Comportement** :
-- L'élément actif a un fond `bg-blue-600/20` + bordure gauche bleue.
-- Le badge de notification (🔔 3) affiche le nombre de notifications non lues.
-- **Responsive Mobile** : La sidebar se transforme en menu bottom (comme une app mobile) ou en drawer (slide-in depuis la gauche).
+**Behavior**:
+- The active item has a `bg-blue-600/20` background + blue left border.
+- The notification badge (🔔 3) shows the unread notification count.
+- **Mobile responsive**: the sidebar becomes a bottom menu (like a mobile app) or a drawer (slide-in from the left).
 
 ### 10.3 `<AdminHeader />`
 
-| Composant | Détail |
+| Component | Detail |
 |---|---|
-| `<AdminBreadcrumb />` | Fil d'Ariane : "Admin > Utilisateurs > Détail" |
-| `<NotificationBell />` | Icône cloche avec badge compteur. Clic → Dropdown des 5 dernières notifications |
-| `<AdminUserMenu />` | Nom admin + Dropdown (Mon Profil, Retour App, Déconnexion) |
+| `<AdminBreadcrumb />` | Breadcrumb: "Admin > Users > Detail" |
+| `<NotificationBell />` | Bell icon with a count badge. Click → dropdown of the last 5 notifications |
+| `<AdminUserMenu />` | Admin name + dropdown (My Profile, Back to App, Log out) |
 
 ---
 
-## 11. Admin — Dashboard Analytics
+## 11. Admin — Analytics Dashboard
 
-**Route** : `/admin`
-**Objectif** : Vue d'ensemble instantanée de la santé de l'application.
-**Layout** : Grille Bento avec des widgets de tailles variées.
+**Route**: `/admin`
+**Goal**: an instant overview of the app's health.
+**Layout**: Bento grid with variously-sized widgets.
 
-### 11.1 `<KPIRow />` (Ligne de KPIs principaux)
+### 11.1 `<KPIRow />` (Main KPI Row)
 
-4 cartes KPI en ligne, chacune montrant une métrique clé :
+4 KPI cards in a row, each showing a key metric:
 
-| KPI Card | Donnée | Icône | Couleur | Détail |
+| KPI Card | Data | Icon | Color | Detail |
 |---|---|---|---|---|
-| `<KPICard title="Utilisateurs">` | Total utilisateurs inscrits | 👥 | Blue | Sous-texte : "+12 cette semaine" (tendance). Flèche ↑ verte ou ↓ rouge |
-| `<KPICard title="Abonnés Actifs">` | Nombre d'abonnés premium | 💳 | Emerald | Sous-texte : Taux de conversion (ex: "8.2%"). Évolution vs mois précédent |
-| `<KPICard title="Revenus du Mois">` | MRR (Monthly Recurring Revenue) | 💰 | Amber | Sous-texte : "vs. mois dernier +15%". Montant en euros |
-| `<KPICard title="Prédictions Générées">` | Total prédictions IA du jour | 🧠 | Indigo | Sous-texte : "42 aujourd'hui". Moyenne quotidienne |
+| `<KPICard title="Users">` | Total registered users | 👥 | Blue | Subtext: "+12 this week" (trend). Green ↑ or red ↓ arrow |
+| `<KPICard title="Active Subscribers">` | Number of premium subscribers | 💳 | Emerald | Subtext: conversion rate (e.g. "8.2%"). Change vs. previous month |
+| `<KPICard title="Monthly Revenue">` | MRR (Monthly Recurring Revenue) | 💰 | Amber | Subtext: "vs. last month +15%". Amount in euros |
+| `<KPICard title="Predictions Generated">` | Total AI predictions today | 🧠 | Indigo | Subtext: "42 today". Daily average |
 
-**Structure d'un `<KPICard />`** :
+**Structure of a `<KPICard />`**:
 ```
 ┌────────────────────┐
-│ 👥 Utilisateurs    │
+│ 👥 Users           │
 │                    │
-│    1,247           │ ← Valeur principale (text-3xl font-bold)
-│    ↑ +12 (0.9%)    │ ← Tendance (vert si positif, rouge si négatif)
-│    cette semaine    │ ← Période (text-xs text-slate-500)
+│    1,247           │ ← Main value (text-3xl font-bold)
+│    ↑ +12 (0.9%)    │ ← Trend (green if positive, red if negative)
+│    this week        │ ← Period (text-xs text-slate-500)
 └────────────────────┘
 ```
 
 ### 11.2 `<RevenueChart />`
 
-| Composant | Détail |
+| Component | Detail |
 |---|---|
-| Type | Line chart ou Area chart |
-| Données | Revenus mensuels (12 derniers mois) |
-| Axes | X : Mois, Y : Montant (€) |
-| Toggle | Filtre période : "7j / 30j / 90j / 12 mois" |
-| Taille | Grande carte (occupe 2/3 de la largeur sur desktop) |
-| Librairie | Recharts ou Chart.js |
+| Type | Line chart or area chart |
+| Data | Monthly revenue (last 12 months) |
+| Axes | X: month, Y: amount (€) |
+| Toggle | Period filter: "7d / 30d / 90d / 12 months" |
+| Size | Large card (2/3 width on desktop) |
+| Library | Recharts or Chart.js |
 
 ### 11.3 `<UserGrowthChart />`
 
-| Composant | Détail |
+| Component | Detail |
 |---|---|
-| Type | Bar chart empilé ou Line chart |
-| Données | Inscriptions par jour/semaine |
-| Segments | Free vs Premium (2 couleurs) |
-| Toggle | Filtre période : "7j / 30j / 90j" |
-| Taille | Carte medium (1/3 de la largeur) |
+| Type | Stacked bar chart or line chart |
+| Data | Signups per day/week |
+| Segments | Free vs Premium (2 colors) |
+| Toggle | Period filter: "7d / 30d / 90d" |
+| Size | Medium card (1/3 width) |
 
 ### 11.4 `<PredictionUsageChart />`
 
-| Composant | Détail |
+| Component | Detail |
 |---|---|
-| Type | Donut chart ou Pie chart |
-| Données | Répartition par sport (Football / Basketball / Tennis) |
-| Sous-données | Nombre total de prédictions par sport |
-| Taille | Carte medium |
+| Type | Donut or pie chart |
+| Data | Breakdown by sport (Football / Basketball / Tennis) |
+| Sub-data | Total predictions per sport |
+| Size | Medium card |
 
 ### 11.5 `<RecentActivityFeed />`
 
-Flux d'activité en temps réel (liste scrollable) :
+Real-time activity feed (scrollable list):
 
-| Type d'événement | Icône | Exemple |
+| Event type | Icon | Example |
 |---|---|---|
-| Inscription | 🆕 | "Jean Dupont s'est inscrit il y a 5 min" |
-| Abonnement | 💳 | "Marie L. est passée Premium — 9.99€" |
-| Désabonnement | ❌ | "Pierre M. a annulé son abonnement" |
-| Prédiction | 🧠 | "56 prédictions générées pour la Ligue 1" |
-| Erreur système | ⚠️ | "API-Sports : Quota à 80% — Attention" |
+| Signup | 🆕 | "John Smith signed up 5 min ago" |
+| Subscription | 💳 | "Mary L. upgraded to Premium — €9.99" |
+| Cancellation | ❌ | "Peter M. canceled his subscription" |
+| Prediction | 🧠 | "56 predictions generated for Ligue 1" |
+| System error | ⚠️ | "API-Sports: quota at 80% — Attention" |
 
-**Comportement** : Scroll infini, les 20 derniers événements affichés. Clic sur un événement utilisateur → redirige vers la fiche utilisateur.
+**Behavior**: infinite scroll, the last 20 events shown. Clicking a user event redirects to their user record.
 
 ### 11.6 `<SystemHealthWidget />`
 
-| Composant | Détail |
+| Component | Detail |
 |---|---|
-| Statut Backend | 🟢 "En ligne" ou 🔴 "Hors ligne" — Ping automatique toutes les 60s |
-| Statut API-Sports | 🟢/🟡/🔴 + Quota consommé (ex: "245/500 requêtes") |
-| Statut Gemini API | 🟢/🟡/🔴 + Requêtes du jour |
-| Statut Stripe | 🟢/🟡/🔴 + Dernière transaction réussie |
-| Statut Supabase | 🟢/🟡/🔴 + Espace DB utilisé |
+| Backend status | 🟢 "Online" or 🔴 "Offline" — automatic ping every 60s |
+| API-Sports status | 🟢/🟡/🔴 + quota consumed (e.g. "245/500 requests") |
+| Claude API status | 🟢/🟡/🔴 + requests today |
+| Stripe status | 🟢/🟡/🔴 + last successful transaction |
+| Supabase status | 🟢/🟡/🔴 + DB space used |
 
 ---
 
-## 12. Admin — Gestion Utilisateurs
+## 12. Admin — User Management
 
-**Route** : `/admin/users`
-**Objectif** : CRUD complet sur les utilisateurs. Vision individuelle et globale.
+**Route**: `/admin/users`
+**Goal**: full user CRUD. Individual and global views.
 
 ### 12.1 `<UsersHeader />`
 
-| Composant | Détail |
+| Component | Detail |
 |---|---|
-| Titre | "Gestion des Utilisateurs" |
-| `<SearchBar />` | Recherche par nom, email ou ID. Recherche en temps réel (debounced 300ms) |
-| `<FilterDropdown />` | Filtres : Statut (Free / Premium / Annulé) · Sport favori · Date d'inscription |
-| `<Button variant="primary">` | "+ Ajouter un utilisateur" → Ouvre `<CreateUserModal />` |
+| Title | "User Management" |
+| `<SearchBar />` | Search by name, email, or ID. Real-time search (debounced 300ms) |
+| `<FilterDropdown />` | Filters: status (Free / Premium / Canceled) · favorite sport · signup date |
+| `<Button variant="primary">` | "+ Add a user" → opens `<CreateUserModal />` |
 
 ### 12.2 `<UsersTable />`
 
-Tableau avec colonnes triables et pagination.
+Table with sortable columns and pagination.
 
-| Colonne | Donnée | Triable | Détail |
+| Column | Data | Sortable | Detail |
 |---|---|---|---|
-| Avatar + Nom | `user.name` | Oui | Avatar 32px + nom cliquable (→ fiche détail) |
-| Email | `user.email` | Oui | Texte tronqué si trop long |
-| Statut | `user.subscription_status` | Oui | Badge coloré : "Free" (gris), "Premium" (bleu), "Annulé" (rouge) |
-| Inscrit le | `user.created_at` | Oui | Date formatée (ex: "11 Fév 2026") |
-| Analyses consultées | `user.predictions_viewed` | Oui | Nombre total |
-| Actions | — | Non | Menu "⋯" : Voir profil · Modifier · Suspendre · Supprimer |
+| Avatar + Name | `user.name` | Yes | 32px avatar + clickable name (→ detail record) |
+| Email | `user.email` | Yes | Truncated text if too long |
+| Status | `user.subscription_status` | Yes | Colored badge: "Free" (gray), "Premium" (blue), "Canceled" (red) |
+| Joined on | `user.created_at` | Yes | Formatted date (e.g. "Feb 11, 2026") |
+| Analyses viewed | `user.predictions_viewed` | Yes | Total count |
+| Actions | — | No | "⋯" menu: View profile · Edit · Suspend · Delete |
 
-**Pagination** : 20 utilisateurs par page. Navigation "← 1 2 3 ... 12 →".
-**État vide** : "Aucun utilisateur trouvé pour cette recherche."
+**Pagination**: 20 users per page. Navigation "← 1 2 3 ... 12 →".
+**Empty state**: "No users found for this search."
 
-### 12.3 `<UserDetailPanel />` (Slide-in ou Page dédiée)
+### 12.3 `<UserDetailPanel />` (Slide-in or Dedicated Page)
 
-**Route** : `/admin/users/[id]`
-Affiche le profil complet d'un utilisateur avec toutes les actions possibles.
+**Route**: `/admin/users/[id]`
+Shows the full profile of a user with every available action.
 
-#### Structure :
+#### Structure:
 
-| Section | Composants | Détail |
+| Section | Components | Detail |
 |---|---|---|
-| **Header** | `<Avatar />` + Nom + Email + Badge statut | Grande vue du profil |
-| **Infos Compte** | `<InfoGrid />` | ID, Date inscription, Dernière connexion, IP, User Agent |
-| **Abonnement** | `<SubscriptionSummary />` | Plan actuel, Date début/fin, ID Stripe, Historique paiements |
-| **Activité** | `<UserActivityLog />` | 10 dernières actions (connexions, prédictions consultées, paiements) |
-| **Préférences** | `<UserPreferences />` | Sports favoris, Ligues favorites, Langue |
-| **Actions Admin** | `<AdminActions />` | Boutons d'action (voir ci-dessous) |
+| **Header** | `<Avatar />` + Name + Email + Status badge | Large profile view |
+| **Account Info** | `<InfoGrid />` | ID, signup date, last login, IP, User Agent |
+| **Subscription** | `<SubscriptionSummary />` | Current plan, start/end date, Stripe ID, payment history |
+| **Activity** | `<UserActivityLog />` | Last 10 actions (logins, predictions viewed, payments) |
+| **Preferences** | `<UserPreferences />` | Favorite sports, favorite leagues, language |
+| **Admin Actions** | `<AdminActions />` | Action buttons (see below) |
 
-#### Actions Admin disponibles :
+#### Available Admin Actions:
 
-| Action | Bouton | Effet | Confirmation |
+| Action | Button | Effect | Confirmation |
 |---|---|---|---|
-| Modifier le profil | Icône ✏️ | Ouvre un formulaire inline éditable (nom, email) | Non |
-| Changer le plan | `<Select>` | Dropdown : Free / Premium / Premium Annuel | Modal : "Confirmer le changement de plan ?" |
-| Offrir du Premium | Bouton 🎁 | Attribue X jours de Premium gratuit | Modal : Input nombre de jours |
-| Réinitialiser MDP | Bouton 🔑 | Envoie un email de reset au user | Modal : "Un email sera envoyé." |
-| Suspendre le compte | Bouton ⏸️ | Désactive temporairement l'accès | Modal : "Raison de la suspension ?" + Textarea |
-| Supprimer le compte | Bouton 🗑️ (Danger) | Suppression définitive avec cascade en BDD | **Double confirmation** : "Tapez SUPPRIMER pour confirmer" |
+| Edit profile | ✏️ icon | Opens an inline editable form (name, email) | No |
+| Change plan | `<Select>` | Dropdown: Free / Premium / Premium Annual | Modal: "Confirm plan change?" |
+| Gift Premium | 🎁 button | Grants X days of free Premium | Modal: number-of-days input |
+| Reset password | 🔑 button | Sends a reset email to the user | Modal: "An email will be sent." |
+| Suspend account | ⏸️ button | Temporarily disables access | Modal: "Reason for suspension?" + textarea |
+| Delete account | 🗑️ button (Danger) | Permanent deletion with DB cascade | **Double confirmation**: "Type DELETE to confirm" |
 
 ### 12.4 `<CreateUserModal />`
 
-Pour créer un utilisateur manuellement (cas : partenaire, testeur, VIP).
+For manually creating a user (e.g.: partner, tester, VIP).
 
-| Champ | Type | Requis | Détail |
+| Field | Type | Required | Detail |
 |---|---|---|---|
-| Nom complet | Text | Oui | — |
-| Email | Email | Oui | Vérifie unicité en temps réel |
-| Mot de passe | Password | Oui | Généré automatiquement avec bouton "Copier" OU saisi manuellement |
-| Rôle | Select | Oui | "Utilisateur" ou "Admin" |
-| Plan initial | Select | Oui | Free / Premium / Premium Annuel |
-| Envoyer email de bienvenue | Toggle | Non | Si activé, envoie un email avec les identifiants |
+| Full name | Text | Yes | — |
+| Email | Email | Yes | Real-time uniqueness check |
+| Password | Password | Yes | Auto-generated with a "Copy" button OR entered manually |
+| Role | Select | Yes | "User" or "Admin" |
+| Initial plan | Select | Yes | Free / Premium / Premium Annual |
+| Send welcome email | Toggle | No | If enabled, sends an email with credentials |
 
 ---
 
-## 13. Admin — Gestion Abonnements & Revenus
+## 13. Admin — Subscription & Revenue Management
 
-**Route** : `/admin/subscriptions`
-**Objectif** : Piloter la stratégie de monétisation et suivre les revenus.
+**Route**: `/admin/subscriptions`
+**Goal**: steer monetization strategy and track revenue.
 
 ### 13.1 `<SubscriptionKPIs />`
 
-| KPI | Donnée | Détail |
+| KPI | Data | Detail |
 |---|---|---|
-| MRR | Monthly Recurring Revenue | Montant total des abonnements actifs ce mois |
-| Churn Rate | Taux d'annulation | % d'abonnés qui annulent ce mois vs mois dernier |
-| ARPU | Average Revenue Per User | Revenu moyen par utilisateur payant |
-| Conversion Rate | Free → Premium | % d'inscrits gratuits qui passent Premium |
+| MRR | Monthly Recurring Revenue | Total amount of active subscriptions this month |
+| Churn Rate | Cancellation rate | % of subscribers canceling this month vs. last month |
+| ARPU | Average Revenue Per User | Average revenue per paying user |
+| Conversion Rate | Free → Premium | % of free signups who go Premium |
 
 ### 13.2 `<PlansManager />`
 
-Tableau éditable des plans d'abonnement.
+Editable table of subscription plans.
 
-| Colonne | Donnée | Éditable | Détail |
+| Column | Data | Editable | Detail |
 |---|---|---|---|
-| Nom du plan | "Premium Mensuel" | Oui (inline) | Clic pour modifier le libellé |
-| Prix | 9.99€/mois | Oui (inline) | Modifier le prix. **Attention** : ne modifie que l'affichage, le prix Stripe est master |
-| Promo 1er mois | 1.00€ | Oui (inline) | Montant de l'offre d'appel |
-| Stripe Price ID | `price_xxx` | Lecture seule | ID Stripe associé. Copier au clic |
-| Abonnés actifs | 142 | Lecture seule | Nombre d'abonnés sur ce plan |
-| Statut | Actif / Inactif | Oui (Toggle) | Désactiver un plan empêche les nouvelles souscriptions |
+| Plan name | "Premium Monthly" | Yes (inline) | Click to edit the label |
+| Price | €9.99/month | Yes (inline) | Edit the price. **Note**: this only changes the display — the Stripe price is authoritative |
+| 1st-month promo | €1.00 | Yes (inline) | Amount of the intro offer |
+| Stripe Price ID | `price_xxx` | Read-only | Associated Stripe ID. Click to copy |
+| Active subscribers | 142 | Read-only | Number of subscribers on this plan |
+| Status | Active / Inactive | Yes (Toggle) | Disabling a plan prevents new signups |
 
-**Actions** :
-- Bouton "Créer un nouveau plan" : Ouvre un formulaire pour définir un nouveau plan Stripe.
+**Actions**:
+- "Create a new plan" button: opens a form to define a new Stripe plan.
 
 ### 13.3 `<SubscriptionsTable />`
 
-Liste de tous les abonnements individuels.
+List of every individual subscription.
 
-| Colonne | Donnée | Détail |
+| Column | Data | Detail |
 |---|---|---|
-| Utilisateur | Nom + Email | Lien vers fiche utilisateur |
-| Plan | Premium / Annuel | Badge coloré |
-| Statut | Active / Past Due / Cancelled / Trialing | Badge avec couleur sémantique |
-| Depuis | Date de début | — |
-| Prochain paiement | Date | Avec montant attendu |
-| Actions | — | Voir sur Stripe (lien externe) · Annuler · Offrir extension |
+| User | Name + Email | Link to user record |
+| Plan | Premium / Annual | Colored badge |
+| Status | Active / Past Due / Cancelled / Trialing | Badge with semantic color |
+| Since | Start date | — |
+| Next payment | Date | With expected amount |
+| Actions | — | View on Stripe (external link) · Cancel · Gift extension |
 
 ### 13.4 `<RevenueBreakdownChart />`
 
-Graphique des revenus ventilé par plan (Mensuel vs Annuel) sur les 12 derniers mois. Stacked bar chart.
+Revenue breakdown chart by plan (Monthly vs. Annual) over the last 12 months. Stacked bar chart.
 
 ---
 
-## 14. Admin — Configuration Système
+## 14. Admin — System Configuration
 
-**Route** : `/admin/settings`
-**Objectif** : Donner au gestionnaire la mainmise sur les paramètres techniques sans toucher au code.
+**Route**: `/admin/settings`
+**Goal**: give the manager full control over technical settings without touching code.
 
 ### 14.1 `<SettingsTabs />`
 
-La page est organisée en **onglets** pour regrouper les paramètres par catégorie.
+The page is organized into **tabs** grouping settings by category.
 
-| Onglet | Label | Contenu |
+| Tab | Label | Content |
 |---|---|---|
-| API Keys | 🔑 Clés API | Configuration des fournisseurs de données |
-| IA | 🧠 Intelligence Artificielle | Paramètres du moteur de prédiction |
-| App | 📱 Application | Paramètres généraux de l'app |
-| Maintenance | 🔧 Maintenance | Mode maintenance, réinitialisation cache |
+| API Keys | 🔑 API Keys | Data provider configuration |
+| AI | 🧠 Artificial Intelligence | Prediction engine settings |
+| App | 📱 Application | General app settings |
+| Maintenance | 🔧 Maintenance | Maintenance mode, cache reset |
 
-### 14.2 Onglet "Clés API" (`<APIKeysSettings />`)
+### 14.2 "API Keys" Tab (`<APIKeysSettings />`)
 
-| Champ | Type | Masqué | Détail |
+| Field | Type | Masked | Detail |
 |---|---|---|---|
-| API-Sports Key | Text (password-like) | Oui (•••••) | Bouton "Afficher" pour toggle. Bouton "Tester" pour vérifier la validité |
-| API-Tennis Key | Text (password-like) | Oui | Idem. Avec indicateur de statut (🟢 Valide / 🔴 Invalide) |
-| Gemini API Key | Text (password-like) | Oui | Idem |
-| Stripe Secret Key | Text (password-like) | Oui | Idem. **Warning** affiché : "Ne modifiez que si vous savez ce que vous faites" |
-| Stripe Webhook Secret | Text (password-like) | Oui | Idem |
-| Supabase URL | Text | Non | URL du projet Supabase |
-| Supabase Service Key | Text (password-like) | Oui | Clé service (admin) |
+| API-Sports Key | Text (password-like) | Yes (•••••) | "Show" button to toggle. "Test" button to check validity |
+| API-Tennis Key | Text (password-like) | Yes | Same. With status indicator (🟢 Valid / 🔴 Invalid) |
+| Claude API Key | Text (password-like) | Yes | Same |
+| Stripe Secret Key | Text (password-like) | Yes | Same. **Warning** shown: "Only edit this if you know what you're doing" |
+| Stripe Webhook Secret | Text (password-like) | Yes | Same |
+| Supabase URL | Text | No | Supabase project URL |
+| Supabase Service Key | Text (password-like) | Yes | Service (admin) key |
 
-**Bouton "Sauvegarder"** : Sauvegarde toutes les clés modifiées. Toast success/error.
-**Bouton "Tester toutes les connexions"** : Lance un test de connectivité sur chaque API et affiche un rapport (🟢🟢🔴🟢🟢).
+**"Save" button**: saves every changed key. Success/error toast.
+**"Test all connections" button**: runs a connectivity test on every API and shows a report (🟢🟢🔴🟢🟢).
 
-### 14.3 Onglet "Intelligence Artificielle" (`<AISettings />`)
+### 14.3 "Artificial Intelligence" Tab (`<AISettings />`)
 
-| Paramètre | Type | Détail |
+| Setting | Type | Detail |
 |---|---|---|
-| Modèle IA actif | Select | "Gemini 2.0 Flash" / "Gemini Pro" / "GPT-4o" (pour le futur) |
-| Température | Slider (0-1) | Contrôle la créativité de l'IA. Default: 0.3 (factuel). Tooltip explicatif |
-| Max tokens | Number input | Longueur max de l'analyse générée. Default: 1500 |
-| Cache durée | Number input (minutes) | Durée de vie du cache des prédictions. Default: 120min |
-| Prompt preview | Textarea (lecture seule) | Aperçu du prompt actuel (informatif, la modification se fait dans le code) |
+| Active AI model | Select | "Claude Haiku" / "Claude Sonnet" (for the future) |
+| Temperature | Slider (0-1) | Controls the AI's creativity. Default: 0.3 (factual). Explanatory tooltip |
+| Max tokens | Number input | Max length of the generated analysis. Default: 1500 |
+| Cache duration | Number input (minutes) | Prediction cache lifetime. Default: 120min |
+| Prompt preview | Textarea (read-only) | Preview of the current prompt (informational — editing happens in code) |
 
-### 14.4 Onglet "Application" (`<AppSettings />`)
+### 14.4 "Application" Tab (`<AppSettings />`)
 
-| Paramètre | Type | Détail |
+| Setting | Type | Detail |
 |---|---|---|
-| Nom de l'app | Text | "BETIX" — Modifiable (affiché dans le titre du site) |
-| Analyses gratuites/jour | Number (0-10) | Nombre de prédictions offertes aux Free Users. Default: 2 |
-| Sports activés | Checkbox group | ⚽🏀🎾 — Permet de désactiver temporairement un sport |
-| Mode inscription | Select | "Ouvert" / "Sur invitation" / "Fermé" |
-| Message d'accueil | Textarea | Message personnalisé affiché sur le Dashboard (optionnel, ex: "Bienvenue sur BETIX !" ou promo du moment) |
-| Email support | Email input | Adresse email affichée dans le footer et les pages d'aide |
+| App name | Text | "BETIX" — editable (shown in the site title) |
+| Free analyses/day | Number (0-10) | Number of predictions offered to Free users. Default: 2 |
+| Enabled sports | Checkbox group | ⚽🏀🎾 — allows temporarily disabling a sport |
+| Signup mode | Select | "Open" / "Invite-only" / "Closed" |
+| Welcome message | Textarea | Custom message shown on the Dashboard (optional, e.g. "Welcome to BETIX!" or a current promo) |
+| Support email | Email input | Email address shown in the footer and help pages |
 
-### 14.5 Onglet "Maintenance" (`<MaintenanceSettings />`)
+### 14.5 "Maintenance" Tab (`<MaintenanceSettings />`)
 
-| Action | Bouton | Effet | Confirmation |
+| Action | Button | Effect | Confirmation |
 |---|---|---|---|
-| Mode maintenance | Toggle ON/OFF | Active une page "Maintenance en cours" pour tous les utilisateurs. Seul l'admin peut naviguer | Modal : "Les utilisateurs ne pourront plus accéder à l'app." |
-| Vider le cache matchs | Bouton 🗑️ | Supprime toutes les données en cache et force un re-fetch | Modal : "Cette action va supprimer X matchs en cache." |
-| Vider le cache prédictions | Bouton 🗑️ | Supprime toutes les prédictions et force une régénération IA | Modal : "X prédictions seront supprimées." |
-| Régénérer toutes les prédictions | Bouton 🔄 | Lance la régénération IA pour tous les matchs du jour | Modal : "Cela consommera du quota API. Continuer ?" + Progress bar |
-| Exporter les données | Bouton 📥 | Exporte les utilisateurs + abonnements en CSV/JSON | Choix du format + Téléchargement automatique |
+| Maintenance mode | ON/OFF toggle | Shows a "Maintenance in progress" page to all users. Only the admin can navigate | Modal: "Users will no longer be able to access the app." |
+| Clear match cache | 🗑️ button | Deletes all cached data and forces a re-fetch | Modal: "This will delete X cached matches." |
+| Clear prediction cache | 🗑️ button | Deletes all predictions and forces AI regeneration | Modal: "X predictions will be deleted." |
+| Regenerate all predictions | 🔄 button | Triggers AI regeneration for all of today's matches | Modal: "This will consume API quota. Continue?" + progress bar |
+| Export data | 📥 button | Exports users + subscriptions as CSV/JSON | Format choice + automatic download |
 
 ---
 
-## 15. Admin — Centre de Notifications
+## 15. Admin — Notification Center
 
-**Route** : `/admin/notifications`
-**Objectif** : Centraliser toutes les alertes système et les messages des utilisateurs.
+**Route**: `/admin/notifications`
+**Goal**: centralize every system alert and user message.
 
 ### 15.1 `<NotificationTabs />`
 
-| Onglet | Label | Contenu |
+| Tab | Label | Content |
 |---|---|---|
-| Système | 🖥️ Système | Alertes automatiques générées par l'application |
-| Utilisateurs | 👤 Utilisateurs | Messages/demandes envoyés par les utilisateurs |
-| Historique | 📜 Historique | Toutes les notifications passées (archivées) |
+| System | 🖥️ System | Automatic alerts generated by the application |
+| Users | 👤 Users | Messages/requests sent by users |
+| History | 📜 History | All past (archived) notifications |
 
-### 15.2 Notifications Système (`<SystemNotifications />`)
+### 15.2 System Notifications (`<SystemNotifications />`)
 
-Alertes automatiques générées par la plateforme :
+Automatic alerts generated by the platform:
 
-| Type | Sévérité | Exemple | Action possible |
+| Type | Severity | Example | Available action |
 |---|---|---|---|
-| Quota API proche | ⚠️ Warning | "API-Sports : 450/500 requêtes utilisées aujourd'hui" | Lien → Settings > API Keys |
-| Quota API dépassé | 🔴 Critical | "API-Sports : Quota épuisé. Plus de données nouvelles jusqu'à demain" | Lien → Settings > API Keys |
-| Erreur IA | 🔴 Critical | "Gemini API : Erreur 429 (Rate Limit) depuis 10 min" | Lien → Settings > IA |
-| Stripe échoué | 🔴 Critical | "Paiement échoué pour user@email.com — Carte expirée" | Lien → Fiche utilisateur |
-| Pic d'inscriptions | ℹ️ Info | "+42 inscriptions en 1h (moyenne : 5/h)" | Lien → Dashboard Analytics |
-| Nouvel abonnement | ✅ Success | "Marie L. est passée Premium (9.99€)" | Lien → Fiche utilisateur |
-| Désabonnement | ⚠️ Warning | "Pierre M. a annulé son abonnement" | Lien → Fiche utilisateur |
+| API quota nearing limit | ⚠️ Warning | "API-Sports: 450/500 requests used today" | Link → Settings > API Keys |
+| API quota exceeded | 🔴 Critical | "API-Sports: quota exhausted. No new data until tomorrow" | Link → Settings > API Keys |
+| AI error | 🔴 Critical | "Claude API: 429 error (rate limit) for 10 min" | Link → Settings > AI |
+| Stripe failure | 🔴 Critical | "Payment failed for user@email.com — Expired card" | Link → user record |
+| Signup spike | ℹ️ Info | "+42 signups in 1h (average: 5/h)" | Link → Analytics Dashboard |
+| New subscription | ✅ Success | "Mary L. upgraded to Premium (€9.99)" | Link → user record |
+| Cancellation | ⚠️ Warning | "Peter M. canceled his subscription" | Link → user record |
 
-**Chaque notification** a :
-- Badge de sévérité (couleur).
-- Timestamp ("Il y a 5 min").
-- Bouton "Marquer comme lu" (icône checkmark).
-- Bouton action contextuelle (Lien vers la page concernée).
+**Each notification** has:
+- Severity badge (color).
+- Timestamp ("5 min ago").
+- "Mark as read" button (checkmark icon).
+- Contextual action button (link to the relevant page).
 
-### 15.3 Notifications Utilisateurs (`<UserNotifications />`)
+### 15.3 User Notifications (`<UserNotifications />`)
 
-Messages envoyés par les utilisateurs via un futur formulaire de contact ou système de ticket.
+Messages sent by users via a future contact form or ticketing system.
 
-| Champ | Détail |
+| Field | Detail |
 |---|---|
-| Expéditeur | Nom + Email (lien vers fiche user) |
-| Sujet | Texte court |
-| Message | Texte complet (expandable) |
+| Sender | Name + email (link to user record) |
+| Subject | Short text |
+| Message | Full text (expandable) |
 | Date | Timestamp |
-| Statut | "Nouveau" (bleu) / "Lu" (gris) / "Répondu" (vert) |
-| Actions | "Répondre par email" (ouvre le client mail) · "Marquer comme lu" · "Archiver" |
+| Status | "New" (blue) / "Read" (gray) / "Replied" (green) |
+| Actions | "Reply by email" (opens the mail client) · "Mark as read" · "Archive" |
 
-### 15.4 `<NotificationPreferences />` (Alertes Admin)
+### 15.4 `<NotificationPreferences />` (Admin Alerts)
 
-L'admin peut configurer quelles alertes il souhaite recevoir et comment :
+The admin can configure which alerts they want to receive and how:
 
-| Paramètre | Type | Détail |
+| Setting | Type | Detail |
 |---|---|---|
-| Alertes critiques par email | Toggle | Reçoit un email pour les alertes 🔴 Critical |
-| Résumé quotidien | Toggle | Reçoit un récapitulatif chaque matin (nouveaux users, revenus, erreurs) |
-| Alertes temps réel (in-app) | Toggle | Notifications push dans le navigateur |
+| Critical alerts by email | Toggle | Receives an email for 🔴 Critical alerts |
+| Daily summary | Toggle | Receives a recap every morning (new users, revenue, errors) |
+| Real-time (in-app) alerts | Toggle | Browser push notifications |
 
 ---
 
-## 16. Admin — Parcours Admin Détaillés
+## 16. Admin — Detailed Admin Journeys
 
-### 16.1 Parcours "Check Quotidien" (Routine Admin)
-
-```
-Connexion → /admin (Dashboard Analytics)
-  → Scan des 4 KPIs (Users, Abonnés, Revenus, Prédictions)
-  → Vérifie le SystemHealthWidget (toutes les APIs 🟢 ?)
-  → Parcourt le RecentActivityFeed (nouvelles inscriptions, paiements)
-  → Si notification 🔴 → Clique pour investiguer
-  → Retour → Clique "↩️ Retour App" pour utiliser l'app normalement
-```
-
-### 16.2 Parcours "Gérer un Utilisateur Problématique"
+### 16.1 "Daily Check" Journey (Admin Routine)
 
 ```
-/admin/notifications → Voit une plainte utilisateur
-  → Clique sur le nom de l'expéditeur → /admin/users/[id]
-  → Consulte l'historique d'activité
-  → Décision : Offrir 7 jours Premium gratuit (bouton 🎁)
-  → Ou : Suspendre le compte (bouton ⏸️ + raison)
-  → Retour notifications → Marque comme "Répondu"
+Log in → /admin (Analytics Dashboard)
+  → Scans the 4 KPIs (Users, Subscribers, Revenue, Predictions)
+  → Checks the SystemHealthWidget (all APIs 🟢?)
+  → Browses the RecentActivityFeed (new signups, payments)
+  → If a 🔴 notification → clicks to investigate
+  → Back → clicks "↩️ Back to App" to use the app normally
 ```
 
-### 16.3 Parcours "Configurer une Nouvelle Clé API"
+### 16.2 "Handle a Problem User" Journey
 
 ```
-/admin/settings → Onglet "Clés API"
-  → Clique "Afficher" sur API-Sports Key
-  → Remplace par la nouvelle clé
-  → Clique "Tester" → Résultat 🟢 "Connexion réussie"
-  → Clique "Sauvegarder"
-  → Toast success "Configuration mise à jour"
+/admin/notifications → sees a user complaint
+  → Clicks the sender's name → /admin/users/[id]
+  → Reviews the activity history
+  → Decision: gift 7 days of free Premium (🎁 button)
+  → Or: suspend the account (⏸️ button + reason)
+  → Back to notifications → marks as "Replied"
 ```
 
-### 16.4 Parcours "Ajuster l'Offre Commerciale"
+### 16.3 "Configure a New API Key" Journey
+
+```
+/admin/settings → "API Keys" tab
+  → Clicks "Show" on the API-Sports Key
+  → Replaces it with the new key
+  → Clicks "Test" → result 🟢 "Connection successful"
+  → Clicks "Save"
+  → Success toast "Configuration updated"
+```
+
+### 16.4 "Adjust the Commercial Offer" Journey
 
 ```
 /admin/subscriptions → PlansManager
-  → Modifie le prix promo 1er mois de 1€ à 0€ (offre gratuite)
-  → Modifie le nombre d'analyses gratuites de 2 à 3
-    → /admin/settings → Onglet App → Change "Analyses gratuites/jour" à 3
-  → Sauvegarder
-  → Les changements sont immédiatement reflétés côté utilisateur
+  → Changes the 1st-month promo price from €1 to €0 (free offer)
+  → Changes the free-analyses count from 2 to 3
+    → /admin/settings → App tab → changes "Free analyses/day" to 3
+  → Save
+  → The changes are immediately reflected on the user side
 ```
 
 ---
 
-## 17. Inventaire Complet des Composants React
+## 17. Complete React Component Inventory
 
-### 17.1 Composants UI Génériques (`/components/ui/`)
+### 17.1 Generic UI Components (`/components/ui/`)
 
-| Composant | Props Clés | Description |
+| Component | Key Props | Description |
 |---|---|---|
 | `Button` | `variant`, `size`, `loading`, `disabled` | Primary, Secondary, Ghost, Danger |
-| `Input` | `label`, `type`, `error`, `helper` | Champ de formulaire avec label et validation |
+| `Input` | `label`, `type`, `error`, `helper` | Form field with label and validation |
 | `Badge` | `variant`, `size` | Safe, Warning, Danger, Live, Pro, Admin |
-| `Card` | `interactive`, `loading` | Container avec border et hover |
-| `Tabs` | `items`, `activeTab`, `onChange` | Tabs horizontaux |
-| `Accordion` | `items` | FAQ dépliable |
-| `Modal` | `open`, `onClose`, `title` | Dialogue modal |
-| `Toast` | `type`, `message`, `duration` | Notification éphémère |
-| `Gauge` | `value`, `max`, `color` | Jauge circulaire SVG |
-| `Skeleton` | `variant` | Placeholder animé |
-| `Avatar` | `src`, `name`, `size` | Photo ou initiales |
-| `Toggle` | `checked`, `onChange` | Switch on/off |
-| `Dropdown` | `options`, `value`, `onChange` | Menu déroulant |
-| `ProgressBar` | `value`, `max` | Barre de progression |
-| `Table` | `columns`, `data`, `sortable`, `pagination` | Tableau avec tri et pagination |
-| `SearchBar` | `placeholder`, `onChange`, `debounce` | Barre de recherche avec debounce |
-| `Breadcrumb` | `items` | Fil d'Ariane |
-| `Slider` | `min`, `max`, `step`, `value` | Curseur glissant |
+| `Card` | `interactive`, `loading` | Container with border and hover |
+| `Tabs` | `items`, `activeTab`, `onChange` | Horizontal tabs |
+| `Accordion` | `items` | Expandable FAQ |
+| `Modal` | `open`, `onClose`, `title` | Modal dialog |
+| `Toast` | `type`, `message`, `duration` | Ephemeral notification |
+| `Gauge` | `value`, `max`, `color` | Circular SVG gauge |
+| `Skeleton` | `variant` | Animated placeholder |
+| `Avatar` | `src`, `name`, `size` | Photo or initials |
+| `Toggle` | `checked`, `onChange` | On/off switch |
+| `Dropdown` | `options`, `value`, `onChange` | Dropdown menu |
+| `ProgressBar` | `value`, `max` | Progress bar |
+| `Table` | `columns`, `data`, `sortable`, `pagination` | Table with sort and pagination |
+| `SearchBar` | `placeholder`, `onChange`, `debounce` | Search bar with debounce |
+| `Breadcrumb` | `items` | Breadcrumb trail |
+| `Slider` | `min`, `max`, `step`, `value` | Sliding control |
 
-### 17.2 Composants Métier — Vue Utilisateur (`/components/dashboard/`)
+### 17.2 Business Components — User View (`/components/dashboard/`)
 
-| Composant | Description |
+| Component | Description |
 |---|---|
-| `MatchCard` | Carte match (Dashboard grid) |
-| `MatchHeader` | En-tête match (Page détail) |
-| `PredictionPanel` | Panneau prédiction (Tabs + Contenu) |
-| `RiskTabs` | Onglets Safe/Value/Risky |
-| `PredictionContent` | Contenu d'une prédiction |
-| `ConfidenceGauge` | Jauge de confiance |
-| `KeyFactors` | Liste des facteurs clés |
-| `FormChart` | Graphique de forme |
-| `H2HHistory` | Historique confrontations |
-| `StandingsWidget` | Mini-classement |
-| `TeamStatsComparison` | Barres comparatives |
-| `PaywallOverlay` | Blocage premium |
-| `SportTabs` | Filtres sport |
-| `LeagueFilter` | Filtres ligue |
-| `MatchGrid` | Grille de matchs |
-| `EmptyState` | État vide |
-| `DemoPredictor` | Widget démo landing |
+| `MatchCard` | Match card (Dashboard grid) |
+| `MatchHeader` | Match header (detail page) |
+| `PredictionPanel` | Prediction panel (tabs + content) |
+| `RiskTabs` | Safe/Value/Risky tabs |
+| `PredictionContent` | Content of a prediction |
+| `ConfidenceGauge` | Confidence gauge |
+| `KeyFactors` | List of key factors |
+| `FormChart` | Form chart |
+| `H2HHistory` | Head-to-head history |
+| `StandingsWidget` | Mini standings |
+| `TeamStatsComparison` | Comparative bars |
+| `PaywallOverlay` | Premium gate |
+| `SportTabs` | Sport filters |
+| `LeagueFilter` | League filters |
+| `MatchGrid` | Match grid |
+| `EmptyState` | Empty state |
+| `DemoPredictor` | Landing demo widget |
 
-### 17.3 Composants Landing (`/components/landing/`)
+### 17.3 Landing Components (`/components/landing/`)
 
-| Composant | Description |
+| Component | Description |
 |---|---|
-| `HeroSection` | Section hero avec CTA |
-| `HowItWorks` | Section 3 étapes |
-| `SportShowcaseCard` | Carte sport |
-| `TestimonialCard` | Carte témoignage |
-| `PricingPreview` | Aperçu tarifs |
-| `AccordionFAQ` | FAQ dépliable |
-| `CTABanner` | Bandeau CTA final |
+| `HeroSection` | Hero section with CTA |
+| `HowItWorks` | 3-step section |
+| `SportShowcaseCard` | Sport card |
+| `TestimonialCard` | Testimonial card |
+| `PricingPreview` | Pricing preview |
+| `AccordionFAQ` | Expandable FAQ |
+| `CTABanner` | Final CTA banner |
 
-### 17.4 Composants Auth (`/components/auth/`)
+### 17.4 Auth Components (`/components/auth/`)
 
-| Composant | Description |
+| Component | Description |
 |---|---|
-| `AuthForm` | Formulaire login/signup réutilisable |
-| `OAuthButton` | Bouton connexion sociale |
-| `PasswordStrength` | Indicateur force mot de passe |
-| `OnboardingStepper` | Stepper d'onboarding |
-| `SportSelectionGrid` | Grille sélection sports |
+| `AuthForm` | Reusable login/signup form |
+| `OAuthButton` | Social login button |
+| `PasswordStrength` | Password strength indicator |
+| `OnboardingStepper` | Onboarding stepper |
+| `SportSelectionGrid` | Sport selection grid |
 
-### 17.5 Composants Admin (`/components/admin/`)
+### 17.5 Admin Components (`/components/admin/`)
 
-| Composant | Description |
+| Component | Description |
 |---|---|
-| `AdminLayout` | Layout sidebar + contenu |
-| `AdminSidebar` | Navigation latérale admin |
-| `AdminHeader` | Header avec breadcrumb + notification bell |
-| `KPICard` | Carte métrique avec tendance |
-| `RevenueChart` | Graphique revenus (Line/Area) |
-| `UserGrowthChart` | Graphique croissance utilisateurs |
-| `PredictionUsageChart` | Donut répartition par sport |
-| `RecentActivityFeed` | Flux d'activité en temps réel |
-| `SystemHealthWidget` | Statut de santé des services |
-| `UsersTable` | Tableau CRUD utilisateurs |
-| `UserDetailPanel` | Fiche détaillée d'un utilisateur |
-| `CreateUserModal` | Modal création utilisateur |
-| `PlansManager` | Tableau éditable des plans |
-| `SubscriptionsTable` | Liste des abonnements individuels |
-| `APIKeysSettings` | Formulaire clés API |
-| `AISettings` | Paramètres moteur IA |
-| `AppSettings` | Paramètres généraux |
-| `MaintenanceSettings` | Actions de maintenance |
-| `NotificationCenter` | Centre de notifications (système + users) |
-| `NotificationPreferences` | Préférences d'alertes admin |
+| `AdminLayout` | Sidebar + content layout |
+| `AdminSidebar` | Admin side navigation |
+| `AdminHeader` | Header with breadcrumb + notification bell |
+| `KPICard` | Metric card with trend |
+| `RevenueChart` | Revenue chart (Line/Area) |
+| `UserGrowthChart` | User growth chart |
+| `PredictionUsageChart` | Per-sport donut breakdown |
+| `RecentActivityFeed` | Real-time activity feed |
+| `SystemHealthWidget` | Service health status |
+| `UsersTable` | User CRUD table |
+| `UserDetailPanel` | Detailed user record |
+| `CreateUserModal` | User creation modal |
+| `PlansManager` | Editable plans table |
+| `SubscriptionsTable` | List of individual subscriptions |
+| `APIKeysSettings` | API keys form |
+| `AISettings` | AI engine settings |
+| `AppSettings` | General settings |
+| `MaintenanceSettings` | Maintenance actions |
+| `NotificationCenter` | Notification center (system + users) |
+| `NotificationPreferences` | Admin alert preferences |

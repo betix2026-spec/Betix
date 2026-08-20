@@ -1,88 +1,90 @@
-# 🏆 Synthèse Phase 1 : Initialisation & Socle Technique
-**Date** : 11 Février 2026
-**Statut** : ✅ Terminé & Validé
+# 🏆 Phase 1 Synthesis: Initialization & Technical Foundation
+**Date**: February 11, 2026
+**Status**: ✅ Complete & Validated
+
+> **Status note (added later)**: this is a point-in-time record of what Phase 1 delivered. Several specifics below have since changed — e.g. the backend has grown well past the 3-router structure described here, and the tennis provider relationship (§3) evolved further. See `backend/README.md` for the current architecture.
 
 ---
 
-## 1. Objectifs Atteints
-La Phase 1 visait à établir un socle technique robuste et "production-ready" pour BETIX, ainsi qu'à définir précisément les sources de données.
-- **Architecture technique** : Mise en place (Frontend + Backend + BDD).
-- **Cartographie Data** : Identification précise des endpoints sportifs.
-- **Environnement de Dév** : Dockerisation complète avec hot-reload.
-- **Contrats d'interface** : Typage strict partagé (TypeScript/Pydantic).
+## 1. Goals Achieved
+Phase 1 aimed to establish a robust, production-ready technical foundation for BETIX, and to precisely define the data sources.
+- **Technical architecture**: set up (frontend + backend + DB).
+- **Data mapping**: precise identification of the sports endpoints.
+- **Dev environment**: fully dockerized with hot-reload.
+- **Interface contracts**: strict shared typing (TypeScript/Pydantic).
 
 ---
 
-## 2. Architecture Technique Déployée
+## 2. Technical Architecture Deployed
 
-### 🐳 Conteneurisation (Docker)
-L'environnement de développement est entièrement dockerisé pour garantir la parité dev/prod.
-- **Frontend** : Node 20-alpine (Next.js 15), port `3000`.
-- **Backend** : Python 3.11-slim (FastAPI), port `8000`.
-- **Orchestration** : `docker-compose.yml` avec volumes montés pour le hot-reload.
+### 🐳 Containerization (Docker)
+The development environment is fully dockerized to guarantee dev/prod parity.
+- **Frontend**: Node 20-alpine (Next.js 15), port `3000`.
+- **Backend**: Python 3.11-slim (FastAPI), port `8000`.
+- **Orchestration**: `docker-compose.yml` with mounted volumes for hot-reload.
 
 ### 🖥️ Frontend (Next.js 15)
-- **Stack** : App Router, TypeScript, Tailwind CSS, ESLint.
-- **Structure** : `src/app`, `src/components`, `src/lib`, `src/types`.
-- **Configuration** : Variables d'environnement via `.env.local`.
+- **Stack**: App Router, TypeScript, Tailwind CSS, ESLint.
+- **Structure**: `src/app`, `src/components`, `src/lib`, `src/types`.
+- **Configuration**: environment variables via `.env.local`.
 
 ### ⚡ Backend (FastAPI)
-- **Stack** : FastAPI, Uvicorn, Pydantic, HTTPX.
-- **Structure modulaire** :
-  - `routers/` : Endpoints (`matches`, `predictions`, `sports`).
-  - `models/` : Schémas Pydantic (`schemas.py`).
-  - `services/` : Logique métier (futurs connecteurs API).
-- **Sécurité** : Configuration CORS prête pour le frontend.
+- **Stack**: FastAPI, Uvicorn, Pydantic, HTTPX.
+- **Modular structure**:
+  - `routers/`: endpoints (`matches`, `predictions`, `sports`).
+  - `models/`: Pydantic schemas (`schemas.py`).
+  - `services/`: business logic (future API connectors).
+- **Security**: CORS configuration ready for the frontend.
 
 ---
 
-## 3. Stratégie de Données (APIs)
+## 3. Data Strategy (APIs)
 
-### 🚨 Point Critique : Le Tennis
-API-Sports (notre fournisseur principal) **ne couvre pas le Tennis**.
-**Décision** : Utilisation de **api-tennis.com** ($40/mois, essai 14j) pour garantir la qualité des données en production.
+### 🚨 Critical Point: Tennis
+API-Sports (our main provider) **doesn't cover tennis**.
+**Decision**: use **api-tennis.com** ($40/month, 14-day trial) to guarantee production data quality.
 
-### 🗺️ Cartographie des Endpoints clés
-| Sport | API Source | Endpoints Critiques |
+### 🗺️ Key Endpoint Mapping
+| Sport | API Source | Critical Endpoints |
 |---|---|---|
 | **Football** | API-Football v3 | `/fixtures`, `/standings`, `/fixtures/statistics`, `/teams` |
 | **Basketball** | API-Basketball v1 | `/games`, `/standings`, `/games/statistics`, `/teams` |
 | **Tennis** | API-Tennis | `get_fixtures`, `get_standings`, `get_livescore` |
 
-### 🔒 Gestion des Quotas
-- **Stratégie** : Cache agressif en BDD (Supabase) pour minimiser les appels.
-- **Clés API** : Centralisées dans `backend/app/config.py` et chargées via `.env`.
+### 🔒 Quota Management
+- **Strategy**: aggressive DB caching (Supabase) to minimize calls.
+- **API keys**: centralized in `backend/app/config.py`, loaded via `.env`.
 
 ---
 
-## 4. Contrats de Données (Data Contracts)
-Nous avons établi une structure de données **normalisée** commune aux 3 sports, implémentée à l'identique en **Python (Pydantic)** et **TypeScript**.
+## 4. Data Contracts
+We established a **normalized** data structure common to all 3 sports, implemented identically in **Python (Pydantic)** and **TypeScript**.
 
-### Modèles Principaux
-1.  **Match** : Structure unifiée (ID, équipes, score, statut, ligue).
-2.  **Prediction** : Format de sortie de l'IA (Analyse textuelle, résultat prédit, facteurs clés, niveau de confiance).
-3.  **MatchAnalysisContext** : Aggrégat de toutes les données (Forme, H2H, Stats) pour le prompt IA.
+### Main Models
+1. **Match**: unified structure (ID, teams, score, status, league).
+2. **Prediction**: the AI's output format (written analysis, predicted outcome, key factors, confidence level).
+3. **MatchAnalysisContext**: aggregate of all data (form, H2H, stats) for the AI prompt.
 
-**Fichiers de référence** :
-- Backend : `backend/app/models/schemas.py`
-- Frontend : `frontend/src/types/index.ts`
+**Reference files**:
+- Backend: `backend/app/models/schemas.py`
+- Frontend: `frontend/src/types/index.ts`
 
 ---
 
-## 5. Validation Technique
-Avant la clôture de la phase, une batterie de tests a été effectuée :
-1.  **Build Docker** : Succès (`npm install` & `pip install` OK).
-2.  **Démarrage Services** :
-    - Frontend accessible sur `http://localhost:3000`.
-    - Backend accessible sur `http://localhost:8000`.
-3.  **Communication** :
+## 5. Technical Validation
+Before closing the phase, a battery of tests was run:
+1. **Docker build**: success (`npm install` & `pip install` OK).
+2. **Service startup**:
+    - Frontend reachable at `http://localhost:3000`.
+    - Backend reachable at `http://localhost:8000`.
+3. **Communication**:
     - `curl http://localhost:8000/api/health` → **200 OK**.
-    - Logs confirmant le démarrage sans erreur (`Application startup complete`).
+    - Logs confirming a clean startup (`Application startup complete`).
 
 ---
 
-## 6. Prochaines Étapes (Phase 2)
-Le socle est solide. Nous passons maintenant à la construction de l'interface utilisateur (Design-First).
-- Branding (Couleurs, Typographie).
-- Design System (Composants UI).
-- Landing Page & Dashboard.
+## 6. Next Steps (Phase 2, as planned at the time)
+The foundation is solid. Next: building the user interface (design-first).
+- Branding (colors, typography).
+- Design system (UI components).
+- Landing page & dashboard.

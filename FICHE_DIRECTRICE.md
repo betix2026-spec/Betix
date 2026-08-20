@@ -1,72 +1,74 @@
-# 🏆 BETIX — Fiche Directrice du Projet
+# 🏆 BETIX — Project Charter
 
-> **Document de référence** — Ce fichier est la boussole du projet. Toutes les décisions techniques validées y sont consignées. À consulter en priorité avant chaque phase de développement.
+> **Reference document** — this file is the project's compass. Every validated technical decision was recorded here. Originally meant to be consulted before each development phase.
+>
+> **Status note (added later): this is a historical planning snapshot from the project's start.** All 7 phases below were completed long ago, and the project has grown well beyond this original scope since (an on-demand AI generation engine replacing the batch approach described in Phase 4, a full dashboard rebuild, an admin panel, AI accuracy tracking, 4-language i18n, and more). For the current architecture, see [`README.md`](./README.md), [`backend/README.md`](./backend/README.md), and [`frontend/README.md`](./frontend/README.md) instead — this file is kept as a record of the original plan, not a live status page.
 
 ---
 
-## 1. Présentation du Projet
+## 1. Project Overview
 
-**BETIX** est une plateforme SaaS premium de pronostics sportifs propulsée par l'Intelligence Artificielle.
+**BETIX** is a premium SaaS platform for sports predictions, powered by artificial intelligence.
 
 | | |
 |---|---|
-| **Concept** | Transformer des statistiques sportives brutes en analyses textuelles et prédictions intelligentes via l'IA |
-| **Type** | MVP Production-Ready (pas un prototype) |
-| **Client** | Lilzer — monétisation par abonnement |
+| **Concept** | Turn raw sports statistics into written analysis and intelligent predictions via AI |
+| **Type** | Production-ready MVP (not a prototype) |
+| **Client** | Lilzer — subscription-based monetization |
 | **Sports** | ⚽ Football · 🏀 Basketball · 🎾 Tennis |
 
-### Fonctionnalités Clés
+### Key Features
 
-- **Dashboard utilisateur** — Interface SaaS premium pour consulter les matchs du jour et les prédictions
-- **Moteur d'analyse IA** — Récupération des données réelles (stats, forme, H2H) + analyse par LLM
-- **3 niveaux de confiance** — Safe (Prudent) 🟢 · Intermédiaire 🟡 · Risqué (Cote élevée) 🔴
-- **Système d'abonnement Stripe** — 2 pronostics gratuits, offre d'appel à 1€ le 1er mois, plans mensuels/annuels
-
----
-
-## 2. Décisions Techniques Actées
-
-### Stack Technologique
-
-| Couche | Technologie | Justification |
-|---|---|---|
-| **Frontend** | Next.js 15 (App Router) + Tailwind CSS + TypeScript | SEO, SSR, rapidité de dev, écosystème riche |
-| **Backend** | Python FastAPI | Écosystème IA mature, performance async, typage fort |
-| **Base de données** | PostgreSQL via Supabase | Tier gratuit généreux (500 MB, 50k MAU), Auth intégré |
-| **Authentification** | Supabase Auth | Intégré à la BDD, OAuth ready, JWT natif |
-| **Paiements** | Stripe (Checkout + Webhooks) | Standard industrie, gestion auto des abonnements |
-| **IA (Dev/Test)** | Google Gemini 2.0 Flash | Gratuit dans les limites, suffisant pour le workflow |
-| **IA (Production)** | À définir après tests comparatifs | Choix basé sur rapport qualité/prix/pertinence |
-| **Données sportives** | API-Sports (api-sports.io) — Plan Pro ~$30/mois | Une seule clé pour Football + Basketball + Tennis |
-
-### Hébergement
-
-| Service | Plateforme | Coût |
-|---|---|---|
-| **Frontend** | Vercel (tier gratuit) | $0 |
-| **Backend** | Railway | ~$5-10/mois |
-| **Base de données** | Supabase (tier gratuit) | $0 |
-
-### Architecture : Frontend & Backend Séparés
-
-Le frontend (Next.js) et le backend (FastAPI) sont deux projets distincts, communiquant via API REST. Ce choix permet :
-- Un déploiement indépendant de chaque partie
-- Une scalabilité flexible
-- La possibilité de remplacer l'un sans toucher l'autre
-
-### Approche IA : Prompt Engineering Enrichi
-
-> Pas de vector store ni d'architecture RAG complexe pour le MVP.
-
-L'approche retenue :
-1. **Récupérer** les stats via API-Sports (forme, H2H, classement, blessures)
-2. **Structurer** ces données en contexte lisible
-3. **Injecter** le contexte dans un prompt spécialisé par sport
-4. **Analyser** via le LLM pour générer 3 niveaux de prédiction
+- **User dashboard** — premium SaaS interface to browse today's matches and predictions
+- **AI analysis engine** — fetches real data (stats, form, H2H) + LLM-driven analysis
+- **3 confidence tiers** — Safe 🟢 · Intermediate 🟡 · Risky (high odds) 🔴
+- **Stripe subscription system** — 2 free predictions, a €1 first-month intro offer, monthly/annual plans
 
 ---
 
-## 3. Architecture Globale
+## 2. Technical Decisions Made
+
+### Tech Stack
+
+| Layer | Technology | Rationale |
+|---|---|---|
+| **Frontend** | Next.js 15 (App Router) + Tailwind CSS + TypeScript | SEO, SSR, fast to build, rich ecosystem |
+| **Backend** | Python FastAPI | Mature AI ecosystem, async performance, strong typing |
+| **Database** | PostgreSQL via Supabase | Generous free tier (500 MB, 50k MAU), built-in auth |
+| **Authentication** | Supabase Auth | Integrated with the DB, OAuth-ready, native JWT |
+| **Payments** | Stripe (Checkout + Webhooks) | Industry standard, automatic subscription handling |
+| **AI (dev/test, original plan)** | Google Gemini 2.0 Flash | Free within limits, good enough for the workflow *(superseded — see status note above; production now runs on Anthropic Claude)* |
+| **AI (production, original plan)** | To be decided after comparative testing | Chosen on a quality/price/relevance basis *(decided: Claude Haiku, see backend/README.md §7)* |
+| **Sports data** | API-Sports (api-sports.io) — Pro plan ~$30/month | One key for Football + Basketball + Tennis |
+
+### Hosting
+
+| Service | Platform | Cost |
+|---|---|---|
+| **Frontend** | Vercel (free tier) | $0 |
+| **Backend** | Railway | ~$5-10/month |
+| **Database** | Supabase (free tier) | $0 |
+
+### Architecture: Separate Frontend & Backend
+
+The frontend (Next.js) and backend (FastAPI) are two distinct projects communicating via REST API. This choice allows:
+- Independent deployment of each part
+- Flexible scalability
+- The ability to replace one without touching the other
+
+### AI Approach: Enriched Prompt Engineering
+
+> No vector store or complex RAG architecture for the MVP.
+
+The chosen approach:
+1. **Fetch** stats via API-Sports (form, H2H, standings, injuries)
+2. **Structure** that data into readable context
+3. **Inject** the context into a sport-specific prompt
+4. **Analyze** via the LLM to generate 3 prediction tiers
+
+---
+
+## 3. Overall Architecture
 
 ```mermaid
 graph TB
@@ -86,7 +88,7 @@ graph TB
         AUTH_MID[Auth Middleware]
     end
 
-    subgraph External ["🌐 Services Externes"]
+    subgraph External ["🌐 External Services"]
         API_SPORTS[(API-Sports)]
         GEMINI[(Gemini API)]
         STRIPE[(Stripe)]
@@ -97,7 +99,7 @@ graph TB
         SB_AUTH[(Supabase Auth)]
     end
 
-    Client -->|"HTTPS (API REST)"| API
+    Client -->|"HTTPS (REST API)"| API
     ROUTER --> SPORTS --> API_SPORTS
     ROUTER --> AI --> GEMINI
     ROUTER --> STRIPE_SVC --> STRIPE
@@ -105,126 +107,128 @@ graph TB
     API --> PG
 ```
 
-### Flux Principal : De la Donnée à la Prédiction
+*(This diagram reflects the original design — e.g. Gemini as the AI provider. See the backend README for the current on-demand engine architecture.)*
+
+### Main Flow: From Data to Prediction
 
 ```mermaid
 sequenceDiagram
-    actor U as Utilisateur
+    actor U as User
     participant F as Frontend (Next.js)
     participant B as Backend (FastAPI)
     participant S as API-Sports
     participant IA as LLM (Gemini)
     participant DB as PostgreSQL
 
-    U->>F: Ouvre le Dashboard
+    U->>F: Opens the Dashboard
     F->>B: GET /api/matches/today?sport=football
-    B->>DB: Vérifie le cache
-    alt Données pas en cache
-        B->>S: Fetch matchs + stats
-        S-->>B: Données brutes
-        B->>DB: Sauvegarde en cache
+    B->>DB: Checks the cache
+    alt Data not cached
+        B->>S: Fetch matches + stats
+        S-->>B: Raw data
+        B->>DB: Save to cache
     end
-    B-->>F: Liste des matchs
+    B-->>F: List of matches
 
-    U->>F: Clique sur un match
+    U->>F: Clicks a match
     F->>B: GET /api/predictions/{match_id}
-    B->>DB: Vérifie si prédiction existe
-    alt Prédiction pas en cache
-        B->>S: Fetch stats détaillées (forme, H2H)
-        S-->>B: Stats complètes
-        B->>IA: Prompt structuré avec stats
-        IA-->>B: 3 analyses (Safe/Inter/Risqué)
-        B->>DB: Sauvegarde prédictions
+    B->>DB: Checks whether a prediction exists
+    alt Prediction not cached
+        B->>S: Fetch detailed stats (form, H2H)
+        S-->>B: Full stats
+        B->>IA: Structured prompt with stats
+        IA-->>B: 3 analyses (Safe/Intermediate/Risky)
+        B->>DB: Save the predictions
     end
-    B-->>F: Prédiction complète
-    F->>F: Vérifie droits (abonné ou < 2 gratuits)
-    F-->>U: Affiche la prédiction
+    B-->>F: Full prediction
+    F->>F: Checks entitlement (subscriber or < 2 free)
+    F-->>U: Shows the prediction
 ```
 
 ---
 
-## 4. Principes Directeurs
+## 4. Guiding Principles
 
-1. **Production-ready** — Pas de bricolage. Code propre, architecture solide, UX soignée
-2. **Coûts optimisés** — Tirer le maximum des tiers gratuits sans sacrifier la qualité
-3. **Évolutif** — Le schéma BDD, les sports couverts, et le modèle IA évolueront selon les besoins
-4. **Mobile-first** — Les utilisateurs cibles consultent principalement sur mobile
-5. **Itératif** — On n'essaie pas de tout définir d'avance, on avance composant par composant
+1. **Production-ready** — no hacks. Clean code, solid architecture, polished UX
+2. **Cost-optimized** — get the most out of free tiers without sacrificing quality
+3. **Evolvable** — the DB schema, covered sports, and AI model will evolve as needed
+4. **Mobile-first** — target users mostly browse on mobile
+5. **Iterative** — don't try to define everything upfront; move component by component
 
 ---
 
-## 5. Budget Mensuel Estimé (MVP)
+## 5. Estimated Monthly Budget (MVP, original plan)
 
-| Service | Coût |
+| Service | Cost |
 |---|---|
 | Vercel (Frontend) | **$0** |
 | Railway (Backend) | **~$5-10** |
-| Supabase (BDD + Auth) | **$0** |
+| Supabase (DB + Auth) | **$0** |
 | API-Sports Pro | **~$30** |
-| Gemini Flash (Dev) | **$0** |
+| Gemini Flash (dev) | **$0** |
 | Stripe | **2.9% + $0.30/transaction** |
-| Domaine | **~$1/mois** (annualisé) |
-| **Total** | **~$36-41/mois** + commission Stripe |
+| Domain | **~$1/month** (annualized) |
+| **Total** | **~$36-41/month** + Stripe fees |
 
 ---
 
-## 6. Planning de Développement
+## 6. Original Development Plan
 
-> **Approche Design-First** — On construit l'interface complète avec des données statiques d'abord, puis on intègre les données réelles. Le schéma BDD est défini par les besoins concrets de l'app, pas l'inverse.
+> **Design-first approach** — build the full interface with static data first, then wire up real data. The DB schema is driven by the app's actual needs, not the other way around.
 
-### Phase 1 — Initialisation & Définition des APIs
-- Setup des repos (Next.js + FastAPI)
-- Configuration de l'environnement de développement
-- Exploration et documentation des endpoints API-Sports (Football, Basketball, Tennis)
-- Définition des contrats de données : quelles données on récupère, sous quelle forme
-- Création des types TypeScript et modèles Pydantic correspondants
+### Phase 1 — Initialization & API Definition
+- Set up the repos (Next.js + FastAPI)
+- Configure the dev environment
+- Explore and document the API-Sports endpoints (Football, Basketball, Tennis)
+- Define data contracts: what data to fetch, in what shape
+- Create the corresponding TypeScript types and Pydantic models
 
-### Phase 2 — Frontend Design (Données Statiques)
-- Définition du branding (palette, typographie, identité visuelle)
-- Design system complet (composants UI réutilisables)
-- **Toutes les pages construites avec des données mock** :
-  - Landing page (vitrine publique)
-  - Pages Auth (login, signup)
-  - Dashboard (liste des matchs par sport)
-  - Page détail match (prédiction complète avec les 3 niveaux)
-  - Page tarifs (comparatif des plans)
-- Responsive mobile-first
-- **Objectif** : visualiser 100% de l'app et valider toutes les fonctionnalités avant l'intégration
+### Phase 2 — Frontend Design (Static Data)
+- Define the branding (palette, typography, visual identity)
+- Full design system (reusable UI components)
+- **Every page built with mock data**:
+  - Landing page (public showcase)
+  - Auth pages (login, signup)
+  - Dashboard (match list per sport)
+  - Match detail page (full prediction with all 3 tiers)
+  - Pricing page (plan comparison)
+- Mobile-first responsive
+- **Goal**: see 100% of the app and validate every feature before integration
 
-### Phase 3 — Données Réelles & Base de Données
-- Intégration API-Sports dans le backend (Football, Basketball, Tennis)
-- Récupération des données réelles + système de cache
-- **Construction du schéma BDD optimal** basé sur les données réelles ET les besoins de l'UI
-- Création du projet Supabase + migration initiale
-- Remplacement des données mock par les données réelles dans le frontend
+### Phase 3 — Real Data & Database
+- Integrate API-Sports into the backend (Football, Basketball, Tennis)
+- Fetch real data + caching system
+- **Build the optimal DB schema** based on real data AND actual UI needs
+- Create the Supabase project + initial migration
+- Replace mock data with real data in the frontend
 
-### Phase 4 — Moteur d'Analyse IA
-- Intégration Gemini API dans le backend
-- Création des prompts spécialisés par sport
-- Génération des 3 niveaux de prédiction (Safe / Intermédiaire / Risqué)
-- Cache des prédictions en BDD
-- Connexion avec le frontend (pages de prédiction)
+### Phase 4 — AI Analysis Engine
+- Integrate the Gemini API into the backend
+- Create sport-specific prompts
+- Generate the 3 prediction tiers (Safe / Intermediate / Risky)
+- Cache predictions in the DB
+- Connect to the frontend (prediction pages)
 
-### Phase 5 — Authentification
-- Configuration Supabase Auth
-- Pages login/signup fonctionnelles
-- Protection des routes (middleware Next.js + vérification JWT backend)
-- Gestion du profil utilisateur
+### Phase 5 — Authentication
+- Configure Supabase Auth
+- Working login/signup pages
+- Route protection (Next.js middleware + backend JWT verification)
+- User profile management
 
-### Phase 6 — Monétisation (Stripe)
-- Intégration Stripe Checkout
-- Création des plans d'abonnement (mensuel, annuel, offre 1€)
-- Webhooks Stripe (backend)
-- Gating des prédictions : 2 gratuites → paywall
-- Page tarifs connectée à Stripe
+### Phase 6 — Monetization (Stripe)
+- Integrate Stripe Checkout
+- Create subscription plans (monthly, annual, €1 intro offer)
+- Stripe webhooks (backend)
+- Gate predictions: 2 free → paywall
+- Pricing page connected to Stripe
 
-### Phase 7 — Polish & Déploiement
-- Tests de bout en bout (flux complet utilisateur)
-- Optimisation UX, animations, micro-interactions
-- Responsive final et tests multi-devices
-- Déploiement production (Vercel + Railway)
-- Documentation et configuration finale
+### Phase 7 — Polish & Deployment
+- End-to-end testing (full user flow)
+- UX polish, animations, micro-interactions
+- Final responsive pass and multi-device testing
+- Production deployment (Vercel + Railway)
+- Documentation and final configuration
 
 ---
 
-*Dernière mise à jour : 11 février 2026*
+*Last updated: February 11, 2026 (original document — see the status note at the top for what's changed since).*

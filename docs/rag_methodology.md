@@ -1,36 +1,44 @@
-# 🧠 Méthodologie RAG — Moteur de Prédiction IA BETIX
+# 🧠 RAG Methodology — BETIX AI Prediction Engine
 
+> **Status note (added later)**: this document describes the *original design concept* for the prediction pipeline, written before it was built. The guiding principles below (context-first, no hallucination, surface-aware tennis analysis, fatigue-aware basketball analysis, one LLM call per prediction) still hold — but several concrete specifics changed during actual implementation:
+> - **Storage**: a single `public.ai_match_audits` table (with a `status` lock for pending/ready/failed and a `run_id='live'` single-row-per-match model), not the separate `public.predictions` + `analytics.confidence_factors` tables described below.
+> - **Output shape**: three ranked categories (`high_confidence` / `medium_confidence` / `risky`, 0-3 picks each) with the AI assigning its own confidence score *within* a fixed range per category (80-99 / 60-79 / 30-59), not the single `type`/`confidence` field and separate malus-based scoring formula described in §"Confidence Score Mechanism" below. Each pick also carries a structured `outcome` field (e.g. `{"type": "moneyline", "side": "home"}`) not mentioned here, used to automatically grade the pick against the real result once the match finishes.
+> - **Trigger**: a 24-hour-lookahead proactive scan plus an on-demand fallback when a premium user opens an ungenerated match — not a fixed H-2 CRON.
+> - **Provider**: Anthropic Claude in production, not Gemini.
+>
+> See `backend/README.md` §7 for the current, accurate architecture. This file is kept for the original design thinking.
+>
 > **RAG = Retrieval-Augmented Generation**
-> Le LLM ne devine pas. Il **lit un dossier d'analyste** compilé automatiquement, puis rédige son verdict.
+> The LLM doesn't guess. It **reads an analyst's dossier**, compiled automatically, then writes its verdict.
 
 ---
 
-## 📐 Architecture Générale du Pipeline RAG
+## 📐 Overall RAG Pipeline Architecture
 
 ```mermaid
 graph TD
-    subgraph Trigger ["Déclencheur"]
-        A["⏰ CRON H-2 avant match"]
+    subgraph Trigger ["Trigger"]
+        A["⏰ CRON, 2h before kickoff"]
     end
 
-    subgraph Retrieval ["Phase 1 : RETRIEVAL"]
-        B["Query PostgreSQL<br/>(analytics.*)"]
-        C["API Météo<br/>(OpenWeatherMap)"]
-        D["Dernières Cotes<br/>(odds_snapshots)"]
+    subgraph Retrieval ["Phase 1: RETRIEVAL"]
+        B["PostgreSQL Query<br/>(analytics.*)"]
+        C["Weather API<br/>(OpenWeatherMap)"]
+        D["Latest Odds<br/>(odds_snapshots)"]
     end
 
-    subgraph Assembly ["Phase 2 : ASSEMBLY"]
+    subgraph Assembly ["Phase 2: ASSEMBLY"]
         E["Context Builder<br/>(Python)"]
-        F["📄 RAG Context<br/>Document structuré"]
+        F["📄 RAG Context<br/>Structured Document"]
     end
 
-    subgraph Generation ["Phase 3 : GENERATION"]
-        G["Prompt Système<br/>+ RAG Context"]
+    subgraph Generation ["Phase 3: GENERATION"]
+        G["System Prompt<br/>+ RAG Context"]
         H["🤖 Gemini API"]
-        I["Prédiction JSON<br/>structurée"]
+        I["Structured JSON<br/>Prediction"]
     end
 
-    subgraph Storage ["Phase 4 : STORAGE"]
+    subgraph Storage ["Phase 4: STORAGE"]
         J["public.predictions"]
         K["analytics.confidence_factors"]
     end
@@ -49,34 +57,34 @@ graph TD
     I --> K
 ```
 
-### Principe Fondamental
+### Core Principle
 
-Le LLM **n'accède jamais directement aux APIs externes**. Il reçoit un **document de contexte pré-compilé** (le "RAG Context") qui contient toutes les données nécessaires, structurées et vérifiées. Cela garantit :
+The LLM **never accesses external APIs directly**. It receives a **pre-compiled context document** (the "RAG Context") containing all the necessary data, structured and verified. This guarantees:
 
-1. **Reproductibilité** — Le même contexte produit la même analyse
-2. **Traçabilité** — Le `generation_snapshot` stocke le contexte exact utilisé
-3. **Contrôle des coûts** — Un seul appel LLM par prédiction, pas de chaînes d'outils
-4. **Qualité** — Les données sont nettoyées et validées avant d'atteindre le LLM
+1. **Reproducibility** — the same context produces the same analysis
+2. **Traceability** — `generation_snapshot` stores the exact context used
+3. **Cost control** — one LLM call per prediction, no tool chains
+4. **Quality** — data is cleaned and validated before reaching the LLM
 
 ---
 
-## ⚽ RAG Football
+## ⚽ Football RAG
 
-### Sources de Données Utilisées
+### Data Sources Used
 
-| Donnée | Table Source | Fenêtre |
+| Data | Source Table | Window |
 |:---|:---|:---|
-| Forme récente (Dom/Ext) | `football_team_rolling` | L5 matchs |
-| xG / xGA | `football_team_rolling` | L5 (ligues majeures) |
-| Classement ELO | `football_team_elo` | Dernier snapshot |
-| Blessures / Suspensions | `football_injuries` | Status actif |
-| Confrontations directes | `football_h2h` | Historique complet |
-| Tendance arbitrale | `football_referee_stats` | Saison en cours |
-| Météo au stade | Fetch live (OpenWeatherMap) | H-2 |
-| Mouvement des cotes | `odds_snapshots` | H-24 → H-1 |
-| Contexte tournoi | `football_matches.round` | Match courant |
+| Recent form (home/away) | `football_team_rolling` | L5 matches |
+| xG / xGA | `football_team_rolling` | L5 (major leagues) |
+| ELO rating | `football_team_elo` | Latest snapshot |
+| Injuries / suspensions | `football_injuries` | Active status |
+| Head-to-head | `football_h2h` | Full history |
+| Referee tendencies | `football_referee_stats` | Current season |
+| Stadium weather | Live fetch (OpenWeatherMap) | 2h before |
+| Odds movement | `odds_snapshots` | 24h → 1h before |
+| Tournament context | `football_matches.round` | Current match |
 
-### Structure du RAG Context (Football)
+### RAG Context Structure (Football)
 
 ```markdown
 ## 🏟️ MATCH CONTEXT
@@ -108,57 +116,57 @@ Le LLM **n'accède jamais directement aux APIs externes**. Il reçoit un **docum
 - Avg Goals Arsenal: 1.6 | Avg Goals Chelsea: 1.1
 - Last 5: [W, D, L, W, W] (Arsenal perspective)
 
-## 💰 MARKET SENTIMENT (Odds Movement H-24 → H-1)
+## 💰 MARKET SENTIMENT (Odds Movement 24h → 1h before)
 - Arsenal Win: 1.65 → 1.58 (SHORTENING — Money on Arsenal)
 - Draw: 3.80 → 4.00 (DRIFTING)
 - Chelsea Win: 5.50 → 5.80 (DRIFTING)
 - Over 2.5: 1.75 → 1.70 (SHORTENING)
 ```
 
-### Prompt Système (Football)
+### System Prompt (Football)
 
 ```
-Tu es un analyste sportif senior spécialisé en football.
-Tu reçois un dossier d'analyse pré-match. Ton rôle :
+You are a senior sports analyst specialized in football.
+You receive a pre-match analysis dossier. Your role:
 
-1. ANALYSER les données factuelles du dossier
-2. IDENTIFIER les facteurs clés (forme, xG, absences, H2H, météo, cotes)
-3. PRODUIRE une prédiction structurée en JSON
+1. ANALYZE the factual data in the dossier
+2. IDENTIFY the key factors (form, xG, absences, H2H, weather, odds)
+3. PRODUCE a structured JSON prediction
 
-Règles :
-- Ne jamais inventer de données non présentes dans le dossier
-- Si xG = NULL, mentionner que l'analyse est basée sur les stats classiques
-- Pondérer la forme récente > historique H2H > cotes
-- Le Confidence Score reflète la QUALITÉ des données, pas ta certitude
+Rules:
+- Never invent data not present in the dossier
+- If xG = NULL, mention that the analysis is based on classic stats
+- Weight recent form > H2H history > odds
+- The Confidence Score reflects data QUALITY, not your certainty
 
-Format de sortie :
+Output format:
 {
   "type": "safe|value|risky",
   "confidence": 0-100,
-  "outcome": "Description du pari",
+  "outcome": "Bet description",
   "odds": 1.XX,
-  "analysis_short": "Résumé 1 ligne",
-  "analysis_full": "Analyse détaillée en Markdown (3-5 paragraphes)"
+  "analysis_short": "1-line summary",
+  "analysis_full": "Detailed analysis in Markdown (3-5 paragraphs)"
 }
 ```
 
 ---
 
-## 🏀 RAG Basketball
+## 🏀 Basketball RAG
 
-### Sources de Données Utilisées
+### Data Sources Used
 
-| Donnée | Table Source | Fenêtre |
+| Data | Source Table | Window |
 |:---|:---|:---|
-| Ratings Off/Def | `basketball_team_rolling` | L5, L10, Saison |
-| Four Factors (eFG%, TOV%, ORB%, FTR) | `basketball_match_stats` (calculés) | L5 |
+| Off/Def Ratings | `basketball_team_rolling` | L5, L10, Season |
+| Four Factors (eFG%, TOV%, ORB%, FTR) | `basketball_match_stats` (computed) | L5 |
 | Pace | `basketball_team_rolling` | L5, L10 |
-| Fatigue (B2B, Rest Days) | `basketball_team_rolling` | Temps réel |
-| Blessures + Impact | `basketball_injuries` | Status actif |
-| Confrontations directes | `basketball_h2h` | Saison en cours |
-| Mouvement des cotes | `odds_snapshots` | H-24 → H-1 |
+| Fatigue (B2B, rest days) | `basketball_team_rolling` | Real-time |
+| Injuries + impact | `basketball_injuries` | Active status |
+| Head-to-head | `basketball_h2h` | Current season |
+| Odds movement | `odds_snapshots` | 24h → 1h before |
 
-### Structure du RAG Context (Basketball)
+### RAG Context Structure (Basketball)
 
 ```markdown
 ## 🏟️ MATCH CONTEXT
@@ -202,42 +210,42 @@ Format de sortie :
 - Total: 228.5 | Over: -110 | Under: -110
 ```
 
-### Logique d'Analyse Spécifique Basketball
+### Basketball-Specific Analysis Logic
 
-Le prompt système pour le Basketball insiste sur des facteurs différents du Football :
+The system prompt for basketball emphasizes different factors than football:
 
 ```
-Facteurs de pondération Basketball :
-1. NET RATING L5 (Différentiel Off/Def récent) — Poids: 30%
-2. FATIGUE (B2B + Games in 7 days) — Poids: 25%
-   - Un B2B pour l'équipe extérieure = malus significatif
-   - > 4 matchs en 7 jours = "schedule loss" potentiel
-3. FOUR FACTORS (eFG%, TOV%) — Poids: 20%
-   - eFG% est le meilleur prédicteur simple de victoire
-4. INJURIES PPG IMPACT — Poids: 15%
-   - Un joueur > 25% USG absent = recalibrer l'attaque
-5. H2H + COTES — Poids: 10%
-   - H2H moins pertinent en NBA qu'en football (rotation, matchups)
+Basketball weighting factors:
+1. L5 NET RATING (recent Off/Def differential) — Weight: 30%
+2. FATIGUE (B2B + games in 7 days) — Weight: 25%
+   - A B2B for the away team is a significant penalty
+   - > 4 games in 7 days = potential "schedule loss"
+3. FOUR FACTORS (eFG%, TOV%) — Weight: 20%
+   - eFG% is the best simple predictor of a win
+4. INJURY PPG IMPACT — Weight: 15%
+   - A player with > 25% USG absent = attack must be recalibrated
+5. H2H + ODDS — Weight: 10%
+   - H2H is less relevant in the NBA than in football (rotation, matchups)
 ```
 
 ---
 
-## 🎾 RAG Tennis
+## 🎾 Tennis RAG
 
-### Sources de Données Utilisées
+### Data Sources Used
 
-| Donnée | Table Source | Fenêtre |
+| Data | Source Table | Window |
 |:---|:---|:---|
-| Forme par surface | `tennis_player_rolling` | L5, L10 (filtre surface) |
-| Stats de service | `tennis_player_rolling` | L10 |
-| Stats de retour | `tennis_player_rolling` | L10 |
-| Fatigue (jours repos, sets L7) | `tennis_player_rolling` | Temps réel |
-| Classement + Tendance | `tennis_rankings` | Dernier snapshot |
-| Confrontations directes | `tennis_h2h` | Historique + filtre surface |
-| Catégorie tournoi | `tennis_tournaments` | Match courant |
-| Mouvement des cotes | `odds_snapshots` | H-24 → H-1 |
+| Form by surface | `tennis_player_rolling` | L5, L10 (surface filter) |
+| Serve stats | `tennis_player_rolling` | L10 |
+| Return stats | `tennis_player_rolling` | L10 |
+| Fatigue (rest days, L7 sets) | `tennis_player_rolling` | Real-time |
+| Ranking + trend | `tennis_rankings` | Latest snapshot |
+| Head-to-head | `tennis_h2h` | History + surface filter |
+| Tournament category | `tennis_tournaments` | Current match |
+| Odds movement | `odds_snapshots` | 24h → 1h before |
 
-### Structure du RAG Context (Tennis)
+### RAG Context Structure (Tennis)
 
 ```markdown
 ## 🏟️ MATCH CONTEXT
@@ -288,75 +296,75 @@ Facteurs de pondération Basketball :
 - Sinner: 2.30 → 2.45 (DRIFTING)
 
 ## ⚠️ CONFIDENCE MODIFIERS
-- Tournament Category: Grand Slam → No malus
-- Data Completeness: Full stats available → No malus
-- H2H on Surface: 4 matches on clay → No malus
+- Tournament Category: Grand Slam → No penalty
+- Data Completeness: Full stats available → No penalty
+- H2H on Surface: 4 matches on clay → No penalty
 - Base Confidence: 100/100
 ```
 
-### Logique d'Analyse Spécifique Tennis
+### Tennis-Specific Analysis Logic
 
 ```
-Facteurs de pondération Tennis :
-1. FORME SUR LA SURFACE ACTUELLE — Poids: 30%
-   - La surface est LE discriminant #1 en tennis
-   - Un joueur top 5 sur hard peut être R16 sur clay
-2. STATS SERVICE + RETOUR (sur la surface) — Poids: 25%
-   - "Return Won %" est la métrique la plus prédictive
-   - Sur gazon, la 1ère balle % domine
-3. FATIGUE SCORE — Poids: 20%
-   - Un 5-setter la veille = risque de tanking/underperformance
-   - Fatigue Score > 70 = alerte rouge
-4. H2H SUR LA SURFACE — Poids: 15%
-   - H2H global sans filtre surface = BRUIT (ignorer)
-   - Ex: Nadal vs Djokovic sur terre ≠ sur dur
-5. RANKINGS + TENDANCE — Poids: 10%
-   - Un joueur "rising" (+20 places en 3 mois) > joueur "declining"
+Tennis weighting factors:
+1. FORM ON THE CURRENT SURFACE — Weight: 30%
+   - Surface is THE #1 discriminating factor in tennis
+   - A top-5 player on hard court can be a Round-of-16 player on clay
+2. SERVE + RETURN STATS (on that surface) — Weight: 25%
+   - "Return Won %" is the most predictive metric
+   - On grass, 1st-serve % dominates
+3. FATIGUE SCORE — Weight: 20%
+   - A 5-setter the day before = risk of tanking/underperformance
+   - Fatigue Score > 70 = red flag
+4. H2H ON THAT SURFACE — Weight: 15%
+   - Global H2H with no surface filter = NOISE (ignore it)
+   - E.g.: Nadal vs. Djokovic on clay ≠ on hard court
+5. RANKING + TREND — Weight: 10%
+   - A "rising" player (+20 spots in 3 months) beats a "declining" one
 ```
 
 ---
 
-## 🧮 Mécanisme du Confidence Score
+## 🧮 Confidence Score Mechanism
 
-Le score de confiance n'est **pas** la probabilité de gagner.
-C'est la **fiabilité de l'analyse** elle-même.
+The confidence score is **not** the probability of winning.
+It's the **reliability of the analysis** itself.
 
-### Calcul
+### Calculation
 
 ```
 BASE = 100
 
-MALUS appliqués :
+Penalties applied:
 ├── League Tier
 │   ├── Grand Slam / Top 5 Leagues / NBA     → 0
 │   ├── ATP 250 / Ligue 2 / EuroLeague       → -15
 │   └── ITF / Challenger / Liga 3             → -30
 ├── Missing Data
-│   ├── xG indisponible (Football)            → -10
-│   ├── Stats de match absentes (Tennis ITF)  → -20
-│   └── Pas de box score détaillé (Basket)    → -15
+│   ├── xG unavailable (Football)             → -10
+│   ├── Match stats missing (Tennis ITF)      → -20
+│   └── No detailed box score (Basketball)    → -15
 ├── H2H
-│   ├── 0 confrontations directes             → -10
-│   └── < 3 confrontations sur la surface     → -5 (Tennis)
+│   ├── 0 direct meetings                     → -10
+│   └── < 3 meetings on this surface          → -5 (Tennis)
 └── Injury Uncertainty
-    ├── Joueur clé en GTD non résolu          → -10
-    └── > 3 joueurs clés absents              → -5
+    ├── Key player GTD, unresolved            → -10
+    └── > 3 key players absent                → -5
 
-FINAL_SCORE = max(0, BASE - sum(malus))
+FINAL_SCORE = max(0, BASE - sum(penalties))
 ```
 
-### Affichage Utilisateur
+### User-Facing Display
 
-| Score | Badge | Couleur | Signification |
+| Score | Badge | Color | Meaning |
 |:---:|:---|:---|:---|
-| 85-100 | `HIGH CONFIDENCE` | 🟢 Vert | Données complètes, analyse fiable |
-| 65-84 | `MODERATE` | 🟡 Jaune | Quelques lacunes, à pondérer |
-| 40-64 | `LOW` | 🟠 Orange | Données limitées, prudence |
-| 0-39 | `SPECULATIVE` | 🔴 Rouge | Analyse très incertaine |
+| 85-100 | `HIGH CONFIDENCE` | 🟢 Green | Complete data, reliable analysis |
+| 65-84 | `MODERATE` | 🟡 Yellow | A few gaps, weight accordingly |
+| 40-64 | `LOW` | 🟠 Orange | Limited data, be cautious |
+| 0-39 | `SPECULATIVE` | 🔴 Red | Highly uncertain analysis |
 
 ---
 
-## 🔄 Cycle de Vie Complet d'une Prédiction
+## 🔄 Full Lifecycle of a Prediction
 
 ```mermaid
 sequenceDiagram
@@ -366,21 +374,21 @@ sequenceDiagram
     participant LLM as 🤖 Gemini API
     participant APP as 📱 Frontend
 
-    CRON->>DB: Query matchs à H-2
-    DB-->>CRON: Liste des matchs du jour
+    CRON->>DB: Query matches at H-2
+    DB-->>CRON: Today's match list
 
-    loop Pour chaque match
-        CRON->>DB: Fetch rolling stats (équipe/joueur)
+    loop For each match
+        CRON->>DB: Fetch rolling stats (team/player)
         CRON->>DB: Fetch H2H
         CRON->>DB: Fetch injuries
         CRON->>DB: Fetch odds snapshots
         CRON->>DB: Fetch confidence factors
 
-        Note over CB: Compilation du RAG Context
-        CRON->>CB: Assembler le document
+        Note over CB: Compiling the RAG Context
+        CRON->>CB: Assemble the document
 
         CB->>LLM: System Prompt + RAG Context
-        LLM-->>CB: JSON structuré (prédiction)
+        LLM-->>CB: Structured JSON (prediction)
 
         CB->>DB: INSERT prediction → public.predictions
         CB->>DB: INSERT confidence → analytics.confidence_factors
@@ -388,29 +396,29 @@ sequenceDiagram
     end
 
     APP->>DB: SELECT predictions WHERE date = today
-    DB-->>APP: Prédictions + Confidence Scores
+    DB-->>APP: Predictions + Confidence Scores
 ```
 
-### Timing du Pipeline
+### Pipeline Timing
 
-| Étape | Heure | Durée estimée |
+| Step | Time | Estimated Duration |
 |:---|:---|:---|
-| Daily Sync (résultats veille) | 06:00 | ~5 min |
+| Daily Sync (previous day's results) | 06:00 | ~5 min |
 | Rolling Stats Recalc | 06:30 | ~10 min |
 | H2H / ELO Updates | 06:45 | ~5 min |
-| Odds Tracking (snapshots) | Toutes les 6h | ~2 min |
-| Pre-Match Context Build | H-2 | ~30s / match |
-| LLM Generation | H-2 + 1min | ~5s / match |
-| Résultat disponible en App | H-2 + 2min | Immédiat |
+| Odds Tracking (snapshots) | Every 6h | ~2 min |
+| Pre-Match Context Build | 2h before | ~30s / match |
+| LLM Generation | 2h before + 1min | ~5s / match |
+| Result available in the app | 2h before + 2min | Immediate |
 
 ---
 
-## 📌 Règles d'Or du Système RAG
+## 📌 Golden Rules of the RAG System
 
-1. **Le LLM ne cherche rien** — Il reçoit un dossier complet, point final
-2. **Pas de hallucination** — Si une donnée manque, le Confidence Score baisse
-3. **Surface = Roi (Tennis)** — Toujours filtrer par surface, jamais d'agrégat global seul
-4. **Fatigue ≠ Repos (Basket)** — Un B2B extérieur vaut plus qu'un malus ELO
-5. **Les cotes ne prédisent pas** — Elles confirment ou infirment un sentiment
-6. **Traçabilité totale** — Chaque prédiction stocke son `generation_snapshot`
-7. **Un seul appel LLM** — Pas de chaînes, pas de re-prompting, pas d'agents multiples
+1. **The LLM looks nothing up itself** — it receives a complete dossier, full stop
+2. **No hallucination** — if a piece of data is missing, the Confidence Score drops
+3. **Surface is King (Tennis)** — always filter by surface, never a global aggregate alone
+4. **Fatigue ≠ Rest (Basketball)** — an away-team B2B is worth more than an ELO penalty
+5. **Odds don't predict** — they confirm or contradict a sentiment
+6. **Full traceability** — every prediction stores its `generation_snapshot`
+7. **A single LLM call** — no chains, no re-prompting, no multi-agent setups

@@ -1,93 +1,93 @@
 <div align="center">
   <img src="https://via.placeholder.com/150/000000/FFFFFF/?text=BETIX" alt="Betix Logo" />
   <h1>BETIX AI 📈</h1>
-  <p><strong>Plateforme Premium d'Analyse et de Pronostics Sportifs (IA)</strong></p>
+  <p><strong>Premium Sports Analysis & Prediction Platform (AI)</strong></p>
 </div>
 
 ---
 
 ## 📖 Introduction
 
-**BETIX** est une application SaaS full-stack conçue pour redéfinir l'approche analytique des paris sportifs professionnels (Football, Basketball, Tennis). Le système ingère des bataillons de données statistiques complexes (Rolling Form, xG, Net Rating, H2H) en temps réel, les consolide, et délègue l'analyse brute à des Modèles de Langage (LLM - Anthropic/Gemini) pour fournir un Indice de Confiance et une narration humaine ("Expert Opinion") aux parieurs.
+**BETIX** is a full-stack SaaS application designed to redefine the analytical approach to professional sports betting (Football, Basketball, Tennis). The system ingests large volumes of complex statistical data (rolling form, xG, net rating, H2H) in real time, consolidates it, and hands off the raw analysis to Language Models (LLMs — Anthropic/Gemini) to provide bettors with a Confidence Index and a human-readable narrative ("Expert Opinion").
 
-L'architecture est scindée en deux écosystèmes bien distincts, conçus pour la performance et la fiabilité asynchrone.
-
----
-
-## 🏗️ Architecture Globale (Le Monorepo)
-
-Le dépôt contient deux composants majeurs, vivant de manière autonome et communiquant via la base de données (Supabase).
-
-### 1. 🖥️ Le Frontend (Next.js)
-Situé dans `/frontend`. C'est le portail utilisateur SaaS (Dashboard, Paywall).
-- **Stack** : Next.js 15 (App Router), React, Tailwind CSS, Shadcn UI.
-- **Rôle** : Servir la Landing Page ultra-optimisée SEO, gérer l'authentification MFA via Supabase, traiter les paiements avec Stripe, et restituer l'analyse IA via une interface (UI) premium et interactive.
-- **Philosophie** : Data Fetching sévère côté serveur (Server Components). Toute modification du flux d'accès (Premium Gate) se gère à la racine des layouts pour bloquer technétiquement la vue.
-- **En savoir plus** : [Consulter la documentation dédiée Frontend](./frontend/README.md).
-
-### 2. 🗄️ Le Backend / Moteur IA (Python)
-Situé dans `/backend`. C'est l'usine à données (Ingestion, Radars, Intelligence Artificielle).
-- **Stack** : Python 3.12+, FastAPI, Pydantic, httpx (Asynchrone).
-- **Rôle** : Écouter l'horloge biologique des matchs de sport, déclencher les mises à jour "in-play" (Live), recalculer les statistiques avancées à la fin de chaque partie, et lancer l'orchestration des prompts IA quand les cotes ("odds") sont tombées.
-- **Philosophie** : Multi-Workers asynchrones et unitaires, guidés par des Orchestrateurs (Data, Live, AI) orchestrés autour des tables Analytics de Supabase.
-- **En savoir plus** : [Consulter la documentation dédiée Backend](./backend/README.md).
+The architecture is split into two clearly separate ecosystems, designed for performance and asynchronous reliability.
 
 ---
 
-## 🧠 Infrastructure Données (Supabase)
+## 🏗️ Overall Architecture (The Monorepo)
 
-Betix est intensément articulé autour de **Supabase** offrant la base de données PostgreSQL, l'Authentification (et gestion MFA), et les permissions.
+The repository contains two major components, each living independently and communicating via the database (Supabase).
 
-### Côté Frontend
-Le frontend s'appuie sur le *Role-Level Security (RLS)* et accède à la base de données via la clé publique anonyme pour garantir la sécurité fine par usager.
+### 1. 🖥️ The Frontend (Next.js)
+Located in `/frontend`. This is the SaaS user portal (dashboard, paywall).
+- **Stack**: Next.js 15 (App Router), React, Tailwind CSS, Shadcn UI.
+- **Role**: Serve the SEO-optimized landing page, handle MFA authentication via Supabase, process payments with Stripe, and render the AI analysis through a premium, interactive UI.
+- **Philosophy**: Strict server-side data fetching (Server Components). Any change to the access flow (Premium Gate) is handled at the root of the layouts so the view is technically blocked.
+- **Learn more**: [See the dedicated Frontend documentation](./frontend/README.md).
 
-### Côté Backend
-Le backend tourne en *System Administrator* (clé de service / `service_role_key`).
-Le backend sépare ses calculs en deux schémas de base de données :
-- `public` : La projection de ce qui doit être lu par les utilisateurs (Matchs, Profils, IA Audits terminés).
-- `analytics` : La "boîtes noire" où se gèrent les algorithmes (Historique Elo, Face-à-Face profonds, Cotes dynamiques pre-match). 
-
----
-
-## 💳 Monétisation (Stripe)
-
-La gestion des abonnements est centralisée de bout-en-bout :
-- L'utilisateur final achète l'accès via Stripe Checkout (Routing Next.js).
-- Le backend Supabase webhook écoute `POST /api/stripe/webhook`.
-- À chaque récurrence d'abonnement, le webhook vérifie la signature Stripe, allonge la date d'échéance `current_period_end` dans la table des `subscriptions`, débloquant instantanément le Paywall Next.js (grâce aux abonnements Realtime/SSR Supabase).
+### 2. 🗄️ The Backend / AI Engine (Python)
+Located in `/backend`. This is the data factory (ingestion, radars, artificial intelligence).
+- **Stack**: Python 3.12+, FastAPI, Pydantic, httpx (async).
+- **Role**: Track the biological clock of sports matches, trigger "in-play" (live) updates, recompute advanced statistics at the end of each match, and orchestrate AI prompts once odds are available.
+- **Philosophy**: Asynchronous, unitary multi-workers, guided by orchestrators (Data, Live, AI) built around Supabase's Analytics tables.
+- **Learn more**: [See the dedicated Backend documentation](./backend/README.md).
 
 ---
 
-## 🚀 Guide de Démarrage Rapide
+## 🧠 Data Infrastructure (Supabase)
 
-### Pré-requis
+Betix is built intensively around **Supabase**, which provides the PostgreSQL database, authentication (including MFA), and permissions.
+
+### Frontend Side
+The frontend relies on *Row-Level Security (RLS)* and accesses the database via the anonymous public key to guarantee fine-grained per-user security.
+
+### Backend Side
+The backend runs as *System Administrator* (service key / `service_role_key`).
+The backend splits its work across two database schemas:
+- `public`: the projection of what should be readable by users (matches, profiles, finished AI audits).
+- `analytics`: the "black box" where the algorithms live (Elo history, deep head-to-head, pre-match dynamic odds).
+
+---
+
+## 💳 Monetization (Stripe)
+
+Subscription management is centralized end-to-end:
+- The end user purchases access via Stripe Checkout (Next.js routing).
+- The backend listens for the Supabase webhook at `POST /api/stripe/webhook`.
+- On each subscription renewal, the webhook verifies the Stripe signature, extends the `current_period_end` date in the `subscriptions` table, and instantly unlocks the Next.js paywall (thanks to Supabase Realtime/SSR subscriptions).
+
+---
+
+## 🚀 Quick Start Guide
+
+### Prerequisites
 - Node.js (v20+)
 - Python (v3.12+)
-- Une instance **Supabase** (URL et Clés).
-- Des clés API (API-Sports, API-Tennis, Anthropic/Google Gemini, Stripe).
+- A **Supabase** instance (URL and keys).
+- API keys (API-Sports, API-Tennis, Anthropic/Google Gemini, Stripe).
 
-### 1️⃣ Lancement du Frontend
+### 1️⃣ Starting the Frontend
 ```bash
 cd frontend
 npm install
-# Remplir le fichier .env (NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, STRIPE_SECRET_KEY, etc.)
+# Fill in the .env file (NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, STRIPE_SECRET_KEY, etc.)
 npm run dev
 ```
 
-### 2️⃣ Lancement du Backend
+### 2️⃣ Starting the Backend
 ```bash
 cd backend
 python -m venv venv
-# Sur Windows : venv\Scripts\activate.ps1
-# Sur Mac/Linux : source venv/bin/activate
+# On Windows: venv\Scripts\activate.ps1
+# On Mac/Linux: source venv/bin/activate
 pip install -r requirements.txt
-# Remplir le fichier .env (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, API_SPORTS_KEY, ANTHROPIC_API_KEY)
-# Lancer le serveur d'API (Endpoint)
+# Fill in the .env file (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, API_SPORTS_KEY, ANTHROPIC_API_KEY)
+# Start the API server (endpoint)
 uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
-*(Remarque : Notez qu'en production, le Backend a besoin de ses orchestrateurs tournant en parallèle pour que la donnée s'actualise — cf. Doc Backend).*
+*(Note: in production, the backend needs its orchestrators running in parallel for data to stay up to date — see the Backend doc.)*
 
 ---
 
-## 🛡️ Contributeurs et Support
-Prière de se référer de façon impérative aux deux README sous-jacents (Frontend & Backend) avant tout Commit impactant l'intelligence analytique (Scripts d'ingestion/Rolling form) ou les passerelles MFA front-end.
+## 🛡️ Contributors & Support
+Please make sure to consult both underlying READMEs (Frontend & Backend) before any commit that touches the analytical intelligence (ingestion/rolling form scripts) or the frontend MFA gateways.
