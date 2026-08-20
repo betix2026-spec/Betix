@@ -2148,6 +2148,16 @@ const literalTranslations: Record<string, Partial<Record<Locale, string>>> = {
         es: "Análisis en curso...",
         de: "Analyse läuft...",
     },
+    "Pas encore d'analyse — ouvrez le match pour en générer une.": {
+        en: "No analysis yet — open the match to generate one.",
+        es: "Aún no hay análisis — abre el partido para generar uno.",
+        de: "Noch keine Analyse — öffne das Spiel, um eine zu erstellen.",
+    },
+    "Meilleur pari": {
+        en: "Top pick",
+        es: "Mejor apuesta",
+        de: "Bester Tipp",
+    },
     "Voir l'analyse complète": {
         en: "View full analysis",
         es: "Ver análisis completo",

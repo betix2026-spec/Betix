@@ -248,12 +248,34 @@ export function MatchTable({ items }: MatchTableProps) {
                                                             )}
                                                         </div>
                                                     </div>
-                                                ) : (
+                                                ) : match.confidenceBadge?.status === "ready" && match.confidenceBadge.topLevel ? (
+                                                    // List-view teaser only carries level/confidence/odds, not the bet
+                                                    // description or analysis text — those need the full fetch on the
+                                                    // match detail page.
+                                                    <div className="space-y-3 md:border-r border-white/5 md:pr-6">
+                                                        <h4 className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-2">
+                                                            <Activity className="size-3" /> {copy("Analyse IA")}
+                                                        </h4>
+                                                        <div className="text-sm text-white font-medium">
+                                                            {copy("Meilleur pari")}{" "}
+                                                            <span className="text-primary">
+                                                                {match.confidenceBadge.topLevel.toUpperCase()} · {match.confidenceBadge.topConfidence}%
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                ) : match.confidenceBadge?.status === "pending" ? (
                                                     <div className="space-y-3 md:border-r border-white/5 md:pr-6">
                                                         <h4 className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-2">
                                                             <Activity className="size-3" /> {copy("Analyse IA")}
                                                         </h4>
                                                         <span className="text-xs text-muted-foreground">{copy("Analyse en cours...")}</span>
+                                                    </div>
+                                                ) : (
+                                                    <div className="space-y-3 md:border-r border-white/5 md:pr-6">
+                                                        <h4 className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-2">
+                                                            <Activity className="size-3" /> {copy("Analyse IA")}
+                                                        </h4>
+                                                        <span className="text-xs text-muted-foreground">{copy("Pas encore d'analyse — ouvrez le match pour en générer une.")}</span>
                                                     </div>
                                                 )}
 
