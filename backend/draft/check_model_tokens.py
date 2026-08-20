@@ -50,14 +50,17 @@ DEFAULT_MODELS = [
 async def run_one(client, model, system_prompt, user_prompt, ceiling):
     t0 = time.time()
     try:
+        # Only `temperature` — matches exactly what production actually sends
+        # to Claude (ai_model.py's _generate_claude never passes top_p/top_k
+        # despite AI_CONFIG having those keys; they're only used for the
+        # Gemini path). The Anthropic API now rejects temperature+top_p
+        # together for these models, which is what broke the first run.
         response = await client.messages.create(
             model=model,
             messages=[{"role": "user", "content": user_prompt}],
             system=system_prompt,
             max_tokens=AI_CONFIG["max_tokens"],
             temperature=AI_CONFIG["temperature"],
-            top_p=AI_CONFIG["top_p"],
-            top_k=AI_CONFIG["top_k"],
         )
     except Exception as e:
         return {"model": model, "error": str(e), "elapsed": time.time() - t0}
