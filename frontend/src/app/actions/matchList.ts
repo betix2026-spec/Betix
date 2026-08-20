@@ -139,3 +139,227 @@ export async function getAuditSummaries(
 
     return result;
 }
+
+export type MarketTeaser = {
+    source: "odds" | "form";
+    homePct: number;
+    awayPct: number;
+};
+
+const PRIMARY_MARKET: Record<string, string> = {
+    football: "Match Winner",
+    basketball: "Home/Away",
+    tennis: "Home/Away",
+};
+
+function labelSide(label: string): "home" | "away" | "draw" | null {
+    const l = label.trim().toLowerCase();
+    if (l === "home") return "home";
+    if (l === "away") return "away";
+    if (l === "draw") return "draw";
+    return null;
+}
+
+/**
+ * De-vigged implied win% from a bookmaker's odds (1/odds, normalized so the
+ * probabilities sum to 100 — removes the bookmaker's overround). Returns
+ * null if the market can't be read cleanly (missing/zero odds, no
+ * recognizable home+away entries).
+ */
+function impliedWinPct(oddsData: { label: string; odds: number }[]): { homePct: number; awayPct: number } | null {
+    let home: number | null = null;
+    let away: number | null = null;
+    let draw: number | null = null;
+    for (const entry of oddsData) {
+        const side = labelSide(entry.label);
+        if (!entry.odds || entry.odds <= 0) continue;
+        if (side === "home") home = entry.odds;
+        else if (side === "away") away = entry.odds;
+        else if (side === "draw") draw = entry.odds;
+    }
+    // Fall back to positional (API order is consistently home-first for the
+    // markets we request) if labels didn't match the expected "Home"/"Away".
+    if (home === null && away === null && oddsData.length >= 2) {
+        home = oddsData[0]?.odds || null;
+        away = oddsData[1]?.odds || null;
+    }
+    if (!home || !away) return null;
+
+    const invHome = 1 / home;
+    const invAway = 1 / away;
+    const invDraw = draw && draw > 0 ? 1 / draw : 0;
+    const total = invHome + invAway + invDraw;
+    if (total <= 0) return null;
+
+    return {
+        homePct: Math.round((invHome / total) * 100),
+        awayPct: Math.round((invAway / total) * 100),
+    };
+}
+
+/**
+ * Always-on, non-AI teaser for the dashboard list: an implied win% from the
+ * latest odds snapshot when one exists, falling back to a recent-form
+ * signal (L5 points-per-match) when it doesn't. No LLM call, no tier
+ * restriction — this is meant to give every match *something*, unlike the
+ * AI confidence badge which only exists for matches that were actually
+ * analyzed. Callers should prefer an AI badge over this when both exist.
+ */
+export async function getMarketTeasers(
+    matches: MatchListItem[]
+): Promise<Record<string, MarketTeaser>> {
+    const result: Record<string, MarketTeaser> = {};
+    const withApiId = matches.filter((m) => m.apiSportId && SPORT_TABLES[m.sport]);
+    if (withApiId.length === 0) return result;
+
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!supabaseUrl || !supabaseKey) {
+        console.error("[getMarketTeasers] Missing Supabase credentials.");
+        return result;
+    }
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const bySport = new Map<string, MatchListItem[]>();
+    for (const m of withApiId) {
+        if (!bySport.has(m.sport)) bySport.set(m.sport, []);
+        bySport.get(m.sport)!.push(m);
+    }
+
+    for (const [sport, items] of bySport) {
+        const table = SPORT_TABLES[sport];
+        const marketName = PRIMARY_MARKET[sport];
+        if (!table || !marketName) continue;
+
+        const apiIds = items
+            .map((m) => parseInt(m.apiSportId as string, 10))
+            .filter((n) => !Number.isNaN(n));
+        if (apiIds.length === 0) continue;
+
+        // 1. Resolve external api_id -> internal analytics id for this sport.
+        const { data: internalRows, error: internalErr } = await supabase
+            .schema("analytics")
+            .from(table)
+            .select("id, api_id")
+            .in("api_id", apiIds);
+        if (internalErr || !internalRows?.length) continue;
+
+        const internalIdToPublicId = new Map<number, string>();
+        for (const row of internalRows as { id: number; api_id: number }[]) {
+            const match = items.find((m) => parseInt(m.apiSportId as string, 10) === row.api_id);
+            if (match) internalIdToPublicId.set(row.id, match.id);
+        }
+        const internalIds = Array.from(internalIdToPublicId.keys());
+        if (internalIds.length === 0) continue;
+
+        const stillNeedTeaser = new Set(internalIdToPublicId.keys());
+
+        // 2. Odds — latest snapshot per match for the primary market.
+        const { data: oddsRows, error: oddsErr } = await supabase
+            .schema("analytics")
+            .from("odds_snapshots")
+            .select("match_id, odds_data, snapshot_at")
+            .eq("sport", sport)
+            .eq("market_name", marketName)
+            .in("match_id", internalIds)
+            .order("snapshot_at", { ascending: false });
+        if (!oddsErr && oddsRows) {
+            for (const row of oddsRows as { match_id: number; odds_data: unknown }[]) {
+                if (!stillNeedTeaser.has(row.match_id)) continue; // already have the latest for this match
+                const publicId = internalIdToPublicId.get(row.match_id);
+                if (!publicId) continue;
+                const oddsData = typeof row.odds_data === "string" ? JSON.parse(row.odds_data) : row.odds_data;
+                const pct = Array.isArray(oddsData) ? impliedWinPct(oddsData) : null;
+                if (pct) {
+                    result[publicId] = { source: "odds", ...pct };
+                    stillNeedTeaser.delete(row.match_id);
+                }
+            }
+        }
+
+        // 3. Form fallback (football/basketball only) for whatever odds didn't cover.
+        if (stillNeedTeaser.size > 0 && (sport === "football" || sport === "basketball")) {
+            const remaining = items.filter((m) => {
+                const apiId = parseInt(m.apiSportId as string, 10);
+                const row = (internalRows as { id: number; api_id: number }[]).find((r) => r.api_id === apiId);
+                return row && stillNeedTeaser.has(row.id);
+            });
+            if (remaining.length > 0) {
+                await attachFormTeasers(supabase, sport, table, remaining, internalRows as { id: number; api_id: number }[], result);
+            }
+        }
+    }
+
+    return result;
+}
+
+async function attachFormTeasers(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    supabase: any,
+    sport: string,
+    matchTable: string,
+    matches: MatchListItem[],
+    internalRows: { id: number; api_id: number }[],
+    result: Record<string, MarketTeaser>
+) {
+    const rollingTable = `${sport}_team_rolling`;
+    const apiIdToInternalMatchId = new Map(internalRows.map((r) => [r.api_id, r.id]));
+    const internalMatchIds = matches
+        .map((m) => apiIdToInternalMatchId.get(parseInt(m.apiSportId as string, 10)))
+        .filter((id): id is number => id != null);
+    if (internalMatchIds.length === 0) return;
+
+    const { data: matchRows, error: matchErr } = await supabase
+        .schema("analytics")
+        .from(matchTable)
+        .select("id, home_team_id, away_team_id")
+        .in("id", internalMatchIds);
+    if (matchErr || !matchRows?.length) return;
+
+    const teamIds = Array.from(
+        new Set((matchRows as { home_team_id: number; away_team_id: number }[]).flatMap((r) => [r.home_team_id, r.away_team_id]))
+    );
+    if (teamIds.length === 0) return;
+
+    // Latest "all venue" L5 snapshot per team.
+    const { data: rollingRows, error: rollingErr } = await supabase
+        .schema("analytics")
+        .from(rollingTable)
+        .select("team_id, l5_ppm, date")
+        .eq("venue", "all")
+        .in("team_id", teamIds)
+        .order("date", { ascending: false });
+    if (rollingErr || !rollingRows) return;
+
+    const latestPpmByTeam = new Map<number, number>();
+    for (const row of rollingRows as { team_id: number; l5_ppm: number | null; date: string }[]) {
+        if (row.l5_ppm != null && !latestPpmByTeam.has(row.team_id)) {
+            latestPpmByTeam.set(row.team_id, row.l5_ppm);
+        }
+    }
+
+    const apiIdToPublicId = new Map(matches.map((m) => [parseInt(m.apiSportId as string, 10), m.id]));
+
+    for (const mr of matchRows as { id: number; home_team_id: number; away_team_id: number }[]) {
+        const apiId = internalRows.find((r) => r.id === mr.id)?.api_id;
+        const publicId = apiId != null ? apiIdToPublicId.get(apiId) : undefined;
+        if (!publicId) continue;
+
+        const homePpm = latestPpmByTeam.get(mr.home_team_id);
+        const awayPpm = latestPpmByTeam.get(mr.away_team_id);
+        if (homePpm == null || awayPpm == null) continue;
+
+        // Not a probability — just each side's L5 points-per-match normalized
+        // against the pair so the two bars/numbers are comparable at a glance.
+        const total = homePpm + awayPpm;
+        if (total <= 0) {
+            result[publicId] = { source: "form", homePct: 50, awayPct: 50 };
+            continue;
+        }
+        result[publicId] = {
+            source: "form",
+            homePct: Math.round((homePpm / total) * 100),
+            awayPct: Math.round((awayPpm / total) * 100),
+        };
+    }
+}

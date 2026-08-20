@@ -13,7 +13,7 @@ import { createClient } from "@/lib/supabase/client";
 import { MatchCard } from "@/components/dashboard/MatchCard";
 import { MatchTable } from "@/components/dashboard/MatchTable";
 import { DateStrip, toDateStr } from "@/components/dashboard/DateStrip";
-import { getAuditSummaries, type AuditSummary } from "@/app/actions/matchList";
+import { getAuditSummaries, getMarketTeasers, type AuditSummary, type MarketTeaser } from "@/app/actions/matchList";
 import { cn } from "@/lib/utils";
 import { Match } from "@/types/match";
 import { useI18n } from "@/lib/use-i18n";
@@ -35,6 +35,7 @@ export default function DashboardPage() {
     const [selectedDate, setSelectedDate] = useState(() => toDateStr(new Date()));
     const [sortBy, setSortBy] = useState<SortBy>("time");
     const [auditSummaries, setAuditSummaries] = useState<Record<string, AuditSummary>>({});
+    const [marketTeasers, setMarketTeasers] = useState<Record<string, MarketTeaser>>({});
 
     const searchParams = useSearchParams();
     const currentSport = searchParams.get("sport") || "all";
@@ -234,7 +235,11 @@ export default function DashboardPage() {
 
     // Attach the batched confidence-badge data before sorting, so "sort by
     // confidence/odds" has something to sort on.
-    filtered = filtered.map(m => ({ ...m, confidenceBadge: auditSummaries[m.id] }));
+    filtered = filtered.map(m => ({
+        ...m,
+        confidenceBadge: auditSummaries[m.id],
+        marketTeaser: marketTeasers[m.id],
+    }));
 
     // 6. Sort
     filtered = [...filtered].sort((a, b) => {
@@ -267,6 +272,7 @@ export default function DashboardPage() {
             leagueName: m.league?.name || "",
         }));
         getAuditSummaries(items).then(setAuditSummaries).catch(() => { });
+        getMarketTeasers(items).then(setMarketTeasers).catch(() => { });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [filteredIdsKey]);
 
@@ -286,7 +292,7 @@ export default function DashboardPage() {
         }
         return Array.from(groups.entries()).sort((a, b) => a[0].localeCompare(b[0]));
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [shouldGroupByLeague, filteredIdsKey, sortBy, auditSummaries]);
+    }, [shouldGroupByLeague, filteredIdsKey, sortBy, auditSummaries, marketTeasers]);
 
     const visibleMatches = filtered.slice(0, visibleCount);
     const hasMore = visibleCount < filtered.length;
