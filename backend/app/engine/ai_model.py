@@ -220,16 +220,29 @@ class ChatModel:
         for msg in self.history:
             role = "assistant" if msg["role"] == "model" else "user"
             messages.append({"role": role, "content": msg["content"]})
-            
+
         kwargs = {
             "model": self.target_model_name,
             "messages": messages,
             "max_tokens": config.get("max_tokens"),
             "temperature": config.get("temperature"),
         }
-        
+
         if system_instruction:
             kwargs["system"] = system_instruction
-            
-        response = await self.client.messages.create(**kwargs)
+
+        try:
+            response = await self.client.messages.create(**kwargs)
+        except Exception as e:
+            # The newest Claude models (confirmed: Sonnet 5, Opus 5) reject
+            # `temperature` outright ("deprecated for this model") — older
+            # ones (Haiku 4.5, Sonnet 4.6) accept it fine, so this can't be a
+            # fixed per-model param set without hardcoding a model-name check
+            # that breaks the next time DEFAULT_MODEL changes. Retry once
+            # without it instead.
+            if "temperature" in str(e) and "deprecated" in str(e).lower():
+                kwargs.pop("temperature", None)
+                response = await self.client.messages.create(**kwargs)
+            else:
+                raise
         return response.content[0].text
