@@ -51,8 +51,8 @@ interface AuthContextType {
     isAdmin: boolean;
     isSuperAdmin: boolean;
     signIn: (email: string, password: string) => Promise<{ error: string | null }>;
-    signInWithGoogle: () => Promise<{ error: string | null }>;
-    signInWithMagicLink: (email: string) => Promise<{ error: string | null }>;
+    signInWithGoogle: (redirectTo?: string) => Promise<{ error: string | null }>;
+    signInWithMagicLink: (email: string, redirectTo?: string) => Promise<{ error: string | null }>;
     signUp: (email: string, password: string) => Promise<{
         error: string | null;
         session: Session | null;
@@ -152,24 +152,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const appUrl = (typeof window !== 'undefined' ? window.location.origin : '') || process.env.NEXT_PUBLIC_APP_URL || '';
 
-    const signInWithGoogle = useCallback(async () => {
+    const signInWithGoogle = useCallback(async (redirectTo = "/dashboard") => {
         logger.info("[AuthProvider] Initiating Google OAuth...");
+        const next = redirectTo.startsWith("/") && !redirectTo.startsWith("//") ? redirectTo : "/dashboard";
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo: `${appUrl}/api/auth/callback`,
+                redirectTo: `${appUrl}/api/auth/callback?next=${encodeURIComponent(next)}`,
             },
         });
         if (error) logger.error("[AuthProvider] Google OAuth failed:", error.message);
         return { error: error?.message || null };
     }, [supabase, appUrl]);
 
-    const signInWithMagicLink = useCallback(async (email: string) => {
+    const signInWithMagicLink = useCallback(async (email: string, redirectTo = "/dashboard") => {
         logger.info(`[AuthProvider] Sending Magic Link to: ${email}`);
+        const next = redirectTo.startsWith("/") && !redirectTo.startsWith("//") ? redirectTo : "/dashboard";
         const { error } = await supabase.auth.signInWithOtp({
             email,
             options: {
-                emailRedirectTo: `${appUrl}/api/auth/callback`,
+                emailRedirectTo: `${appUrl}/api/auth/callback?next=${encodeURIComponent(next)}`,
             },
         });
         if (error) logger.error("[AuthProvider] Magic Link failed:", error.message);
