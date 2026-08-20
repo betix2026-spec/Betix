@@ -37,6 +37,11 @@ from app.engine.confidence_generator import (
     DEFAULT_MODEL,
 )
 
+# Hard wall-clock deadline per model call. claude-sonnet-4-6 legitimately
+# took 224.5s in a real run — set well above that rather than cutting off a
+# slow-but-working request.
+REQUEST_DEADLINE_S = 300
+
 DEFAULT_MODELS = [
     DEFAULT_MODEL,                    # current production baseline (Haiku 4.5)
     "claude-sonnet-5",
@@ -47,21 +52,41 @@ DEFAULT_MODELS = [
 
 async def run_one(client, model, system_prompt, user_prompt, ceiling):
     t0 = time.time()
+    kwargs = dict(
+        model=model,
+        messages=[{"role": "user", "content": user_prompt}],
+        system=system_prompt,
+        max_tokens=AI_CONFIG["max_tokens"],
+        temperature=AI_CONFIG["temperature"],
+    )
     try:
         # Only `temperature` — matches exactly what production actually sends
         # to Claude (ai_model.py's _generate_claude never passes top_p/top_k
         # despite AI_CONFIG having those keys; they're only used for the
-        # Gemini path). The Anthropic API now rejects temperature+top_p
-        # together for these models, which is what broke the first run.
-        response = await client.messages.create(
-            model=model,
-            messages=[{"role": "user", "content": user_prompt}],
-            system=system_prompt,
-            max_tokens=AI_CONFIG["max_tokens"],
-            temperature=AI_CONFIG["temperature"],
-        )
+        # Gemini path).
+        # asyncio.wait_for wraps this as a HARD wall-clock deadline — the
+        # client's own timeout=120.0 turned out to be a per-read timeout, not
+        # a total-request one (confirmed live: a call took 224.5s and never
+        # tripped it), so a genuinely stalled request could still hang past
+        # what looks like a bounded timeout.
+        response = await asyncio.wait_for(client.messages.create(**kwargs), timeout=REQUEST_DEADLINE_S)
+    except asyncio.TimeoutError:
+        return {"model": model, "error": f"Timed out after {REQUEST_DEADLINE_S}s (hard deadline)", "elapsed": time.time() - t0}
     except Exception as e:
-        return {"model": model, "error": str(e), "elapsed": time.time() - t0}
+        # The newest models (confirmed: Sonnet 5, Opus 5) reject `temperature`
+        # outright ("deprecated for this model") — a different API surface
+        # than Haiku/Sonnet-4-6, not something a fixed param set covers for
+        # every model. Retry once without it before giving up.
+        if "temperature" in str(e) and "deprecated" in str(e).lower():
+            kwargs.pop("temperature")
+            try:
+                response = await asyncio.wait_for(client.messages.create(**kwargs), timeout=REQUEST_DEADLINE_S)
+            except asyncio.TimeoutError:
+                return {"model": model, "error": f"Timed out after {REQUEST_DEADLINE_S}s (hard deadline)", "elapsed": time.time() - t0}
+            except Exception as e2:
+                return {"model": model, "error": str(e2), "elapsed": time.time() - t0}
+        else:
+            return {"model": model, "error": str(e), "elapsed": time.time() - t0}
 
     elapsed = time.time() - t0
     text = "".join(b.text for b in response.content if hasattr(b, "text"))
@@ -113,10 +138,11 @@ async def main():
 
     settings = get_settings()
     from anthropic import AsyncAnthropic
-    # No timeout was set before — a stalled connection would hang forever
-    # instead of failing. 120s is generous (a normal call takes ~30-60s for
-    # this prompt size) but still bounded.
-    client = AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY, timeout=120.0)
+    # The real enforcement is asyncio.wait_for(..., REQUEST_DEADLINE_S) around
+    # each call in run_one() — this client-level timeout is a secondary guard
+    # (it's a per-read timeout, not a total-request one, so it alone doesn't
+    # reliably cap a slow-but-progressing response).
+    client = AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY, timeout=REQUEST_DEADLINE_S)
 
     print(f"Building prompt once for {args.sport} #{args.match_id} (shared across all models)...")
     system_prompt, user_prompt, ceiling = await build_audit_prompt(args.sport, args.match_id)
