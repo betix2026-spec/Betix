@@ -47,11 +47,17 @@ LOOKAHEAD_HOURS = 24
 async def _eligible_by_league(db: SupabaseREST, table: str, is_top_tier_fn) -> List[int]:
     now = datetime.now(timezone.utc)
     window_end = now + timedelta(hours=LOOKAHEAD_HOURS)
+    # 'Z' suffix instead of .isoformat()'s '+00:00' — a literal '+' in a URL
+    # query string decodes as a space, corrupting the filter (400 Bad
+    # Request). Same fix as used elsewhere in this codebase (e.g.
+    # update_match_rolling.py, backfill_public_matches.py).
+    now_str = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+    window_end_str = window_end.strftime("%Y-%m-%dT%H:%M:%SZ")
     rows = db.select_raw(
         table,
         "select=id,league:league_id(api_id)"
-        f"&date_time=gte.{now.isoformat()}"
-        f"&date_time=lte.{window_end.isoformat()}"
+        f"&date_time=gte.{now_str}"
+        f"&date_time=lte.{window_end_str}"
         "&status=eq.scheduled",
     )
     eligible = []
