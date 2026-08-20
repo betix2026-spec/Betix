@@ -214,7 +214,7 @@ export function MatchTable({ items }: MatchTableProps) {
 
                                     {/* 5. AI Confidence */}
                                     <TableCell className="text-right md:text-left">
-                                        <ConfidenceBadge badge={match.confidenceBadge} topPrediction={topPrediction} />
+                                        <ConfidenceBadge badge={match.confidenceBadge} topPrediction={topPrediction} marketTeaser={match.marketTeaser} />
                                     </TableCell>
 
                                     {/* 6. Action Toggle */}

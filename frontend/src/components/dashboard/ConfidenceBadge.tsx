@@ -1,7 +1,7 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
-import { Sparkles } from "lucide-react";
+import { Sparkles, TrendingUp, Activity } from "lucide-react";
 import { Match, Prediction } from "@/types/match";
 import { useI18n } from "@/lib/use-i18n";
 
@@ -14,15 +14,19 @@ const LEVEL_STYLES: Record<string, string> = {
 /**
  * Dashboard-list confidence teaser. Shows a real number for a top-tier
  * match with a ready analysis, a pulsing "analyzing" chip while one is
- * generating, and nothing at all otherwise — out-of-scope or ungenerated
- * matches render no badge, they're not locked or faked.
+ * generating, and otherwise falls back to a non-AI market teaser (implied
+ * odds win%, or recent form) so a match with no AI analysis yet still shows
+ * *something* — visually distinct (gray, not a confidence color) so it's
+ * never mistaken for an AI pick.
  */
 export function ConfidenceBadge({
     badge,
     topPrediction,
+    marketTeaser,
 }: {
     badge?: Match["confidenceBadge"];
     topPrediction?: Prediction;
+    marketTeaser?: Match["marketTeaser"];
 }) {
     const { copy } = useI18n();
 
@@ -39,9 +43,7 @@ export function ConfidenceBadge({
         );
     }
 
-    if (!badge) return null;
-
-    if (badge.status === "pending") {
+    if (badge?.status === "pending") {
         return (
             <Badge
                 variant="outline"
@@ -53,13 +55,33 @@ export function ConfidenceBadge({
         );
     }
 
-    if (badge.status === "ready" && badge.topLevel && badge.topConfidence != null) {
+    if (badge?.status === "ready" && badge.topLevel && badge.topConfidence != null) {
         return (
             <Badge
                 className={`text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 h-5 border truncate shrink-0 ${LEVEL_STYLES[badge.topLevel]}`}
             >
                 <span className="hidden sm:inline mr-1">{badge.topLevel.toUpperCase()}</span>
                 {badge.topConfidence}%
+            </Badge>
+        );
+    }
+
+    // No AI analysis for this match at all — fall back to a free, non-AI
+    // signal so the row still shows something rather than being blank.
+    // Deliberately gray/neutral, not a confidence color, so it's never
+    // mistaken for an actual AI pick.
+    if (marketTeaser) {
+        const favoredPct = Math.max(marketTeaser.homePct, marketTeaser.awayPct);
+        const Icon = marketTeaser.source === "odds" ? TrendingUp : Activity;
+        const label = marketTeaser.source === "odds" ? copy("Cotes") : copy("Forme");
+        return (
+            <Badge
+                variant="outline"
+                className="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 h-5 border-white/10 bg-white/5 text-neutral-400 shrink-0 gap-1"
+            >
+                <Icon className="size-2.5" />
+                <span className="hidden sm:inline">{label}</span>
+                {favoredPct}%
             </Badge>
         );
     }

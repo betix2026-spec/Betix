@@ -3344,6 +3344,8 @@ const literalTranslations: Record<string, Partial<Record<Locale, string>>> = {
     // Dashboard rebuild (Phase 2) — added when the copy() call sites were
     // written; backfilled here after an audit found they'd been missed.
     "Analyse en cours": { en: "Analyzing", es: "Analizando", de: "Analyse läuft" },
+    "Cotes": { en: "Odds", es: "Cuotas", de: "Quoten" },
+    "Forme": { en: "Form", es: "Forma", de: "Form" },
     "Aucun match en direct": { en: "No live matches", es: "Sin partidos en directo", de: "Keine Live-Spiele" },
     "Autres": { en: "Others", es: "Otros", de: "Andere" },
     "Confiance IA": { en: "AI Confidence", es: "Confianza IA", de: "KI-Vertrauen" },

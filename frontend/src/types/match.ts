@@ -59,6 +59,15 @@ export interface Match {
         topConfidence?: number;
         topOdds?: number;
     };
+    // Always-on, non-AI fallback teaser (implied odds win%, or recent-form
+    // when odds aren't available) — see getMarketTeasers() in
+    // app/actions/matchList.ts. Only meant to be shown when confidenceBadge
+    // is absent; the AI badge always takes priority when it exists.
+    marketTeaser?: {
+        source: "odds" | "form";
+        homePct: number;
+        awayPct: number;
+    };
     aiAudit?: {
         snapshot_at: string;
         odds: any;
