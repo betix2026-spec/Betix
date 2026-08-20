@@ -44,6 +44,8 @@ export function MatchTable({ items }: MatchTableProps) {
                         <TableHead className="hidden md:table-cell w-[180px] text-xs uppercase tracking-wider font-semibold text-muted-foreground">{copy("Ligue")}</TableHead>
                         {/* Match: Visible - Expanded on mobile. Score is merged inline once the match has one. */}
                         <TableHead className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">{copy("Match")}</TableHead>
+                        {/* Odds: Hidden on mobile. Home/away moneyline from the latest snapshot. */}
+                        <TableHead className="hidden md:table-cell text-center w-[100px] text-xs uppercase tracking-wider font-semibold text-muted-foreground">{copy("Cote")}</TableHead>
                         {/* IA: Visible (compact mobile) */}
                         <TableHead className="w-[80px] md:w-[140px] text-xs uppercase tracking-wider font-semibold text-muted-foreground text-right md:text-left">{copy("Confiance")}</TableHead>
                         <TableHead className="w-[40px] md:w-[50px]"></TableHead>
@@ -202,12 +204,25 @@ export function MatchTable({ items }: MatchTableProps) {
                                         </div>
                                     </TableCell>
 
-                                    {/* 4. AI Confidence */}
-                                    <TableCell className="text-right md:text-left">
-                                        <ConfidenceBadge badge={match.confidenceBadge} topPrediction={topPrediction} marketTeaser={match.marketTeaser} />
+                                    {/* 4. Odds (Desktop Only) — home/away moneyline from the latest snapshot */}
+                                    <TableCell className="hidden md:table-cell text-center text-xs font-mono text-neutral-300">
+                                        {match.marketTeaser?.homeOdds != null && match.marketTeaser?.awayOdds != null
+                                            ? `${match.marketTeaser.homeOdds.toFixed(2)} / ${match.marketTeaser.awayOdds.toFixed(2)}`
+                                            : <span className="text-muted-foreground">-</span>}
                                     </TableCell>
 
-                                    {/* 5. Action Toggle */}
+                                    {/* 5. AI Confidence */}
+                                    <TableCell className="text-right md:text-left">
+                                        <ConfidenceBadge
+                                            badge={match.confidenceBadge}
+                                            topPrediction={topPrediction}
+                                            marketTeaser={match.marketTeaser}
+                                            homeTeamShort={match.homeTeam.short}
+                                            awayTeamShort={match.awayTeam.short}
+                                        />
+                                    </TableCell>
+
+                                    {/* 6. Action Toggle */}
                                     <TableCell>
                                         <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground">
                                             {isExpanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
@@ -218,7 +233,7 @@ export function MatchTable({ items }: MatchTableProps) {
                                 {/* Expanded Content (Accordion) */}
                                 {isExpanded && (
                                     <TableRow className="border-white/5 bg-white/[0.02] hover:bg-white/[0.02]">
-                                        <TableCell colSpan={5} className="p-0">
+                                        <TableCell colSpan={6} className="p-0">
                                             <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-6 animate-in slide-in-from-top-2 duration-200">
 
                                                 {/* Prediction Detail (Real data only) */}

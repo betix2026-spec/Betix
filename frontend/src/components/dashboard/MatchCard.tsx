@@ -89,7 +89,13 @@ export function MatchCard({ match }: MatchCardProps) {
                         </div>
 
                         {/* Confidence badge — dashboard-list teaser (see confidenceBadge on Match) */}
-                        <ConfidenceBadge badge={match.confidenceBadge} topPrediction={topPrediction} marketTeaser={match.marketTeaser} />
+                        <ConfidenceBadge
+                            badge={match.confidenceBadge}
+                            topPrediction={topPrediction}
+                            marketTeaser={match.marketTeaser}
+                            homeTeamShort={match.homeTeam.short}
+                            awayTeamShort={match.awayTeam.short}
+                        />
                     </div>
                 </div>
 

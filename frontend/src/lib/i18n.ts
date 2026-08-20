@@ -2083,6 +2083,11 @@ const literalTranslations: Record<string, Partial<Record<Locale, string>>> = {
         es: "Equipo 2",
         de: "Team 2",
     },
+    "Rechercher un affrontement": {
+        en: "Search matchup",
+        es: "Buscar enfrentamiento",
+        de: "Duell suchen",
+    },
     "Voir plus de matchs": {
         en: "Show more matches",
         es: "Ver más partidos",
