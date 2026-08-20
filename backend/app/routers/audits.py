@@ -1,6 +1,6 @@
 """
 BETIX — Audits Router
-On-demand AI analysis generation endpoint.
+On-demand AI analysis generation endpoint, plus a read-only stats endpoint.
 
 Called ONLY by the Next.js server action (frontend/src/app/actions/match.ts)
 after it has already verified the user is premium — this endpoint does not
@@ -17,7 +17,7 @@ from typing import Any, Dict, Optional
 from app.config import get_settings
 from app.services.ingestion.base_client import SupabaseREST
 from app.engine.audit_orchestration import ensure_audit
-from scripts.updates.match_audit_script import run_audit, LIVE_RUN_ID
+from scripts.updates.match_audit_script import run_audit, filter_essential_stats, LIVE_RUN_ID
 
 logger = logging.getLogger("betix.audits_router")
 
@@ -29,6 +29,12 @@ VALID_SPORTS = {"football", "basketball", "tennis"}
 class EnsureAuditResponse(BaseModel):
     state: str  # "ready" | "pending"
     audit: Optional[Dict[str, Any]] = None
+
+
+class MatchStatsResponse(BaseModel):
+    h2h: Optional[Dict[str, Any]] = None
+    rolling_stats: Optional[Dict[str, Any]] = None
+    odds: Optional[Dict[str, Any]] = None
 
 
 def _check_internal_secret(x_internal_secret: Optional[str]) -> None:
@@ -59,6 +65,12 @@ async def ensure_audit_endpoint(
     Returns the existing analysis if it's ready and fresh, otherwise
     triggers a generation (in the background) and returns "pending"
     immediately — the frontend shows a "preparing" state and polls shortly after.
+
+    Cost control here is a per-user rate limit, not a scope/tier ban — see
+    requestOnDemandAudit() in app/actions/match.ts, the only caller that's
+    allowed to reach this endpoint for a match with no existing analysis.
+    Every match is eligible for on-demand generation; what's rationed is
+    how often any one user can trigger it.
     """
     _check_internal_secret(x_internal_secret)
 
@@ -75,3 +87,34 @@ async def ensure_audit_endpoint(
         return EnsureAuditResponse(state="pending", audit=None)
 
     return EnsureAuditResponse(state=result["state"], audit=result.get("audit"))
+
+
+@router.get("/{sport}/{match_id}/stats", response_model=MatchStatsResponse)
+async def match_stats_endpoint(
+    sport: str,
+    match_id: int,
+    x_internal_secret: Optional[str] = Header(None),
+):
+    """
+    Read-only aggregated stats (H2H, rolling form, odds) for a match — no AI
+    call, no ai_match_audits read/write. Powers the "match details" view for
+    fixtures outside the AI-analysis scope/window (see tier_scope.py):
+    unlike ai_analysis, these raw stats are already collected for every
+    match regardless of tier, so there's no cost reason to gate them.
+    """
+    _check_internal_secret(x_internal_secret)
+
+    if sport not in VALID_SPORTS:
+        raise HTTPException(status_code=400, detail=f"Invalid sport: {sport}")
+
+    from app.engine.data_aggregation import get_match_raw_context
+
+    context = await get_match_raw_context(sport, match_id)
+    if not context or not context.get("match"):
+        raise HTTPException(status_code=404, detail="Match not found")
+
+    return MatchStatsResponse(
+        h2h=context.get("h2h"),
+        rolling_stats=filter_essential_stats(sport, context),
+        odds=context.get("odds"),
+    )

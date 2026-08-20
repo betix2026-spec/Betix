@@ -4,7 +4,7 @@ import { use, useState, useEffect, useCallback } from "react";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Match, Prediction } from "@/types/match";
-import { getAiAuditForMatch } from "@/app/actions/match";
+import { getAiAuditForMatch, getMatchStatsOnly, requestOnDemandAudit } from "@/app/actions/match";
 import { MatchHero } from "@/components/dashboard/analysis/MatchHero";
 import { StatBattle } from "@/components/dashboard/analysis/StatBattle";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -79,6 +79,233 @@ function VerdictSection({ summary }: { summary: string }) {
     );
 }
 
+// H2H card — reads from match.stats (the AI-free stats fetch), so it
+// renders identically whether or not this match has AI analysis. Used both
+// in the normal AI-analysis layout and in the no-AI "match details" layout.
+function H2HCard({ match }: { match: Match }) {
+    const { copy } = useI18n();
+    // Temporarily disabled for basketball and tennis.
+    if (match.sport !== 'football') return null;
+
+    return (
+        <Card className="bg-black/20 border-white/5 backdrop-blur-sm overflow-hidden relative opacity-90 transition-opacity hover:opacity-100">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/[0.02] to-transparent pointer-events-none" />
+            <CardHeader className="border-b border-white/5 bg-white/[0.01] p-4">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <div className="p-1.5 rounded-md bg-blue-500/10 text-blue-400">
+                        <Trophy className="size-3.5" />
+                    </div>
+                    {copy("Face-à-Face Historique")}
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6 pt-8 pb-10 px-8">
+                {(() => {
+                    const h2h = match.stats?.h2h;
+                    const noH2H = !h2h || Object.keys(h2h).length === 0
+                        || h2h.summary === "No H2H found"
+                        || (typeof h2h.summary === 'object' && h2h.summary && Object.keys(h2h.summary).length === 0);
+                    if (noH2H) {
+                        return (
+                            <div className="py-12 flex items-center justify-center">
+                                <span className="text-sm text-zinc-600 font-medium">{copy("Pas encore disponible")}</span>
+                            </div>
+                        );
+                    }
+
+                    // Football uniquement dans ce bloc
+                    const homeId = match.homeTeam.id ?? h2h.home_team_id;
+                    const isHomeA = homeId != null && h2h.team_a_id === homeId;
+
+                    const homeWins = Number(isHomeA ? h2h.team_a_wins : h2h.team_b_wins) || 0;
+                    const awayWins = Number(!isHomeA ? h2h.team_a_wins : h2h.team_b_wins) || 0;
+                    const draws = Number(h2h.draws) || 0;
+                    const totalMatches = Number(h2h.total_matches || (homeWins + awayWins + draws)) || 1;
+
+                    if (totalMatches === 0) {
+                        return (
+                            <div className="py-16 text-center text-muted-foreground">{copy("Données H2H non disponibles.")}</div>
+                        );
+                    }
+
+                    return (
+                        <div className="space-y-12">
+                            {/* Jauge globale */}
+                            <div className="space-y-5">
+                                <div className="flex justify-between items-end text-sm font-medium">
+                                    <div className="flex flex-col items-start gap-1">
+                                        <span className="text-2xl font-bold text-white/80 drop-shadow-md">{homeWins}</span>
+                                        <span className="text-[10px] uppercase tracking-widest text-cyan-400 font-bold">{copy("Victoires")}</span>
+                                    </div>
+                                    <div className="flex flex-col items-center gap-1">
+                                        <span className="text-lg font-medium text-white/50">{draws > 0 ? draws : totalMatches}</span>
+                                        <span className="text-[10px] uppercase tracking-widest text-white/40">{draws > 0 ? copy('Nuls') : copy('Matchs')}</span>
+                                    </div>
+                                    <div className="flex flex-col items-end gap-1">
+                                        <span className="text-2xl font-bold text-white/80 drop-shadow-md">{awayWins}</span>
+                                        <span className="text-[10px] uppercase tracking-widest text-rose-500 font-bold">{copy("Victoires")}</span>
+                                    </div>
+                                </div>
+
+                                {/* Barre H2H */}
+                                <div className="flex h-3 bg-white/[0.03] rounded-full overflow-hidden relative shadow-inner shadow-black/50 ring-1 ring-white/5">
+                                    {homeWins > 0 && (
+                                        <div
+                                            className="h-full bg-gradient-to-r from-cyan-500/80 to-blue-600/80 shadow-[0_0_10px_rgba(6,182,212,0.4)] z-10 relative flex items-center justify-end"
+                                            style={{ width: `${(homeWins / totalMatches) * 100}%` }}
+                                        >
+                                            <div className="absolute right-0 top-0 bottom-0 w-[4px] bg-white rounded-r-full shadow-[0_0_15px_rgba(255,255,255,0.9)]" />
+                                        </div>
+                                    )}
+                                    {draws > 0 && (
+                                        <div
+                                            className="h-full bg-white/10 z-10 border-x border-white/5"
+                                            style={{ width: `${(draws / totalMatches) * 100}%` }}
+                                        />
+                                    )}
+                                    {awayWins > 0 && (
+                                        <div
+                                            className="h-full bg-gradient-to-r from-rose-500/80 to-pink-500/80 shadow-[0_0_10px_rgba(244,63,94,0.4)] z-10 relative flex items-center justify-start"
+                                            style={{ width: `${(awayWins / totalMatches) * 100}%` }}
+                                        >
+                                            <div className="absolute left-0 top-0 bottom-0 w-[4px] bg-white rounded-l-full shadow-[0_0_15px_rgba(255,255,255,0.9)]" />
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Moyennes de Buts */}
+                            {h2h.avg_goals_a !== undefined && (
+                                <div className="space-y-2 pt-6 border-t border-white/5">
+                                    <h4 className="text-xs font-bold uppercase tracking-[0.2em] text-white/30 mb-8 text-center">{copy("Confrontations Moyennes")}</h4>
+                                    <StatBattle
+                                        label={copy("Buts Moyens")}
+                                        homeValue={Number(isHomeA ? h2h.avg_goals_a : h2h.avg_goals_b) || 0}
+                                        awayValue={Number(isHomeA ? h2h.avg_goals_b : h2h.avg_goals_a) || 0}
+                                    />
+                                </div>
+                            )}
+                        </div>
+                    );
+                })()}
+            </CardContent>
+        </Card>
+    );
+}
+
+// Rolling-form comparison card — same AI-free data source as H2HCard above.
+function TrendsCard({ homeStats, awayStats }: { homeStats: Record<string, any>; awayStats: Record<string, any> }) {
+    const { copy } = useI18n();
+    return (
+        <Card className="bg-black/20 border-white/5 backdrop-blur-sm overflow-hidden relative opacity-90 transition-opacity hover:opacity-100">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/[0.02] to-transparent pointer-events-none" />
+            <CardHeader className="border-b border-white/5 bg-white/[0.01] p-4">
+                <CardTitle className="text-sm font-medium flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <div className="p-1.5 rounded-md bg-primary/10 text-primary">
+                            <Activity className="size-3.5" />
+                        </div>
+                        {copy("Comparatif des Tendances")}
+                    </div>
+                    <div className="flex flex-col items-end gap-0.5">
+                        <span className="text-[8px] font-black text-muted-foreground uppercase tracking-[0.2em]">{copy("Période")}</span>
+                        <span className="text-[10px] font-bold text-white/50 px-1.5 py-0.5 rounded bg-white/5 border border-white/10 uppercase tracking-widest">Rolling L5 / L10</span>
+                    </div>
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6 pt-8 pb-10 px-8">
+                {Object.entries(homeStats).map(([key, value]) => {
+                    if (key === 'date') return null;
+                    // Human friendly labels for common stats
+                    const labels: Record<string, string> = {
+                        'l5_points': copy('Points Inscrits (L5)'),
+                        'l10_points': copy('Points Inscrits (L10)'),
+                        'l5_ortg': 'Offensive Rating (L5)',
+                        'l5_drtg': 'Defensive Rating (L5)',
+                        'l5_net_rtg': 'Net Rating (L5)',
+                        'l5_goals_for': copy('Buts marqués (L5)'),
+                        'l5_goals_against': copy('Buts encaissés (L5)'),
+                        'l5_xg_for': 'Ex. Goals For (L5)',
+                        'l5_xg_against': 'Ex. Goals Against (L5)',
+                        'l5_possession_avg': copy('Possession Moyenne'),
+                        'l10_aces_avg': copy('Aces Moy. (L10)'),
+                        'l10_first_serve_pct': copy('1er Service (L10)'),
+                        'l10_win_pct': 'Win Rate (L10)'
+                    };
+
+                    return (
+                        <StatBattle
+                            key={key}
+                            label={labels[key] || key.replace(/_/g, ' ').toUpperCase()}
+                            homeValue={parseFloat(String(value)) || 0}
+                            awayValue={parseFloat(String(awayStats[key])) || 0}
+                            showPercent={key.includes('pct') || key.includes('possession')}
+                        />
+                    );
+                })}
+                {Object.keys(homeStats).length === 0 && (
+                    <div className="py-12 flex items-center justify-center">
+                        <span className="text-sm text-zinc-600 font-medium">{copy("Pas encore disponible")}</span>
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    );
+}
+
+// Preview tab — the stats every match has, independent of whether the AI
+// has analyzed it. Same cards used everywhere else in the current design
+// (H2HCard / TrendsCard), just presented full-width as the tab's own
+// content instead of a sidebar supplement.
+function PreviewSection({ match, homeStats, awayStats }: { match: Match; homeStats: Record<string, any>; awayStats: Record<string, any> }) {
+    return (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 animate-in fade-in duration-500">
+            <H2HCard match={match} />
+            <TrendsCard homeStats={homeStats} awayStats={awayStats} />
+        </div>
+    );
+}
+
+// Betix AI tab, "nothing generated yet" state — the proactive batch pass
+// (backend/app/engine/batch_audit.py) covers the top-3 football leagues
+// automatically; every other match needs an explicit request. Never
+// triggered on page load — only this button calls requestOnDemandAudit.
+function GenerateAnalysisButton({ onGenerate, isSubmitting }: { onGenerate: () => void; isSubmitting: boolean }) {
+    const { copy } = useI18n();
+    return (
+        <div className="relative w-full rounded-2xl overflow-hidden border border-white/5 bg-gradient-to-br from-zinc-900/60 via-black/40 to-zinc-900/60">
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 size-[220px] bg-primary/10 rounded-full blur-[90px]" />
+            <div className="relative z-10 flex flex-col items-center justify-center text-center py-16 sm:py-20 px-6 space-y-7">
+                <button
+                    type="button"
+                    onClick={onGenerate}
+                    disabled={isSubmitting}
+                    className={cn(
+                        "group relative size-32 sm:size-40 rounded-full flex items-center justify-center shrink-0",
+                        "bg-gradient-to-br from-primary/25 to-primary/5 border-2 border-primary/30",
+                        "transition-all duration-500 hover:border-primary/60 hover:scale-[1.04] active:scale-95",
+                        "hover:shadow-[0_0_60px_-10px_rgba(var(--primary-rgb,124,58,237),0.5)]",
+                        "disabled:opacity-70 disabled:pointer-events-none"
+                    )}
+                >
+                    <div className="absolute inset-0 -m-3 rounded-full border border-primary/10 animate-ping" style={{ animationDuration: "3s" }} />
+                    <Sparkles className={cn("size-9 sm:size-11 text-primary transition-transform", isSubmitting ? "animate-pulse" : "group-hover:scale-110")} />
+                </button>
+
+                <div className="space-y-2 max-w-md">
+                    <h4 className="text-lg font-bold text-white tracking-tight">
+                        {isSubmitting ? copy("Lancement de l'analyse...") : copy("Analyse non générée")}
+                    </h4>
+                    <p className="text-sm text-zinc-500 leading-relaxed">
+                        {isSubmitting
+                            ? copy("Notre IA se met au travail sur ce match — la page se met à jour automatiquement.")
+                            : copy("Ce match n'a pas encore été analysé par notre IA. Appuyez sur le bouton pour lancer la génération.")}
+                    </p>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 export default function MatchAnalysisPage({ params }: { params: Promise<{ id: string }> }) {
     const { copy, t, locale } = useI18n();
     // Unwrap params using React.use()
@@ -100,8 +327,16 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                 .single();
 
             if (matchData) {
-                // 2. Fetch AI audit data using Server Action (bypasses RLS)
-                const auditData = await getAiAuditForMatch(matchData.api_sport_id, matchData.sport);
+                // 2. Fetch AI audit + raw stats using Server Actions (bypass RLS).
+                // Independent fetches on purpose: stats (h2h/rolling form/odds)
+                // have no AI cost and power the always-on Preview tab, while
+                // the AI audit only has content once a generation has
+                // actually been requested (see aiAudit.exists below) — the
+                // page must not conflate the two.
+                const [auditData, statsData] = await Promise.all([
+                    getAiAuditForMatch(matchData.api_sport_id, matchData.sport),
+                    getMatchStatsOnly(matchData.api_sport_id, matchData.sport),
+                ]);
 
                 const dateObj = new Date(matchData.date_time);
 
@@ -148,6 +383,7 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                 const transformed: Match = {
                     id: matchData.id,
                     sport: matchData.sport,
+                    apiSportId: matchData.api_sport_id,
                     league: {
                         name: matchData.league_name,
                         country: "International"
@@ -183,6 +419,12 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                         ai_analysis: auditData.ai_analysis,
                         locked: (auditData as any).locked,
                         pending: (auditData as any).pending,
+                        exists: (auditData as any).exists === true,
+                    } : undefined,
+                    stats: statsData ? {
+                        h2h: statsData.h2h,
+                        rolling_stats: statsData.rolling_stats,
+                        odds: statsData.odds,
                     } : undefined
                 };
                 setMatch(transformed);
@@ -210,6 +452,29 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
         setMounted(true);
     }, []);
 
+    // "Generate" button on the Betix AI tab — the only user-initiated
+    // trigger for a match the proactive batch pass hasn't reached yet (see
+    // requestOnDemandAudit). Never fires automatically on page load.
+    const [isRequestingAudit, setIsRequestingAudit] = useState(false);
+    const [generateError, setGenerateError] = useState<string | null>(null);
+    const handleGenerate = useCallback(async () => {
+        if (isRequestingAudit || !match?.apiSportId) return;
+        setIsRequestingAudit(true);
+        setGenerateError(null);
+        const result = await requestOnDemandAudit(match.apiSportId, match.sport);
+        if (!result.ok) {
+            setGenerateError(
+                result.error === "rate_limited"
+                    ? copy("Vous avez atteint votre quota d'analyses à la demande pour aujourd'hui. Réessayez plus tard.")
+                    : copy("Impossible de lancer l'analyse pour le moment. Réessayez dans un instant.")
+            );
+            setIsRequestingAudit(false);
+            return;
+        }
+        await fetchAndSetMatch(false);
+        setIsRequestingAudit(false);
+    }, [isRequestingAudit, match, copy, fetchAndSetMatch]);
+
     if (loading) {
         return <div className="min-h-screen flex items-center justify-center text-white/50">{copy("Chargement de l'analyse...")}</div>;
     }
@@ -225,8 +490,10 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
         );
     }
 
-    // Extract the audit's real stats
-    const auditStats = match.aiAudit?.rolling_stats;
+    // Extract the real stats — always from the independent, AI-free fetch
+    // (match.stats), never from aiAudit, which only ever has content once a
+    // generation has actually been requested (see aiAudit.exists).
+    const auditStats = match.stats?.rolling_stats;
     const homeStats = auditStats?.home || {};
     const awayStats = auditStats?.away || {};
 
@@ -335,8 +602,26 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                 </div>
             ) : (
                 /* ═══════════════════════════════════════════════════
-                   NORMAL STATE — 2-column Analysis + H2H/Stats grid
+                   TABS — Preview (default) / Betix AI. Preview is the
+                   stats every match has; Betix AI is the existing
+                   analysis layout below, unchanged, just tab-scoped.
                    ═══════════════════════════════════════════════════ */
+                <Tabs defaultValue="preview" className="space-y-6 sm:space-y-8">
+                    <TabsList className="bg-black/40 border border-white/10 p-1.5 rounded-full gap-1 backdrop-blur-md h-auto w-fit">
+                        <TabsTrigger value="preview" className="rounded-full px-6 py-2.5 text-sm font-semibold text-muted-foreground transition-all data-[state=active]:bg-white/10 data-[state=active]:text-white data-[state=active]:shadow-inner">
+                            {copy("Aperçu")}
+                        </TabsTrigger>
+                        <TabsTrigger value="ai" className="rounded-full px-6 py-2.5 text-sm font-semibold text-muted-foreground transition-all gap-2 data-[state=active]:bg-primary/20 data-[state=active]:text-primary data-[state=active]:border data-[state=active]:border-primary/40 data-[state=active]:shadow-[0_0_15px_-4px_rgba(124,58,237,0.5)]">
+                            <Sparkles className="size-3.5" />
+                            Betix AI
+                        </TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="preview" className="mt-0">
+                        <PreviewSection match={match} homeStats={homeStats} awayStats={awayStats} />
+                    </TabsContent>
+
+                    <TabsContent value="ai" className="mt-0">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8">
 
                     {/* LEFT COLUMN (Analysis) - Spans 7 cols */}
@@ -496,6 +781,13 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                                                         </div>
                                                     </div>
                                                 </div>
+                                            ) : !match.aiAudit?.exists ? (
+                                                <div className="space-y-3">
+                                                    <GenerateAnalysisButton onGenerate={handleGenerate} isSubmitting={isRequestingAudit} />
+                                                    {generateError && (
+                                                        <p className="text-xs text-rose-400 text-center">{generateError}</p>
+                                                    )}
+                                                </div>
                                             ) : (!match.predictions || match.predictions.length === 0) ? (
                                                 <div className="relative w-full rounded-2xl overflow-hidden border border-white/5 bg-gradient-to-br from-zinc-900/60 via-black/40 to-zinc-900/60">
                                                     {/* Subtle background glow */}
@@ -613,168 +905,13 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
 
                     {/* RIGHT COLUMN (H2H & Stats) - Spans 5 cols */}
                     <div className="lg:col-span-4 xl:col-span-3 space-y-4 sm:space-y-5 animate-in slide-in-from-bottom-8 duration-700 delay-500 flex flex-col">
-                        {/* TOP: H2H temporarily disabled for basketball and tennis. */}
-                        {match.sport === 'football' && (
-                        <Card className="bg-black/20 border-white/5 backdrop-blur-sm overflow-hidden relative opacity-90 transition-opacity hover:opacity-100">
-                            <div className="absolute inset-0 bg-gradient-to-br from-white/[0.02] to-transparent pointer-events-none" />
-                            <CardHeader className="border-b border-white/5 bg-white/[0.01] p-4">
-                                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                                    <div className="p-1.5 rounded-md bg-blue-500/10 text-blue-400">
-                                        <Trophy className="size-3.5" />
-                                    </div>
-                                    {copy("Face-à-Face Historique")}
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-6 pt-8 pb-10 px-8">
-                                {(() => {
-                                    const h2h = match.aiAudit?.h2h;
-                                    const noH2H = !h2h || Object.keys(h2h).length === 0
-                                        || h2h.summary === "No H2H found"
-                                        || (typeof h2h.summary === 'object' && h2h.summary && Object.keys(h2h.summary).length === 0);
-                                    if (noH2H) {
-                                        return (
-                                            <div className="py-12 flex items-center justify-center">
-                                                <span className="text-sm text-zinc-600 font-medium">{copy("Pas encore disponible")}</span>
-                                            </div>
-                                        );
-                                    }
-
-                                    // Football uniquement dans ce bloc
-                                    const homeId = match.homeTeam.id ?? h2h.home_team_id;
-                                    const isHomeA = homeId != null && h2h.team_a_id === homeId;
-
-                                    const homeWins = Number(isHomeA ? h2h.team_a_wins : h2h.team_b_wins) || 0;
-                                    const awayWins = Number(!isHomeA ? h2h.team_a_wins : h2h.team_b_wins) || 0;
-                                    const draws = Number(h2h.draws) || 0;
-                                    const totalMatches = Number(h2h.total_matches || (homeWins + awayWins + draws)) || 1;
-
-                                    if (totalMatches === 0) {
-                                        return (
-                                            <div className="py-16 text-center text-muted-foreground">{copy("Données H2H non disponibles.")}</div>
-                                        );
-                                    }
-
-                                    return (
-                                        <div className="space-y-12">
-                                            {/* Jauge globale */}
-                                            <div className="space-y-5">
-                                                <div className="flex justify-between items-end text-sm font-medium">
-                                                    <div className="flex flex-col items-start gap-1">
-                                                        <span className="text-2xl font-bold text-white/80 drop-shadow-md">{homeWins}</span>
-                                                        <span className="text-[10px] uppercase tracking-widest text-cyan-400 font-bold">{copy("Victoires")}</span>
-                                                    </div>
-                                                    <div className="flex flex-col items-center gap-1">
-                                                        <span className="text-lg font-medium text-white/50">{draws > 0 ? draws : totalMatches}</span>
-                                                        <span className="text-[10px] uppercase tracking-widest text-white/40">{draws > 0 ? copy('Nuls') : copy('Matchs')}</span>
-                                                    </div>
-                                                    <div className="flex flex-col items-end gap-1">
-                                                        <span className="text-2xl font-bold text-white/80 drop-shadow-md">{awayWins}</span>
-                                                        <span className="text-[10px] uppercase tracking-widest text-rose-500 font-bold">{copy("Victoires")}</span>
-                                                    </div>
-                                                </div>
-
-                                                {/* Barre H2H */}
-                                                <div className="flex h-3 bg-white/[0.03] rounded-full overflow-hidden relative shadow-inner shadow-black/50 ring-1 ring-white/5">
-                                                    {homeWins > 0 && (
-                                                        <div
-                                                            className="h-full bg-gradient-to-r from-cyan-500/80 to-blue-600/80 shadow-[0_0_10px_rgba(6,182,212,0.4)] z-10 relative flex items-center justify-end"
-                                                            style={{ width: `${(homeWins / totalMatches) * 100}%` }}
-                                                        >
-                                                            <div className="absolute right-0 top-0 bottom-0 w-[4px] bg-white rounded-r-full shadow-[0_0_15px_rgba(255,255,255,0.9)]" />
-                                                        </div>
-                                                    )}
-                                                    {draws > 0 && (
-                                                        <div
-                                                            className="h-full bg-white/10 z-10 border-x border-white/5"
-                                                            style={{ width: `${(draws / totalMatches) * 100}%` }}
-                                                        />
-                                                    )}
-                                                    {awayWins > 0 && (
-                                                        <div
-                                                            className="h-full bg-gradient-to-r from-rose-500/80 to-pink-500/80 shadow-[0_0_10px_rgba(244,63,94,0.4)] z-10 relative flex items-center justify-start"
-                                                            style={{ width: `${(awayWins / totalMatches) * 100}%` }}
-                                                        >
-                                                            <div className="absolute left-0 top-0 bottom-0 w-[4px] bg-white rounded-l-full shadow-[0_0_15px_rgba(255,255,255,0.9)]" />
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            {/* Moyennes de Buts */}
-                                            {h2h.avg_goals_a !== undefined && (
-                                                <div className="space-y-2 pt-6 border-t border-white/5">
-                                                    <h4 className="text-xs font-bold uppercase tracking-[0.2em] text-white/30 mb-8 text-center">{copy("Confrontations Moyennes")}</h4>
-                                                    <StatBattle
-                                                        label={copy("Buts Moyens")}
-                                                        homeValue={Number(isHomeA ? h2h.avg_goals_a : h2h.avg_goals_b) || 0}
-                                                        awayValue={Number(isHomeA ? h2h.avg_goals_b : h2h.avg_goals_a) || 0}
-                                                    />
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                })()}
-                            </CardContent>
-                        </Card>
-                        )}
-
-                        {/* BOTTOM: Stats */}
-                        <Card className="bg-black/20 border-white/5 backdrop-blur-sm overflow-hidden relative opacity-90 transition-opacity hover:opacity-100">
-                            <div className="absolute inset-0 bg-gradient-to-br from-white/[0.02] to-transparent pointer-events-none" />
-                            <CardHeader className="border-b border-white/5 bg-white/[0.01] p-4">
-                                <CardTitle className="text-sm font-medium flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <div className="p-1.5 rounded-md bg-primary/10 text-primary">
-                                            <Activity className="size-3.5" />
-                                        </div>
-                                        {copy("Comparatif des Tendances")}
-                                    </div>
-                                    <div className="flex flex-col items-end gap-0.5">
-                                        <span className="text-[8px] font-black text-muted-foreground uppercase tracking-[0.2em]">{copy("Période")}</span>
-                                        <span className="text-[10px] font-bold text-white/50 px-1.5 py-0.5 rounded bg-white/5 border border-white/10 uppercase tracking-widest">Rolling L5 / L10</span>
-                                    </div>
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-6 pt-8 pb-10 px-8">
-                                {Object.entries(homeStats).map(([key, value]) => {
-                                    if (key === 'date') return null;
-                                    // Human friendly labels for common stats
-                                    const labels: Record<string, string> = {
-                                        'l5_points': copy('Points Inscrits (L5)'),
-                                        'l10_points': copy('Points Inscrits (L10)'),
-                                        'l5_ortg': 'Offensive Rating (L5)',
-                                        'l5_drtg': 'Defensive Rating (L5)',
-                                        'l5_net_rtg': 'Net Rating (L5)',
-                                        'l5_goals_for': copy('Buts marqués (L5)'),
-                                        'l5_goals_against': copy('Buts encaissés (L5)'),
-                                        'l5_xg_for': 'Ex. Goals For (L5)',
-                                        'l5_xg_against': 'Ex. Goals Against (L5)',
-                                        'l5_possession_avg': copy('Possession Moyenne'),
-                                        'l10_aces_avg': copy('Aces Moy. (L10)'),
-                                        'l10_first_serve_pct': copy('1er Service (L10)'),
-                                        'l10_win_pct': 'Win Rate (L10)'
-                                    };
-
-                                    return (
-                                        <StatBattle
-                                            key={key}
-                                            label={labels[key] || key.replace(/_/g, ' ').toUpperCase()}
-                                            homeValue={parseFloat(String(value)) || 0}
-                                            awayValue={parseFloat(String(awayStats[key])) || 0}
-                                            showPercent={key.includes('pct') || key.includes('possession')}
-                                        />
-                                    );
-                                })}
-                                {Object.keys(homeStats).length === 0 && (
-                                    <div className="py-12 flex items-center justify-center">
-                                        <span className="text-sm text-zinc-600 font-medium">{copy("Pas encore disponible")}</span>
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
+                        <H2HCard match={match} />
+                        <TrendsCard homeStats={homeStats} awayStats={awayStats} />
                     </div>
 
                 </div>
+                    </TabsContent>
+                </Tabs>
             )}
         </div>
     );

@@ -21,6 +21,12 @@ export function MatchCard({ match }: MatchCardProps) {
     const isLive = match.status === "live";
     const isFinished = match.status === "finished";
     const topPrediction = match.predictions?.[0];
+    // A confidence badge only exists for matches that have (or are getting)
+    // an AI audit — see getAuditSummaries() in app/actions/matchList.ts,
+    // which is already tier + generation-window aware. No badge means no AI
+    // analysis exists (or ever will, if out of scope) — point to the
+    // non-AI "match details" view instead.
+    const hasAiAnalysis = !!match.confidenceBadge;
 
     const normalizedSport = (match.sport || "football").toLowerCase();
     const sportDetails = normalizedSport === "football"
@@ -223,7 +229,9 @@ export function MatchCard({ match }: MatchCardProps) {
                             )}
                         >
                             <Link href={`/${locale}/dashboard/match/${match.id}?sport=${match.sport}`} className="gap-2 flex items-center">
-                                <span className="font-bold text-[11px] uppercase tracking-wider text-white/50 group-hover/btn:text-white transition-colors">{copy("Voir l'analyse")}</span>
+                                <span className="font-bold text-[11px] uppercase tracking-wider text-white/50 group-hover/btn:text-white transition-colors">
+                                    {hasAiAnalysis ? copy("Voir l'analyse") : copy("Voir les détails du match")}
+                                </span>
                                 <Sparkles className="size-3.5 text-primary animate-pulse group-hover/btn:scale-110 transition-transform" />
                             </Link>
                         </Button>

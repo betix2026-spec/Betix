@@ -14,10 +14,10 @@ import json
 import re
 import logging
 import asyncio
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 
 from app.engine.ai_model import ChatModel
-from app.engine.prompt_builder import build_audit_prompt
+from app.engine.prompt_builder import build_audit_prompt, build_delta_prompt
 from app.config import get_settings
 
 logger = logging.getLogger("betix.confidence_generator")
@@ -197,6 +197,81 @@ def validate_analysis(data: Dict[str, Any], ceiling: Optional[int] = None) -> bo
 # CONFIDENCE GENERATOR
 # ═══════════════════════════════════════════════════════════════════
 
+async def _call_ai(
+    system_prompt: str,
+    user_prompt: str,
+    provider: str,
+    model_name: Optional[str],
+) -> Tuple[str, ChatModel]:
+    """Resolves the API key and makes the raw AI call — shared by the
+    initial analysis and the delta pass, which diverge afterward in how
+    they parse the response (see generate_delta_confidence)."""
+    settings = get_settings()
+
+    api_key = None
+    if provider == "gemini":
+        api_key = getattr(settings, "GEMINI_API_KEY", None)
+    elif provider in ("gpt", "openai"):
+        api_key = getattr(settings, "OPENAI_API_KEY", None)
+    elif provider in ("claude", "anthropic"):
+        api_key = getattr(settings, "ANTHROPIC_API_KEY", None)
+
+    ai = ChatModel(
+        provider=provider,
+        api_key=api_key,
+        model_name=model_name,
+        **AI_CONFIG
+    )
+
+    logger.info(f"🤖 Calling AI ({provider}/{ai.target_model_name})...")
+    raw_response = await ai.generate_response(
+        message=user_prompt,
+        system_instruction=system_prompt
+    )
+
+    if not raw_response or raw_response.startswith("Error:"):
+        logger.error(f"❌ Invalid AI response: {raw_response[:200]}")
+        raise RuntimeError(f"AI Provider Error: {raw_response}")
+
+    return raw_response, ai
+
+
+async def _call_ai_and_parse(
+    system_prompt: str,
+    user_prompt: str,
+    ceiling: int,
+    sport: str,
+    match_id: int,
+    provider: str,
+    model_name: Optional[str],
+) -> Optional[Dict[str, Any]]:
+    """Full call/parse/validate pipeline for the initial analysis (and the
+    delta pass's changed=true branch, which needs the same full shape —
+    see generate_delta_confidence)."""
+    raw_response, ai = await _call_ai(system_prompt, user_prompt, provider, model_name)
+
+    analysis = parse_ai_response(raw_response)
+    if not analysis:
+        logger.error("❌ JSON parsing failed.")
+        return None
+
+    analysis = normalize_outcome_fields(analysis)
+    analysis = normalize_language_fields(analysis)
+
+    if not validate_analysis(analysis, ceiling=ceiling):
+        logger.warning("⚠️ Incomplete analysis, returned anyway.")
+
+    analysis["_meta"] = {
+        "sport": sport,
+        "match_id": match_id,
+        "provider": provider,
+        "model": ai.target_model_name,
+    }
+
+    logger.info(f"✅ Analysis generated: {analysis.get('data_quality', '?')} quality, full structure respected.")
+    return analysis
+
+
 async def generate_confidence(
     sport: str,
     match_id: int,
@@ -216,7 +291,6 @@ async def generate_confidence(
     Returns:
         Structured JSON dict with the analysis, or None on error.
     """
-    # 1. Build the prompts via prompt_builder
     logger.info(f"🎯 Generating confidence for {sport} #{match_id} (provider={provider})")
 
     try:
@@ -225,64 +299,71 @@ async def generate_confidence(
         logger.error(f"❌ prompt_builder error: {e}")
         return None
 
-    # 2. Initialize the AI model
-    settings = get_settings()
+    return await _call_ai_and_parse(system_prompt, user_prompt, ceiling, sport, match_id, provider, model_name)
 
-    # Fetch the API key for the provider
-    api_key = None
-    if provider == "gemini":
-        api_key = getattr(settings, "GEMINI_API_KEY", None)
-    elif provider in ("gpt", "openai"):
-        api_key = getattr(settings, "OPENAI_API_KEY", None)
-    elif provider in ("claude", "anthropic"):
-        api_key = getattr(settings, "ANTHROPIC_API_KEY", None)
 
-    ai = ChatModel(
-        provider=provider,
-        api_key=api_key,
-        model_name=model_name,
-        **AI_CONFIG
-    )
+async def generate_delta_confidence(
+    sport: str,
+    match_id: int,
+    previous_analysis: Dict[str, Any],
+    provider: str = "claude",
+    model_name: Optional[str] = DEFAULT_MODEL,
+    context: Optional[Dict[str, Any]] = None,
+) -> Optional[Dict[str, Any]]:
+    """
+    Generates the ~1h-before-kickoff "delta" pass: re-checks freshly
+    re-pulled data against `previous_analysis`. Two possible shapes:
+        {"changed": False}                                       — nothing material moved
+        {..full analysis shape.., "changed": True, "change_summary": {...}}  — updated
 
-    # 3. Call the AI
-    logger.info(f"🤖 Calling AI ({provider}/{ai.target_model_name})...")
-    raw_response = await ai.generate_response(
-        message=user_prompt,
-        system_instruction=system_prompt
-    )
+    Deliberately does NOT run the changed=False case through the full
+    normalize/validate pipeline — there's no JSON to validate when the
+    model says nothing changed, and the caller (run_delta_audit) carries
+    the *original* analysis forward rather than trusting a re-emitted
+    copy, so there's nothing else to parse out of that response.
 
-    if not raw_response or raw_response.startswith("Error:"):
-        logger.error(f"❌ Invalid AI response: {raw_response[:200]}")
-        raise RuntimeError(f"AI Provider Error: {raw_response}")
+    Returns:
+        {"changed": False}, or the full updated analysis dict (changed=True), or None on error.
+    """
+    logger.info(f"🔁 Generating delta confidence for {sport} #{match_id} (provider={provider})")
 
-    # 4. Parse the response
-    analysis = parse_ai_response(raw_response)
-    if not analysis:
-        logger.error("❌ JSON parsing failed.")
+    try:
+        system_prompt, user_prompt, ceiling = await build_delta_prompt(
+            sport, match_id, previous_analysis, context=context
+        )
+    except (ValueError, RuntimeError) as e:
+        logger.error(f"❌ prompt_builder error (delta): {e}")
         return None
 
-    # 4b. Guarantee a structured `outcome` field on every pick, and a text
-    # for each of the 4 languages (the AI translates in a single call —
-    # see prompt_builder.OUTPUT_FORMAT — this only backfills gaps).
-    analysis = normalize_outcome_fields(analysis)
-    analysis = normalize_language_fields(analysis)
+    raw_response, ai = await _call_ai(system_prompt, user_prompt, provider, model_name)
 
-    # 5. Validate the structure, and clamp scores to their band + the
-    # computed ceiling (see build_audit_prompt/confidence_ceiling.py)
-    if not validate_analysis(analysis, ceiling=ceiling):
-        logger.warning("⚠️ Incomplete analysis, returned anyway.")
+    data = parse_ai_response(raw_response)
+    if not data:
+        logger.error("❌ JSON parsing failed (delta).")
+        return None
 
-    # 6. Enrich with metadata
-    analysis["_meta"] = {
+    if not data.get("changed"):
+        logger.info(f"✅ Delta for {sport} #{match_id}: no material change.")
+        return {"changed": False}
+
+    data = normalize_outcome_fields(data)
+    data = normalize_language_fields(data)
+    if isinstance(data.get("change_summary"), dict):
+        fr = data["change_summary"].get("fr") or ""
+        data["change_summary"] = {lang: (data["change_summary"].get(lang) or fr) for lang in LANGS}
+
+    if not validate_analysis(data, ceiling=ceiling):
+        logger.warning(f"⚠️ Delta for {sport} #{match_id} marked changed=True but failed validation — treating as unchanged.")
+        return {"changed": False}
+
+    data["_meta"] = {
         "sport": sport,
         "match_id": match_id,
         "provider": provider,
         "model": ai.target_model_name,
     }
-
-    logger.info(f"✅ Analysis generated: {analysis.get('data_quality', '?')} quality, full structure respected.")
-
-    return analysis
+    logger.info(f"✅ Delta for {sport} #{match_id}: analysis updated.")
+    return data
 
 
 # ═══════════════════════════════════════════════════════════════════

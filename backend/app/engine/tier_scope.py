@@ -15,10 +15,13 @@ from typing import Optional
 
 # =============================================================================
 # FOOTBALL — league_id (analytics.leagues.api_id, see ingestion/constants.py)
+# This is also the exact scope submitted to the proactive Batch API pass
+# (see batch_audit.py) — keep in sync with frontend/src/app/actions/
+# matchList.ts's TOP_TIER_LEAGUE_NAMES, which mirrors this list by name.
 # =============================================================================
 FOOTBALL_TOP_TIER_LEAGUE_IDS = {
     39,   # Premier League
-    2,    # Champions League
+    61,   # Ligue 1
     140,  # La Liga
 }
 

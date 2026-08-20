@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, Fragment } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Match } from "@/types/match";
 import {
     Table,
@@ -12,8 +11,7 @@ import {
     TableRow
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronUp, ExternalLink, Activity, Clock } from "lucide-react";
+import { Activity } from "lucide-react";
 import { SportIcon } from "@/components/icons/SportIcons";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/use-i18n";
@@ -25,12 +23,10 @@ interface MatchTableProps {
 
 export function MatchTable({ items }: MatchTableProps) {
     const { copy, locale } = useI18n();
-    const [expandedRows, setExpandedRows] = useState<string[]>([]);
+    const router = useRouter();
 
-    const toggleRow = (id: string) => {
-        setExpandedRows(prev =>
-            prev.includes(id) ? prev.filter(rowId => rowId !== id) : [...prev, id]
-        );
+    const goToMatch = (match: Match) => {
+        router.push(`/${locale}/dashboard/match/${match.id}?sport=${match.sport}`);
     };
 
     return (
@@ -48,24 +44,19 @@ export function MatchTable({ items }: MatchTableProps) {
                         <TableHead className="hidden md:table-cell text-center w-[100px] text-xs uppercase tracking-wider font-semibold text-muted-foreground">{copy("Cote")}</TableHead>
                         {/* IA: Visible (compact mobile) */}
                         <TableHead className="w-[80px] md:w-[140px] text-xs uppercase tracking-wider font-semibold text-muted-foreground text-right md:text-left">{copy("Confiance")}</TableHead>
-                        <TableHead className="w-[40px] md:w-[50px]"></TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     {items.map((match) => {
-                        const isExpanded = expandedRows.includes(match.id);
                         const isLive = match.status === "live";
                         const isFinished = match.status === "finished";
                         const topPrediction = match.predictions?.[0];
 
                         return (
-                            <Fragment key={match.id}>
                                 <TableRow
-                                    className={cn(
-                                        "group border-white/5 hover:bg-white/5 transition-colors cursor-pointer",
-                                        isExpanded && "bg-white/[0.02]"
-                                    )}
-                                    onClick={() => toggleRow(match.id)}
+                                    key={match.id}
+                                    className="group border-white/5 hover:bg-white/5 transition-colors cursor-pointer"
+                                    onClick={() => goToMatch(match)}
                                 >
                                     {/* 1. Time / Status */}
                                     <TableCell className="font-mono text-xs sm:text-sm py-3 sm:py-4">
@@ -222,84 +213,7 @@ export function MatchTable({ items }: MatchTableProps) {
                                         />
                                     </TableCell>
 
-                                    {/* 6. Action Toggle */}
-                                    <TableCell>
-                                        <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground">
-                                            {isExpanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
-                                        </Button>
-                                    </TableCell>
                                 </TableRow>
-
-                                {/* Expanded Content (Accordion) */}
-                                {isExpanded && (
-                                    <TableRow className="border-white/5 bg-white/[0.02] hover:bg-white/[0.02]">
-                                        <TableCell colSpan={6} className="p-0">
-                                            <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-6 animate-in slide-in-from-top-2 duration-200">
-
-                                                {/* Prediction Detail (Real data only) */}
-                                                {topPrediction ? (
-                                                    <div className="space-y-3 md:border-r border-white/5 md:pr-6">
-                                                        <h4 className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-2">
-                                                            <Activity className="size-3" /> {copy("Analyse IA")}
-                                                        </h4>
-                                                        <div className="space-y-2">
-                                                            <div className="text-sm text-white font-medium">
-                                                                {copy("Misez sur")} <span className="text-primary">{topPrediction.bet}</span>
-                                                            </div>
-                                                            {topPrediction.analysis && (
-                                                                <p className="text-xs text-neutral-400 line-clamp-2">
-                                                                    {topPrediction.analysis}
-                                                                </p>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                ) : match.confidenceBadge?.status === "ready" && match.confidenceBadge.topLevel ? (
-                                                    // List-view teaser doesn't have the full analysis text (that needs
-                                                    // the match detail page's own fetch), but it does carry the pick's
-                                                    // market/selection — show that instead of restating the level and
-                                                    // confidence%, which are already visible on the collapsed row's badge.
-                                                    <div className="space-y-3 md:border-r border-white/5 md:pr-6">
-                                                        <h4 className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-2">
-                                                            <Activity className="size-3" /> {copy("Analyse IA")}
-                                                        </h4>
-                                                        <div className="text-sm text-white font-medium">
-                                                            <span className="text-primary">
-                                                                {[match.confidenceBadge.topMarket, match.confidenceBadge.topSelection].filter(Boolean).join(": ")}
-                                                            </span>
-                                                            {match.confidenceBadge.topOdds != null && (
-                                                                <span className="text-neutral-400"> ({match.confidenceBadge.topOdds.toFixed(2)})</span>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                ) : match.confidenceBadge?.status === "pending" ? (
-                                                    <div className="space-y-3 md:border-r border-white/5 md:pr-6">
-                                                        <h4 className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-2">
-                                                            <Activity className="size-3" /> {copy("Analyse IA")}
-                                                        </h4>
-                                                        <span className="text-xs text-muted-foreground">{copy("Analyse en cours...")}</span>
-                                                    </div>
-                                                ) : (
-                                                    <div className="space-y-3 md:border-r border-white/5 md:pr-6">
-                                                        <h4 className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-2">
-                                                            <Activity className="size-3" /> {copy("Analyse IA")}
-                                                        </h4>
-                                                        <span className="text-xs text-muted-foreground">{copy("Pas encore d'analyse — ouvrez le match pour en générer une.")}</span>
-                                                    </div>
-                                                )}
-
-                                                {/* Action */}
-                                                <div className="flex items-center justify-end">
-                                                    <Link href={`/${locale}/dashboard/match/${match.id}?sport=${match.sport}`} className="w-full sm:w-auto">
-                                                        <Button className="w-full gap-2 bg-primary/10 text-primary hover:bg-primary/20 border-primary/20" variant="outline">
-                                                            {copy("Voir l'analyse complète")} <ExternalLink className="size-3.5" />
-                                                        </Button>
-                                                    </Link>
-                                                </div>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                            </Fragment>
                         );
                     })}
                 </TableBody>

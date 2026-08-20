@@ -2138,6 +2138,21 @@ const literalTranslations: Record<string, Partial<Record<Locale, string>>> = {
         es: "Ver análisis",
         de: "Analyse ansehen",
     },
+    "Voir les détails du match": {
+        en: "View match details",
+        es: "Ver detalles del partido",
+        de: "Spieldetails ansehen",
+    },
+    "Voir les détails complets du match": {
+        en: "View full match details",
+        es: "Ver detalles completos del partido",
+        de: "Vollständige Spieldetails ansehen",
+    },
+    "L'analyse IA complète n'est pas disponible pour ce match pour le moment. Voici les statistiques déjà collectées.": {
+        en: "Full AI analysis isn't available for this match yet. Here are the stats we've already collected.",
+        es: "El análisis IA completo aún no está disponible para este partido. Aquí tienes las estadísticas ya recopiladas.",
+        de: "Die vollständige KI-Analyse ist für dieses Spiel noch nicht verfügbar. Hier sind die bereits erfassten Statistiken.",
+    },
     "Analyse IA": {
         en: "AI analysis",
         es: "Análisis IA",
@@ -2157,6 +2172,11 @@ const literalTranslations: Record<string, Partial<Record<Locale, string>>> = {
         en: "No analysis yet — open the match to generate one.",
         es: "Aún no hay análisis — abre el partido para generar uno.",
         de: "Noch keine Analyse — öffne das Spiel, um eine zu erstellen.",
+    },
+    "Pas d'analyse IA pour ce match — ouvrez-le pour voir les statistiques disponibles.": {
+        en: "No AI analysis for this match — open it to see the available stats.",
+        es: "Sin análisis IA para este partido — ábrelo para ver las estadísticas disponibles.",
+        de: "Keine KI-Analyse für dieses Spiel — öffne es, um die verfügbaren Statistiken zu sehen.",
     },
     "Meilleur pari": {
         en: "Top pick",

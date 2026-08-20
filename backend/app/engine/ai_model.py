@@ -229,7 +229,18 @@ class ChatModel:
         }
 
         if system_instruction:
-            kwargs["system"] = system_instruction
+            # cache_control marks this block for prompt caching — a no-op
+            # (silently uncached, no error) for any caller whose system
+            # prompt is short or changes every call, but a real saving for
+            # the sport-expert prompts in prompt_builder.py, which are
+            # identical across every match and every call (initial, delta,
+            # on-demand) for a given sport. ~0.1x input price on a cache
+            # hit vs full price uncached.
+            kwargs["system"] = [{
+                "type": "text",
+                "text": system_instruction,
+                "cache_control": {"type": "ephemeral"},
+            }]
 
         try:
             response = await self.client.messages.create(**kwargs)

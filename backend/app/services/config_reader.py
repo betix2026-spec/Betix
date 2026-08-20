@@ -12,7 +12,7 @@ Usage:
 """
 
 import logging
-from typing import Any, Optional
+from typing import Optional
 
 from app.config import get_settings
 from app.services.ingestion.base_client import SupabaseREST
@@ -71,35 +71,3 @@ class ConfigReader:
         val = self.get(key, str(default).lower())
         return val.lower() in ("true", "1", "yes")
 
-    def get_sport_config(self) -> dict[str, dict[str, Any]]:
-        """Construit le SPORT_CONFIG dynamique pour l'orchestrateur AI.
-
-        Retourne un dict identique a SPORT_CONFIG dans batch_audit_next_days.py
-        mais alimente par la base de donnees.
-        """
-        cfg = self.get_prefix("orch_ai.")
-        sports = {}
-
-        for sport in ("football", "basketball", "tennis"):
-            prefix = f"orch_ai.{sport}."
-            enabled = cfg.get(f"{prefix}enabled", "true").lower() in ("true", "1")
-            if not enabled:
-                continue
-
-            sports[sport] = {
-                "runs_per_day": int(cfg.get(f"{prefix}runs_per_day", "2")),
-                "provider": cfg.get(f"{prefix}provider", "claude"),
-                "model": cfg.get(f"{prefix}model", "claude-haiku-4-5-20251001"),
-            }
-
-        return sports
-
-    def get_ai_schedule(self) -> dict[int, int]:
-        """Construit le AUDIT_SCHEDULE_UTC dynamique."""
-        cfg = self.get_prefix("orch_ai.run")
-        schedule = {}
-        for run_num in range(1, 5):
-            key = f"orch_ai.run{run_num}_hour"
-            hour_str = cfg.get(key, str({1: 8, 2: 14, 3: 18, 4: 22}[run_num]))
-            schedule[run_num] = int(hour_str)
-        return schedule
