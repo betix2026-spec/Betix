@@ -286,7 +286,7 @@ export default function DashboardPage() {
         }
         return Array.from(groups.entries()).sort((a, b) => a[0].localeCompare(b[0]));
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [shouldGroupByLeague, filteredIdsKey, sortBy]);
+    }, [shouldGroupByLeague, filteredIdsKey, sortBy, auditSummaries]);
 
     const visibleMatches = filtered.slice(0, visibleCount);
     const hasMore = visibleCount < filtered.length;
@@ -471,7 +471,12 @@ export default function DashboardPage() {
                     </div>
                 ) : filtered.length > 0 ? (
                     groupedByLeague ? (
-                        <Accordion type="multiple" defaultValue={groupedByLeague.map(([league]) => league)} className="space-y-3">
+                        <Accordion
+                            key={groupedByLeague.map(([league]) => league).join("|")}
+                            type="multiple"
+                            defaultValue={groupedByLeague.map(([league]) => league)}
+                            className="space-y-3"
+                        >
                             {groupedByLeague.map(([league, items]) => (
                                 <AccordionItem key={league} value={league} className="border border-white/10 rounded-xl bg-white/[0.02] overflow-hidden">
                                     <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-white/[0.03]">
