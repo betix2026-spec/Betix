@@ -1,25 +1,25 @@
 ---
-description: Méthode DAR (Diagnostic - Ablation - Reconstruction) pour la résolution de problèmes majeurs.
+description: DAR method (Diagnosis - Ablation - Reconstruction) for resolving major issues.
 ---
 
-Cette méthode structurée est conçue pour résoudre les problèmes techniques complexes, les instabilités d'environnement ou les saturations de ressources.
+This structured method is designed to resolve complex technical issues, environment instability, or resource saturation.
 
-### 🩺 Phase 1 : Diagnostic Clinique (L'Audit Factuel)
-- **Stop-and-Watch** : Interdiction formelle de modifier le code pendant cette phase.
-- **Métriques Vitales** : Relever l'usage RAM, CPU et les temps de compilation/réponse.
-- **Isolation de la Racine** : Identifier l'erreur "vraie" (le blocage structurel) au milieu des erreurs en cascade.
-- **Rapport Clinique** : Présenter une analyse purement factuelle sans action corrective immédiate.
+### 🩺 Phase 1: Clinical Diagnosis (Factual Audit)
+- **Stop-and-Watch**: No code changes are allowed during this phase.
+- **Vital Metrics**: Record RAM and CPU usage, and build/response times.
+- **Root Isolation**: Identify the "true" error (the structural blocker) among the cascade of errors.
+- **Clinical Report**: Present a purely factual analysis with no immediate corrective action.
 
-### 🗑️ Phase 2 : Ablation & Sanification (Le Hard Reset)
-- **Nettoyage des Caches** : Supprimer les dossiers de build (`.next/`, `build/`, `dist/`).
-- **Nettoyage des Dépendances** : Supprimer le dossier `node_modules`.
-- **Alignement Structurel** : Éliminer les fichiers de verrouillage (`package-lock.json`, `yarn.lock`) en conflit ou dupliqués dans les dossiers parents.
+### 🗑️ Phase 2: Ablation & Sanitization (The Hard Reset)
+- **Cache Cleanup**: Remove build folders (`.next/`, `build/`, `dist/`).
+- **Dependency Cleanup**: Remove the `node_modules` folder.
+- **Structural Alignment**: Eliminate conflicting or duplicated lockfiles (`package-lock.json`, `yarn.lock`) in parent folders.
 
-### 🏗️ Phase 3 : Reconstruction Stratifiée (Séquentielle)
-1. **Strate 1 (Dépendances)** : Réinstaller proprement les packages et vérifier le succès de l'installation.
-2. **Strate 2 (Infrastructure)** : Auditer les fichiers de configuration (`package.json`, `postcss`, `tailwind`, etc.) pour garantir leur cohérence.
-3. **Strate 3 (Code Source)** : Ajuster les sources pour s'aligner sur l'infrastructure stabilisée.
+### 🏗️ Phase 3: Layered Reconstruction (Sequential)
+1. **Layer 1 (Dependencies)**: Cleanly reinstall packages and verify the install succeeded.
+2. **Layer 2 (Infrastructure)**: Audit the config files (`package.json`, `postcss`, `tailwind`, etc.) to ensure consistency.
+3. **Layer 3 (Source Code)**: Adjust the source to align with the now-stabilized infrastructure.
 
-### 📈 Phase 4 : Vérification des Constantes
-- Redémarrer le système (`npm run dev`).
-- Valider que les performances système et les temps de réponse sont redevenus nominaux.
+### 📈 Phase 4: Verifying Stability
+- Restart the system (`npm run dev`).
+- Confirm system performance and response times are back to normal.

@@ -1,162 +1,190 @@
-# ⚙️ BETIX — Documentation Technique Exhaustive du Backend
+# ⚙️ BETIX — Comprehensive Backend Technical Documentation
 
-> **Avertissement pour les développeurs** : Ce document est la source de vérité absolue pour l'architecture backend de BETIX. L'architecture a été pensée autour d'une philosophie asynchrone, distribuée et "unitaire". Ne modifiez jamais un orchestrateur sans comprendre l'impact sur les scripts unitaires qu'il appelle.
+> **Developer warning**: This document is the absolute source of truth for BETIX's backend architecture. The architecture was designed around an asynchronous, distributed, "unitary" philosophy. Never modify an orchestrator without understanding the impact on the unit scripts it calls.
 
 ---
 
-## 🏗️ 1. Architecture et Philosophie
+## 🏗️ 1. Architecture & Philosophy
 
-Le backend BETIX n'est pas une API monolithique traditionnelle. C'est un **écosystème de workers et de pipelines de données** construits autour de Python (FastAPI/Scripts autonomes) et d'une base de données Supabase, agissant comme le système nerveux central.
+The BETIX backend is not a traditional monolithic API. It's an **ecosystem of workers and data pipelines** built around Python (FastAPI/standalone scripts) and a Supabase database acting as the central nervous system.
 
-### Philosophie "Unitaire"
-Chaque script dans `scripts/updates/` ou `app/engine/` est conçu pour faire **une seule chose de manière résiliente**. Par exemple, mettre à jour le H2H d'un match précis.
-Ces scripts unitaires sont ensuite appelés par des **Pipelines** (pour enchaîner les actions), qui sont elles-mêmes déclenchées par des **Orchestrateurs** (ou radars) basés sur des règles d'affaires (temps, état du match).
+### "Unitary" Philosophy
+Every script in `scripts/updates/` or `app/engine/` is designed to do **one thing, resiliently**. For example, updating the H2H for one specific match.
+These unit scripts are then called by **pipelines** (to chain actions together), which are themselves triggered by **orchestrators** (or radars) based on business rules (time, match state).
 
 ### FastAPI (`app/main.py`)
-Bien qu'il y ait un serveur FastAPI, son rôle actuel est mineur comparé aux workers. Il expose quelques endpoints pour forcer dynamiquement des updates (`/api/v1/trigger/...`) sans avoir à se connecter en SSH au serveur.
+While there is a FastAPI server, its current role is minor compared to the workers. It exposes a few endpoints to dynamically force updates (`/api/v1/trigger/...`) without needing to SSH into the server.
 
-### Le Data Layer (Supabase)
-Toute la logique repose sur Supabase.
-- **Schéma `public`** : Gère les utilisateurs, les abonnements, et la data exposée au frontend (ex: `ai_match_audits`).
-- **Schéma `analytics`** : Le véritable moteur de calcul. Contient les tables de RAW data (matchs, cotes, stats) et de données calculées (rolling, h2h, elo).
-- **Table critique `system_config`** : Située dans `analytics`, elle sert de panneau de configuration en direct. Les orchestrateurs la lisent avant de s'allumer, permettant de couper l'IA ou d'activer le mode maintenance sans redéployer le code.
-
----
-
-## 🔑 2. Configuration et Moteur
-
-### Variables d'Environnement Cruciales
-Le projet repose sur la présence stricte de variables définies dans `.env` :
-- `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` : **Critique**. Ne jamais exposer la clé `service_role`. Le backend manipule les schémas via cette clé pour contourner le RLS (Row Level Security).
-- `API_SPORTS_KEY` / `API_TENNIS_KEY` : Clés pour l'ingestion de la data. Elles sont lourdement sollicitées par les workers.
-- `ANTHROPIC_API_KEY` / `GEMINI_API_KEY` : Pour le moteur IA.
-- `DEBUG` et `ENVIRONMENT` : Configurent le niveau de verbosité.
+### The Data Layer (Supabase)
+All the logic is built on Supabase.
+- **`public` schema**: manages users, subscriptions, and data exposed to the frontend (e.g. `ai_match_audits`).
+- **`analytics` schema**: the real computation engine. Contains the raw data tables (matches, odds, stats) and computed data (rolling, h2h, elo).
+- **Critical table `system_config`**: located in `analytics`, it acts as a live control panel. The orchestrators read it before running, allowing the AI to be switched off or maintenance mode enabled without redeploying code.
 
 ---
 
-## 🧠 3. Les Trois Orchestrateurs (Le Cerveau)
+## 🔑 2. Configuration & Engine
 
-Situés à la racine de `scripts/updates/`, ce sont des scripts persistants (ou à lancer via CRON/APScheduler). Ils lient l'ensemble du système.
-
-### `orchestrator_data.py` (L'Horloger Quotidien)
-- **Rôle** : S'assurer que la base de données est à jour sur le long terme.
-- **Actions** :
-  1. Lance `DiscoverMatches` : Cherche de nouveaux matchs sur les API (J-5 à J+10).
-  2. Lance `DailyMatchOrchestrator` (`process_daily_matches.py`) : Scanne l'intégralité des matchs "non-finis" dans une large fenêtre pour rattraper les reports ou bugs système.
-  3. Lance `OddsIngester` (`upsert_odds.py`) : Télécharge en batch les cotes pour les jours à venir.
-- **Fréquence** : Conçu pour s'exécuter 1 ou 2 fois par jour.
-
-### `orchestrator.py` (L'Opérateur Temps Réel)
-- **Rôle** : Piloter la machine d'état des matchs de bout en bout ("Live Management").
-- **Actions** : Compose `ImminentRadar`, `LiveSwitchRadar` et `LiveMatchMonitor`.
-- **Fréquence** : Tourne en permanence avec des boucles asynchrones courtes (2 à 15 min).
-
-### `orchestrator_ai.py` (Le Planificateur Cognitif)
-- **Rôle** : Distribuer la charge de calcul des LLMs pour ne pas exploser les coûts ou les Rate Limits.
-- **Mécanique** :
-  Il lit dans `system_config` à quelle heure il doit déclencher les batchs d'IA pour chaque sport. S'il est l'heure, il appelle `batch_audit_next_days.py` (via `subprocess`).
+### Critical Environment Variables
+The project strictly depends on variables defined in `.env`:
+- `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY`: **Critical**. Never expose the `service_role` key. The backend manipulates schemas via this key to bypass RLS (Row Level Security).
+- `API_SPORTS_KEY` / `API_TENNIS_KEY`: keys for data ingestion. Heavily used by the workers.
+- `ANTHROPIC_API_KEY` / `GEMINI_API_KEY`: for the AI engine.
+- `DEBUG` and `ENVIRONMENT`: configure the verbosity level.
 
 ---
 
-## ⚙️ 4. La Machine d'État et le Live (Radars)
+## 🧠 3. The Background Processes (The Brain)
 
-L'évolution du cycle de vie d'un match (scheduled -> imminent -> live -> finished) est vitale. Sans cette transition, les pipelines de fin de match et le calcul de la 'Rolling Form' ne se déclenchent pas.
+Three long-running processes, managed by `supervisord` (see `supervisord.conf`), tie the whole system together. A fourth AI worker (`worker_ai`, running the old `orchestrator_ai.py`) existed historically but was retired — see §7.
 
-### 1. `mark_imminent.py` (Radar H-3)
-- Identifie les matchs avec statut `scheduled` commençant dans moins de 3 heures.
-- Vérifie leur statut exact auprès des API via les **Upserters**.
-- Passe leur statut à `imminent` en base.
-- S'ils sont curieusement "finished" (ex: Walkover au Tennis), déclenche immédiatement leur pipeline.
+### `worker_data` → `orchestrator_data.py` (The Daily Clockkeeper)
+- **Role**: ensure the database stays up to date over the long term.
+- **Actions**:
+  1. Runs `DiscoverMatches` (`discover_matches.py`): looks for new matches via the APIs, in a rolling window (default: 10 days back to 10 days forward). Uses `CURRENT_SEASON` from `app/services/ingestion/constants.py` for football/basketball API queries — **this needs bumping by hand once a year** (around when leagues restart their season in August); a stale value causes API-Sports to silently return zero matches instead of erroring.
+  2. Runs `DailyMatchOrchestrator` (`process_daily_matches.py`): scans every "not finished" match in a wide window to catch up on postponements or system bugs.
+  3. Runs `OddsIngester` (`upsert_odds.py`): batch-downloads odds for upcoming days.
+- **Frequency**: configurable via `system_config` (defaults: match discovery roughly every 6h, cleanup pass roughly every 8h).
 
-### 2. `mark_live.py` (Radar M-5)
-- Traque les matchs `imminent` dans les 5 minutes précédant le coup d'envoi.
-- Passe le statut à `live`.
+### `worker_live` → `orchestrator.py` (The Real-Time Operator)
+- **Role**: drive the match state machine end-to-end ("live management").
+- **Actions**: composes `ImminentRadar`, `LiveSwitchRadar`, and `LiveMatchMonitor`.
+- **Frequency**: runs continuously with short async loops (2 to 15 min).
 
-### 3. `monitor_live.py` (Suivi en direct)
-- Traque les matchs `live`.
-- **Action répétitive** : Appelle l'API toutes les 2-3 minutes via les Upserters pour mettre à jour le score (table matchs).
-- **Le moment clé** : Lorsque l'API renvoie le statut "Terminé" (FT, AET, etc.), il capture le score final et **déclenche la pipeline de fin de match** asynchrone (`pipeline_fb.py` ou `pipeline_tennis.py`).
-
-### 4. `process_daily_matches.py` (Le Filet de Sécurité)
-- Si un match a échappé aux radars live (panne du serveur, bug de l'API sport), ce script le rattrape. Il prend une fenêtre de J-10 à J+10, prend tous les matchs `neq.finished`, et vérifie leur statut. S'ils sont terminés, il déclenche les pipelines.
+### The `api` process's own scheduled jobs (APScheduler, in `app/main.py`)
+The FastAPI process isn't just a thin API layer — it also runs three of its own background jobs via APScheduler, in-process (no separate worker needed):
+- **`live_match_refresh`** (every 5 min): `IngestionOrchestrator.run_live_sync()` — refreshes score/status for football and basketball matches already flagged `live`, and syncs the result directly to `public.matches` (not just `analytics`). Tennis isn't wired into this specific job.
+- **`ai_audit_proactive_pass`** (every 30 min): see §7 — the current AI generation scheduler.
+- **`ai_prediction_grading_pass`** (every 30 min): see §7 — grades finished matches' AI picks against the real result (Phase 3, accuracy tracking).
 
 ---
 
-## 🛠️ 5. Les Upserters (Normalisation et Ingestion)
+## ⚙️ 4. The State Machine & Live Tracking (Radars)
 
-Ces classes abstraient complètement la complexité des API externes (différences de JSON, de clés existantes/inexistantes).
+The evolution of a match's lifecycle (scheduled -> imminent -> live -> finished) is vital. Without this transition, the end-of-match pipelines and the 'Rolling Form' computation never trigger.
+
+### 1. `mark_imminent.py` (H-3 Radar)
+- Identifies `scheduled` matches starting in less than 3 hours.
+- Checks their exact status with the APIs via the **upserters**.
+- Moves their status to `imminent` in the DB.
+- If they're oddly already "finished" (e.g. a walkover in tennis), immediately triggers their pipeline.
+
+### 2. `mark_live.py` (M-5 Radar)
+- Tracks `imminent` matches within 5 minutes of kickoff.
+- Moves the status to `live`.
+
+### 3. `monitor_live.py` (Live Tracking)
+- Tracks `live` matches.
+- **Repeating action**: calls the API every 2-3 minutes via the upserters to update the score (matches table).
+- **The key moment**: when the API reports "Finished" (FT, AET, etc.), it captures the final score and **triggers the end-of-match pipeline** asynchronously (`pipeline_fb.py` or `pipeline_tennis.py`).
+
+### 4. `process_daily_matches.py` (The Safety Net)
+- If a match slipped through the live radars (server outage, sports API bug), this script catches it. It takes a D-10 to D+10 window, grabs every `neq.finished` match, and checks its status. If finished, it triggers the pipelines.
+
+---
+
+## 🛠️ 5. The Upserters (Normalization & Ingestion)
+
+These classes fully abstract away the complexity of the external APIs (differing JSON shapes, present/missing keys).
 
 ### `upsert_fb_data.py` (Football & Basketball)
-- **Statuts** : Normalise les dizaines de statuts de l'API-Sports en 5 statuts BETIX : `scheduled`, `imminent`, `live`, `finished`, `postponed`.
-- **Scores** : Fusionne de façon robuste les scores. Ex: `match["goals"]["home"]` en Foot devient `home_score`.
+- **Statuses**: normalizes API-Sports' dozens of statuses into 5 BETIX statuses: `scheduled`, `imminent`, `live`, `finished`, `postponed`.
+- **Scores**: robustly merges scores. E.g. `match["goals"]["home"]` in football becomes `home_score`.
 
 ### `upsert_tennis_data.py`
-- Gère la complexité du tennis (pas d'heure précise de match, dépend du précédent sur le court).
-- Tente de relocaliser un match sur J-1, J+1, J+2 si l'API le déplace silencieusement.
-- S'occupe de compter les `sets_played` pour jauger la fatigue physique des joueurs.
+- Handles tennis's specific complexity (no precise match time, depends on what's happening on court before it).
+- Attempts to relocate a match on D-1, D+1, D+2 if the API silently moves it.
+- Handles counting `sets_played` to gauge players' physical fatigue.
 
 ### `upsert_odds.py`
-- Récupère les cotes pre-match (Match Winner, Over/Under, BTTS).
-- Fonctionne par batchs de 50 pour éviter le Time-Out de l'API.
-- Écrit dans `odds_snapshots`. **L'IA lira le snapshot le plus récent au moment de l'audit.**
+- Fetches pre-match odds (Match Winner, Over/Under, BTTS).
+- Works in batches of 50 to avoid API timeouts.
+- Writes to `odds_snapshots`. **The AI reads the most recent snapshot at audit time.**
 
 ---
 
-## 🏭 6. Les Pipelines de Fin de Match (Calculs Analytiques)
+## 🏭 6. End-of-Match Pipelines (Analytical Computation)
 
-Quand un match est signalé "Finished" par un radar, on doit recalculer toutes ses conséquences sur la dynamique de la saison. C'est le rôle des pipelines (`pipeline_fb.py` et `pipeline_tennis.py`).
+When a match is flagged "Finished" by a radar, all of its downstream effects on the season's dynamics need recomputing. That's the role of the pipelines (`pipeline_fb.py` and `pipeline_tennis.py`).
 
-Elles exécutent dans un ordre **strict et asynchrone** (via `subprocess`) :
+They run in a **strict, asynchronous** order (via `subprocess`):
 
 1. **`update_match_stats.py` / `update_tennis_stats.py`**
-   - Va chercher les statistiques détaillées du match (Possession, xG, Aces, Pourcentages aux Tirs, etc.) et les enregistre dans les tables `_match_stats`.
+   - Fetches the match's detailed stats (possession, xG, aces, shooting percentages, etc.) and saves them to the `_match_stats` tables.
 2. **`update_match_h2h.py` / `update_tennis_h2h.py`**
-   - Recalcule l'historique commun (Face-à-face) des deux adversaires. Les compteurs de victoires et les moyennes de buts mutuels sont mis à jour en tenant compte du match qui vient de se terminer.
+   - Recomputes the shared history (head-to-head) between the two opponents. Win counters and mutual goal averages are updated to account for the match that just finished.
 3. **`update_match_rolling.py` / `update_tennis_rolling.py`**
-   - **Le cœur du système**. Ce script recalcule la dynamique des équipes concernées : "Last 5" (L5), "Last 10" (L10), la fatigue, les différentiels (Net Rating, xG diff).
-   - Ces métriques roulantes sont sauvegardées dans les tables `_team_rolling` ou `_player_rolling`, à la date du jour. Ce point fixe permettra à l'IA d'analyser le prochain match de l'équipe avec ses stats à jour.
+   - **The core of the system**. This script recomputes the involved teams' dynamics: "Last 5" (L5), "Last 10" (L10), fatigue, differentials (net rating, xG diff).
+   - These rolling metrics are saved into the `_team_rolling` or `_player_rolling` tables, dated today. This snapshot lets the AI analyze the team's next match with up-to-date stats.
 
 ---
 
-## 🤖 7. Le Moteur d'Intelligence Artificielle (AI Engine)
+## 🤖 7. The AI Engine (On-Demand + Proactive)
 
-Le processus de prédiction est conçu pour être asynchrone et archivé.
+The old design (`orchestrator_ai.py` / `batch_audit_next_days.py`, a `worker_ai` process re-analyzing every upcoming match up to 16× over a rolling 3-day window) was **retired** — it was re-generating the same matches repeatedly regardless of whether anything had changed, which is what was driving AI costs up. Both scripts are still in the repo (marked `RETIRED` in their header) but nothing invokes them anymore.
 
-### Lancer un Batch : `batch_audit_next_days.py`
-Ce script est appelé par l'orchestrateur. Il cherche les matchs des 3 prochains jours ayant des cotes, et ne traite que les matchs **pas encore audités pour le cycle actuel (run_id)**. S'il rencontre des erreurs `429 Too Many Requests`, il possède un "Circuit Breaker" interne et s'arrête proprement.
+The current design generates each match's analysis **once**, close to kickoff, and falls back to generating on the spot if a premium user asks for a match that hasn't been reached yet:
 
-### Le Script de Résolution Unitaire : `match_audit_script.py`
-Ce script cordonne l'audit d'un match précis.
-1. **Appel à `data_aggregation.py`** : Cette classe va chercher les informations du match dans une quinzaine de tables Supabase (Match info, cotes, H2H, rolling stats Home, rolling stats Away, stats arbitrage, etc.) et compile un énorme dictionnaire de contexte.
-2. **Filtrage** : Il extrait les `essential_stats` pour qu'elles puissent être stockées en base dans la table `ai_match_audits` sans exploser la taille du JSON.
-3. **Prompt et Génération** (`confidence_generator.py` & `ai_model.py`) : Envoie les données aggrégées et textuelles à l'API LLM (Anthropic ou Gemini) en utilisant le prompt spécifique du sport (défini dans `prompt_builder.py`).
-4. **Mise en Base** : Upsert le JSON de l'IA (analyse et indice de confiance) dans la table `public.ai_match_audits`. Le Frontend pourra alors l'afficher.
+### 1. Proactive pass — `scripts/updates/scheduled_audit_pass.py`
+Runs every 30 minutes via APScheduler (`ai_audit_proactive_pass`, in `app/main.py`). Scans `analytics.{football,basketball}_matches` and `analytics.tennis_matches` for matches within the next 24 hours that are in the top-tier scope (`app/engine/tier_scope.py` — e.g. Premier League/Champions League/La Liga for football, all 3 tracked leagues for basketball; tennis's "men only" filter can't be enforced yet, there's no tour/gender column in the DB). For each eligible match, calls `ensure_audit()` — a no-op if a fresh analysis already exists, which is what makes repeated runs idempotent instead of regenerating in a loop.
+
+### 2. On-demand fallback — `POST /api/audits/{sport}/{match_id}/ensure` (`app/routers/audits.py`)
+Called by the frontend (`frontend/src/app/actions/match.ts`) when a premium user opens a match that has no fresh analysis yet — covers anything out of the proactive pass's scope, or not yet reached. Protected by a shared secret (`INTERNAL_API_SECRET`, checked on both the Railway backend and the Vercel frontend — **these two values must match exactly**, or the endpoint silently 403s and the frontend shows an infinite "generating…" state with no visible error). Kicks off generation in the background and returns immediately so the request doesn't hang.
+
+### The shared decision logic — `app/engine/audit_orchestration.py`
+`ensure_audit()` is the single place both triggers go through, so they can never race each other on the same match. It checks `ai_match_audits` for an existing row under `run_id = 'live'` (a single "current" row per match, upserted on every new generation — not a new row per run like the old batch system) and its `status` column:
+- `ready` and fresh (< 18h old) → served as-is, no new generation.
+- `pending` and the lock isn't stuck (< 5 min old) → tells the caller to wait; a second concurrent trigger for the same match won't start a second generation.
+- `failed`, or a stuck `pending`, or a stale `ready` → regenerates.
+
+### The Unit Resolution Script: `scripts/updates/match_audit_script.py`
+This is what `ensure_audit()` calls to actually run a generation for one match (`run_audit()`).
+1. Writes a `pending` lock to `ai_match_audits` (`status='pending'`, `attempted_at=now()`) **before** the AI call, so a concurrent trigger sees the lock immediately.
+2. **Calls `data_aggregation.py`**: this class fetches the match's information from about fifteen Supabase tables (match info, odds, H2H, home rolling stats, away rolling stats, referee stats, etc.) and compiles a huge context dictionary.
+3. **Filtering**: extracts `essential_stats` so they can be stored in `ai_match_audits` without the JSON blowing up in size.
+4. **Prompt & generation** (`confidence_generator.py` & `ai_model.py`): sends the aggregated, textual data to the LLM API (default: Claude Haiku) using the sport-specific prompt (defined in `prompt_builder.py`). All 4 languages (fr/en/es/de) are generated in a single call — there's no separate translation pass.
+5. **Storing**: upserts the result as `status='ready'` (or `status='failed'` with an `error_message` on failure) into `public.ai_match_audits`. The frontend can then display it.
+
+### Accuracy tracking (Phase 3) — `scripts/updates/grade_predictions_pass.py`
+Runs every 30 minutes alongside the proactive pass (`ai_prediction_grading_pass` job). For audits whose match has since finished, checks each pick's structured `outcome` field (e.g. `{"type": "moneyline", "side": "home"}` — attached to every pick specifically so it can be verified automatically, see `prompt_builder.OUTPUT_FORMAT`) against the real final score, via `app/engine/prediction_grading.py`. Results roll up into `grading_results` (won/lost/push/ungraded counts per confidence tier) and power the admin "AI Accuracy" page. Read/DB-only, no AI calls.
 
 ---
 
-## 📖 8. Guide d'Intervention pour Développeur
+## 📖 8. Developer Intervention Guide
 
-La granularité du projet permet d'intervenir à différents endroits sans rien casser.
+The project's granularity lets you intervene at different points without breaking anything.
 
-**1. Comment forcer la mise à jour des stats d'un seul match défaillant ?**
-Si le live monitor a crashé, exécutez simplement les scripts manuellement :
+**1. How do I force a stats update for one failed match?**
+If the live monitor crashed, just run the scripts manually:
 ```bash
 python scripts/updates/update_match_stats.py --sport football --match-id 112233
 python scripts/updates/update_match_rolling.py --sport football --match-id 112233
 ```
-*Le script est agnostique du moment, tant que le statut est "finished" en DB.*
+*The script doesn't care about timing, as long as the status is "finished" in the DB.*
 
-**2. Comment modifier le comportement de l'IA ?**
-- **Pour modifier ce qu'on donne à l'IA (Les données)** : Modifiez `app/engine/data_aggregation.py`. Si vous ajoutez une nouvelle colonne en DB, c'est ici qu'il faut l'extraire et l'ajouter au dictionnaire.
-- **Pour modifier comment l'IA réfléchit (Le ton, la structure)** : Modifiez `app/engine/prompt_builder.py`.
-- **Pour changer le format de sortie métier** : Modifiez le schéma Pydantic `BetixResponseFormat` dans `prompt_builder.py`.
+**2. How do I change the AI's behavior?**
+- **To change what data the AI is given**: edit `app/engine/data_aggregation.py`. If you add a new DB column, this is where you extract it and add it to the dictionary.
+- **To change how the AI reasons (tone, structure)**: edit `app/engine/prompt_builder.py`.
+- **To change the business output format**: edit the `BetixResponseFormat` Pydantic schema in `prompt_builder.py`.
 
-**3. Comment ajouter l'API pour un nouveau sport sportif (ex: Hockey) ?**
-1. Créer une classe `HockeyMatchUpserter` dans `scripts/updates/upsert_hockey_data.py` (Copiez celle du basket).
-2. Ajouter le sport dans les dictionnaires cibles (ex: dans `process_daily_matches.py`).
-3. Créer une `pipeline_hockey.py` (copiez `pipeline_fb.py`).
-4. Écrire le Data Context dans `data_aggregation.py`.
-5. Ajouter le System Prompt dans `prompt_builder.py`.
+**3. How do I add support for a new sport (e.g. hockey)?**
+1. Create a `HockeyMatchUpserter` class in `scripts/updates/upsert_hockey_data.py` (copy the basketball one).
+2. Add the sport to the target dictionaries (e.g. in `process_daily_matches.py`).
+3. Create a `pipeline_hockey.py` (copy `pipeline_fb.py`).
+4. Write the data context in `data_aggregation.py`.
+5. Add the system prompt in `prompt_builder.py`.
 
-**4. Dépannage du Live**
-Si les matchs restent coincés en `live`, vérifiez l'état de `monitor_live.py`. Vous pouvez toujours corriger un match bloqué via votre panneau Supabase natif en le passant en `finished`, mais **n'oubliez pas de déclencher sa pipeline manuellement** après, sinon les stats (et la Rolling Form des équipes) ne se mettront pas à jour.
+**4. Troubleshooting Live**
+If matches stay stuck in `live`, check the state of `monitor_live.py`. You can always fix a stuck match directly via the Supabase dashboard by setting it to `finished`, but **remember to trigger its pipeline manually** afterward, or the stats (and the teams' rolling form) won't update.
+
+**5. Diagnostic scripts (`backend/draft/`)**
+A handful of read-only diagnostics live here for exactly this kind of troubleshooting — safe to run anytime, none of them write data (except the explicitly-named backfill ones):
+- `check_api_status.py` — checks whether the API-Sports and API-Tennis keys are active and reports quota/subscription status, without printing the keys themselves.
+- `check_ai_analysis.py` — tests the Anthropic key with a live call and reports the real state of `ai_match_audits` (status breakdown, actual error messages on failed rows).
+- `check_odds_and_audit.py` — shows the raw `odds_snapshots` rows and the exact odds value the AI put on each pick for a given match, for tracking down "why does this pick show no odds".
+- `backfill_public_matches.py` — one-time sync of existing `analytics.*_matches` rows into `public.matches` (the table the dashboard actually reads). Needed once after any incident that breaks the analytics → public sync, since that sync only fires for newly-discovered matches going forward, not retroactively.
+
+Any standalone script under `scripts/updates/` that imports from `app.*` needs `sys.path.insert(0, ...)` pointing at the project root near the top of the file to be runnable directly (`python scripts/updates/whatever.py`) — it works without that when imported from within the running app (uvicorn already has the project root on `sys.path`), but crashes with `ModuleNotFoundError: No module named 'app'` when invoked directly. Check an existing script (e.g. `discover_matches.py`) for the exact pattern before adding a new one.
+
+**6. Webhooks & external integrations (`app/routers/webhooks.py`)**
+Endpoints called by external services, not by the frontend — protected by `SUPABASE_WEBHOOK_SECRET` rather than `INTERNAL_API_SECRET`. Currently one: `POST /api/webhooks/new-user`, called by a Supabase Database Webhook on `auth.users` INSERT, which adds the new user's email to an EmailOctopus mailing list (`app/services/emailoctopus_client.py`). Configured entirely outside this repo — the webhook itself lives in the Supabase dashboard (Database → Webhooks), and needs the `pg_net` extension enabled on the project (Database → Extensions) or it fails to save with a `schema "supabase_functions" does not exist` error.

@@ -21,6 +21,13 @@ import { BreathingGauge } from "@/components/ui/breathing-gauge";
 import { useI18n } from "@/lib/use-i18n";
 import { localizeAnalysisText } from "@/lib/i18n";
 
+// Never render missing odds as "0.00" — that reads as a real (absurd) price
+// rather than "we don't have this yet". odds is null when the AI had no
+// real market odds snapshot to cite for this pick.
+function formatOdds(odds: number | null): string {
+    return odds === null ? "—" : odds.toFixed(2);
+}
+
 function VerdictSection({ summary }: { summary: string }) {
     const { copy } = useI18n();
     const [isExpanded, setIsExpanded] = useState(false);
@@ -119,7 +126,7 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                             aiPredictions.push({
                                 type: item.market ? localizeAnalysisText(item.market, locale) : "",
                                 bet: item.selection ? localizeAnalysisText(item.selection, locale) : "",
-                                odds: item.odds || 0,
+                                odds: typeof item.odds === "number" ? item.odds : null,
                                 bookmaker: item.bookmaker || item.provider || "Standard",
                                 confidence: item.confidence_score || item.confidence || (level === "safe" ? 85 : level === "value" ? 65 : 45),
                                 level: level,
@@ -386,7 +393,7 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                                                                                 {pred.level}
                                                                             </div>
                                                                             <span className="text-lg font-black font-mono text-primary italic">
-                                                                                {pred.odds.toFixed(2)}
+                                                                                {formatOdds(pred.odds)}
                                                                             </span>
                                                                         </div>
                                                                         <div className="text-sm font-bold text-white group-hover:text-primary transition-colors">
@@ -429,7 +436,7 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                                                                             <div className="flex items-baseline gap-1.5">
                                                                                 <span className="text-[10px] font-black text-white/20 tracking-widest">{copy("COTE")}</span>
                                                                                 <span className="text-[20px] font-black tracking-tighter text-white font-mono">
-                                                                                    {pred.odds.toFixed(2)}
+                                                                                    {formatOdds(pred.odds)}
                                                                                 </span>
                                                                             </div>
                                                                         </div>
@@ -546,7 +553,7 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                                                             {topPredictions.map((pred) => {
                                                                 const pct = typeof pred.confidence === 'number' ? pred.confidence : 0;
                                                                 const outcome = pred.bet;
-                                                                const odds = pred.odds.toFixed(2);
+                                                                const odds = formatOdds(pred.odds);
                                                                 const analysis = pred.analysis || copy("Le modèle n'a pas généré d'argumentaire détaillé pour cette sélection spécifique, mais a identifié un motif statistique favorable basé sur les historiques récents et la modélisation ELO.");
 
                                                                 return (
