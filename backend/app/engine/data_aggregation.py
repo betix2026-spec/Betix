@@ -15,6 +15,13 @@ logger = logging.getLogger(__name__)
 NEUTRAL_VENUE_LEAGUE_IDS = {87, 93, 97, 98, 101, 104, 109, 118}
 
 
+async def _empty_list() -> list:
+    """A no-op awaitable — lets a conditionally-skipped fetch sit in the
+    same asyncio.gather() call as the others instead of a plain [] value,
+    which gather() can't accept alongside real coroutines."""
+    return []
+
+
 class DataAggregator:
     def __init__(self):
         self.settings = get_settings()
@@ -652,7 +659,7 @@ class DataAggregator:
         if sport == 'football':
             columns += ",round,referee_name,weather"
 
-        rows = self.db.select(table, columns, {"id": match_id})
+        rows = await asyncio.to_thread(self.db.select, table, columns, {"id": match_id})
         if not rows:
             return {}
         return rows[0]
@@ -660,11 +667,11 @@ class DataAggregator:
     async def fetch_team_details(self, sport: str, match_id: int) -> Dict[str, Any]:
         table = f"{sport}_matches"
         columns = "home_team:teams!home_team_id(id,name),away_team:teams!away_team_id(id,name)"
-        
-        rows = self.db.select(table, columns, {"id": match_id})
+
+        rows = await asyncio.to_thread(self.db.select, table, columns, {"id": match_id})
         if not rows:
             return {}
-            
+
         data = rows[0]
         return {
             "home": data.get("home_team", {}),
@@ -673,16 +680,16 @@ class DataAggregator:
 
     async def fetch_h2h(self, sport: str, match_id: int) -> Dict[str, Any]:
         match_table = f"{sport}_matches"
-        rows = self.db.select(match_table, "home_team_id,away_team_id", {"id": match_id})
+        rows = await asyncio.to_thread(self.db.select, match_table, "home_team_id,away_team_id", {"id": match_id})
         if not rows:
             return {}
-        
+
         h1, a1 = rows[0]["home_team_id"], rows[0]["away_team_id"]
         h2h_table = f"{sport}_h2h"
 
-        res = self.db.select(h2h_table, "*", {"team_a_id": h1, "team_b_id": a1})
+        res = await asyncio.to_thread(self.db.select, h2h_table, "*", {"team_a_id": h1, "team_b_id": a1})
         if not res:
-            res = self.db.select(h2h_table, "*", {"team_a_id": a1, "team_b_id": h1})
+            res = await asyncio.to_thread(self.db.select, h2h_table, "*", {"team_a_id": a1, "team_b_id": h1})
 
         if not res:
             return {"summary": "No H2H found"}
@@ -693,53 +700,62 @@ class DataAggregator:
         return result
 
     async def fetch_rolling_stats(self, sport: str, match_id: int) -> Dict[str, Any]:
+        # self.db.select() is a blocking (synchronous httpx) call — see
+        # base_client.py. Called bare from an async method, it blocks the
+        # whole event loop, silently defeating every asyncio.gather() that
+        # was supposed to run fetchers concurrently (confirmed in
+        # production, 2026-08-21: Railway logs showed every "concurrent"
+        # Supabase call happening strictly one after another). Offloading
+        # each blocking call to a thread via asyncio.to_thread lets the
+        # event loop actually interleave them — this method alone chains 7
+        # sequential DB round-trips otherwise, the single biggest
+        # contributor to the reported multi-second page-load lag.
         match_table = f"{sport}_matches"
-        m_rows = self.db.select(match_table, "date_time,home_team_id,away_team_id", {"id": match_id})
+        m_rows = await asyncio.to_thread(self.db.select, match_table, "date_time,home_team_id,away_team_id", {"id": match_id})
         if not m_rows:
             return {}
-            
+
         m = m_rows[0]
         match_date = m['date_time']
         rolling_table = f"{sport}_team_rolling"
-        
-        def get_team_rolling_history(team_id, venue_filter, count=5):
+
+        async def get_team_rolling_history(team_id, venue_filter, count=5):
             filters = {
-                "team_id": team_id, 
+                "team_id": team_id,
                 "date": ("lte", match_date),
                 "venue": venue_filter
             }
-            rows = self.db.select(
-                rolling_table, "*", 
-                filters=filters, limit=count, order="date.desc"
-            )
-            return rows
+            return await asyncio.to_thread(self.db.select, rolling_table, "*", filters, count, "date.desc")
 
-        home_stats = {
-            "global": get_team_rolling_history(m['home_team_id'], "all"),
-            "home": get_team_rolling_history(m['home_team_id'], "home"),
-            "away": get_team_rolling_history(m['home_team_id'], "away")
-        }
+        # All 6 lookups (2 teams x 3 venue pools) are independent of each
+        # other once match_date/team_ids are known — genuinely parallel now.
+        home_global, home_home, home_away, away_global, away_home, away_away = await asyncio.gather(
+            get_team_rolling_history(m['home_team_id'], "all"),
+            get_team_rolling_history(m['home_team_id'], "home"),
+            get_team_rolling_history(m['home_team_id'], "away"),
+            get_team_rolling_history(m['away_team_id'], "all"),
+            get_team_rolling_history(m['away_team_id'], "home"),
+            get_team_rolling_history(m['away_team_id'], "away"),
+        )
 
-        away_stats = {
-            "global": get_team_rolling_history(m['away_team_id'], "all"),
-            "home": get_team_rolling_history(m['away_team_id'], "home"),
-            "away": get_team_rolling_history(m['away_team_id'], "away")
+        return {
+            "home": {"global": home_global, "home": home_home, "away": home_away},
+            "away": {"global": away_global, "home": away_home, "away": away_away},
         }
-        
-        return {"home": home_stats, "away": away_stats}
 
     async def fetch_odds(self, sport: str, match_id: int) -> Optional[Dict[str, Any]]:
-        rows = self.db.select_raw(
+        rows = await asyncio.to_thread(
+            self.db.select_raw,
             "odds_snapshots",
             f"match_id=eq.{match_id}"
             f"&sport=eq.{sport}"
             f"&select=market_name,bookmaker,snapshot_at,odds_data"
             f"&order=snapshot_at.desc"
         )
-        
+
         if not rows:
             return None
-        
+
         latest_by_market = {}
         for row in rows:
             mk = row["market_name"]
@@ -753,25 +769,27 @@ class DataAggregator:
 
     async def fetch_elo(self, sport: str, match_id: int) -> Optional[Dict[str, Any]]:
         match_table = f"{sport}_matches"
-        m_rows = self.db.select(match_table, "date_time,home_team_id,away_team_id", {"id": match_id})
+        m_rows = await asyncio.to_thread(self.db.select, match_table, "date_time,home_team_id,away_team_id", {"id": match_id})
         if not m_rows:
             return None
-            
+
         m = m_rows[0]
         match_date = m['date_time']
         elo_table = f"{sport}_team_elo"
-        
-        def get_team_elo_history(team_id, count=5):
-            rows = self.db.select(
-                elo_table, "*", 
-                filters={"team_id": team_id, "date": ("lte", match_date)}, 
-                limit=count, order="date.desc"
-            )
-            return rows
 
-        home_elo = get_team_elo_history(m['home_team_id'])
-        away_elo = get_team_elo_history(m['away_team_id'])
-        
+        async def get_team_elo_history(team_id, count=5):
+            return await asyncio.to_thread(
+                self.db.select,
+                elo_table, "*",
+                {"team_id": team_id, "date": ("lte", match_date)},
+                count, "date.desc"
+            )
+
+        home_elo, away_elo = await asyncio.gather(
+            get_team_elo_history(m['home_team_id']),
+            get_team_elo_history(m['away_team_id']),
+        )
+
         if not home_elo and not away_elo:
             return None
         return {"home": home_elo, "away": away_elo}
@@ -797,7 +815,8 @@ class DataAggregator:
             return empty
 
         try:
-            match_rows = self.db.select(
+            match_rows = await asyncio.to_thread(
+                self.db.select,
                 "football_matches", "api_id,home_team_id,away_team_id", {"id": match_id}
             )
             if not match_rows or not match_rows[0].get("api_id"):
@@ -806,7 +825,8 @@ class DataAggregator:
             home_team_id = match_rows[0].get("home_team_id")
             away_team_id = match_rows[0].get("away_team_id")
 
-            team_rows = self.db.select_raw(
+            team_rows = await asyncio.to_thread(
+                self.db.select_raw,
                 "teams", f"select=id,api_id&id=in.({home_team_id},{away_team_id})"
             )
             team_side_by_api_id = {}
@@ -869,7 +889,8 @@ class DataAggregator:
 
     async def fetch_tennis_match_details(self, match_id: int) -> Dict[str, Any]:
         """Fetch match info: surface, indoor/outdoor, round, date, sets."""
-        rows = self.db.select(
+        rows = await asyncio.to_thread(
+            self.db.select,
             "tennis_matches",
             "date_time,surface,indoor_outdoor,round,status,sets_played,score",
             {"id": match_id}
@@ -880,14 +901,15 @@ class DataAggregator:
 
     async def fetch_tennis_players(self, match_id: int) -> Dict[str, Any]:
         """Fetch player details for both participants via PostgREST JOIN."""
-        rows = self.db.select(
+        rows = await asyncio.to_thread(
+            self.db.select,
             "tennis_matches",
             "player1:players!player1_id(id,name,country),player2:players!player2_id(id,name,country)",
             {"id": match_id}
         )
         if not rows:
             return {}
-        
+
         data = rows[0]
         return {
             "player1": data.get("player1", {}),
@@ -896,23 +918,24 @@ class DataAggregator:
 
     async def fetch_tennis_h2h(self, match_id: int) -> Dict[str, Any]:
         """Fetch H2H summary + last 5 meetings between the two players."""
-        rows = self.db.select("tennis_matches", "player1_id,player2_id,date_time", {"id": match_id})
+        rows = await asyncio.to_thread(self.db.select, "tennis_matches", "player1_id,player2_id,date_time", {"id": match_id})
         if not rows:
             return {}
-        
+
         p1 = rows[0]["player1_id"]
         p2 = rows[0]["player2_id"]
         match_date = rows[0]["date_time"]
-        
-        res = self.db.select("tennis_h2h", "*", {"player_a_id": p1, "player_b_id": p2})
+
+        res = await asyncio.to_thread(self.db.select, "tennis_h2h", "*", {"player_a_id": p1, "player_b_id": p2})
         if not res:
-            res = self.db.select("tennis_h2h", "*", {"player_a_id": p2, "player_b_id": p1})
-        
+            res = await asyncio.to_thread(self.db.select, "tennis_h2h", "*", {"player_a_id": p2, "player_b_id": p1})
+
         summary = res[0] if res else {}
-        
+
         clean_date = match_date.replace("+00:00", "Z").replace("+01:00", "Z").replace("+02:00", "Z")
         try:
-            meetings = self.db.select_raw(
+            meetings = await asyncio.to_thread(
+                self.db.select_raw,
                 "tennis_matches",
                 f"select=date_time,player1_id,player2_id,winner_id,score,surface,sets_played"
                 f"&status=eq.finished"
@@ -924,7 +947,7 @@ class DataAggregator:
         except Exception as e:
             logger.warning(f"Could not fetch H2H meetings: {e}")
             meetings = []
-        
+
         return {
             "summary": summary,
             "last_5_meetings": meetings,
@@ -935,44 +958,41 @@ class DataAggregator:
 
     async def fetch_tennis_rolling(self, match_id: int) -> Dict[str, Any]:
         """Fetch rolling stats for both players, filtered by surface and date."""
-        m_rows = self.db.select(
-            "tennis_matches", 
-            "date_time,player1_id,player2_id,surface", 
+        m_rows = await asyncio.to_thread(
+            self.db.select,
+            "tennis_matches",
+            "date_time,player1_id,player2_id,surface",
             {"id": match_id}
         )
         if not m_rows:
             return {}
-            
+
         m = m_rows[0]
         match_date = m["date_time"]
         surface = m.get("surface", "hard")
 
-        def get_player_rolling(player_id, surf, count=5):
+        async def get_player_rolling(player_id, surf, count=5):
             """Get the latest rolling snapshots for a player on a given surface."""
             filters = {
                 "player_id": player_id,
                 "date": ("lte", match_date),
                 "surface": surf
             }
-            rows = self.db.select(
-                "tennis_player_rolling", "*",
-                filters=filters, limit=count, order="date.desc"
-            )
-            return rows
+            return await asyncio.to_thread(self.db.select, "tennis_player_rolling", "*", filters, count, "date.desc")
 
-        p1_rolling = {
-            "on_surface": get_player_rolling(m["player1_id"], surface),
-            "overall": get_player_rolling(m["player1_id"], "all") if surface != "all" else []
-        }
-        
-        p2_rolling = {
-            "on_surface": get_player_rolling(m["player2_id"], surface),
-            "overall": get_player_rolling(m["player2_id"], "all") if surface != "all" else []
-        }
+        # 4 independent lookups (2 players x on-surface/overall) run
+        # concurrently instead of one after another — same fix as
+        # fetch_rolling_stats above.
+        p1_on_surface, p1_overall, p2_on_surface, p2_overall = await asyncio.gather(
+            get_player_rolling(m["player1_id"], surface),
+            get_player_rolling(m["player1_id"], "all") if surface != "all" else _empty_list(),
+            get_player_rolling(m["player2_id"], surface),
+            get_player_rolling(m["player2_id"], "all") if surface != "all" else _empty_list(),
+        )
 
         return {
-            "player1": p1_rolling,
-            "player2": p2_rolling
+            "player1": {"on_surface": p1_on_surface, "overall": p1_overall},
+            "player2": {"on_surface": p2_on_surface, "overall": p2_overall},
         }
 
 
