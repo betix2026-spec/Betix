@@ -11,7 +11,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from app.config import get_settings
 from app.routers import matches, predictions, system, audits, webhooks
 from app.services.ingestion.orchestrator import IngestionOrchestrator
-from scripts.updates.scheduled_audit_pass import run_scheduled_pass
+from scripts.updates.scheduled_audit_pass import run_initial_generation_pass, run_delta_and_poll_pass
 from scripts.updates.grade_predictions_pass import run_grading_pass
 
 logger = logging.getLogger("app.main")
@@ -35,16 +35,40 @@ async def lifespan(app: FastAPI):
         replace_existing=True
     )
 
-    # Proactive AI pass: generates an analysis ONCE per top-tier match
-    # within ~24h of kickoff. Replaces the old worker_ai (orchestrator_ai.py,
-    # retired) which re-analyzed every match up to 16x over 3 days. The
-    # safety net remains on-demand generation (routers/audits.py) for
-    # anything this pass hasn't reached yet.
+    # Proactive AI — initial generation: a FIXED-TIME daily job instead of a
+    # rolling scan, so every top-tier match kicking off in the next ~24h is
+    # submitted together at once. Fixture times are known days ahead
+    # (discover_matches.py) and essentially never change with under-24h
+    # notice, so there's nothing to gain from re-scanning every 30 minutes
+    # — only a worse guarantee for users (a rolling scan means a match's
+    # "submitted" moment is effectively random, so a user opening it
+    # shortly after has no predictable end to "Analyzing..."). Submitting
+    # the whole day's scope together means it all finishes together
+    # (typically within ~1h), so anyone checking a couple of hours after
+    # this run reliably sees a completed analysis. See
+    # scheduled_audit_pass.py's module docstring for the full reasoning.
     scheduler.add_job(
-        run_scheduled_pass,
+        run_initial_generation_pass,
+        "cron",
+        hour=0,
+        minute=0,
+        timezone="Europe/Paris",
+        id="ai_audit_initial_pass",
+        replace_existing=True,
+    )
+
+    # Proactive AI — delta + batch poll: stays on the original 30-minute
+    # interval. Polling the football batch queue needs to be frequent (a
+    # batch can take up to ~1h, rarely up to 24h) and so does the delta
+    # pass itself (~1h before kickoff, every sport). Replaces the old
+    # worker_ai (orchestrator_ai.py, retired) which re-analyzed every match
+    # up to 16x over 3 days. The safety net remains on-demand generation
+    # (routers/audits.py) for anything the initial pass hasn't reached yet.
+    scheduler.add_job(
+        run_delta_and_poll_pass,
         "interval",
         minutes=30,
-        id="ai_audit_proactive_pass",
+        id="ai_audit_delta_and_poll_pass",
         replace_existing=True,
     )
 
@@ -62,7 +86,8 @@ async def lifespan(app: FastAPI):
     scheduler.start()
     logger.info(
         "Scheduler (APScheduler) started: live sync every 5min, "
-        "proactive AI audits every 30min, prediction grading every 30min."
+        "AI initial generation daily at 00:00 Europe/Paris, "
+        "AI delta+batch-poll every 30min, prediction grading every 30min."
     )
     
     yield
