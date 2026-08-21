@@ -27,11 +27,19 @@ logger = logging.getLogger("betix.confidence_generator")
 # ═══════════════════════════════════════════════════════════════════
 
 # Config optimized for betting analysis (structured JSON, not creative)
-# max_tokens raised (8192 -> 11000) because the analysis and its 4-language
-# translation are now produced in a SINGLE call instead of two.
+# max_tokens raised twice: 8192 -> 11000 because the analysis and its
+# 4-language translation are produced in a single call instead of two, then
+# 11000 -> 24000 (2026-08-21) because Sonnet 5 runs adaptive thinking by
+# default when `thinking` is omitted (unlike Sonnet 4.6, which ran
+# thinking-off by omission) — confirmed in production: real generations
+# were failing "Could not parse the AI response" because thinking tokens
+# (which share this same max_tokens budget) were leaving too little room
+# for the actual JSON, truncating it mid-object. max_tokens is a ceiling,
+# not a cost — the model is billed for what it actually generates, not this
+# number, so there's no downside to leaving real headroom.
 AI_CONFIG = {
     "temperature": 0.4,       # Slightly exploratory to avoid confirmation bias
-    "max_tokens": 11000,      # Rich JSON + 4 languages needs room
+    "max_tokens": 24000,      # Adaptive thinking + rich JSON + 4 languages needs real room
     "top_p": 0.85,
     "top_k": 40,              # More diversity in the reasoning explored
 }
@@ -73,7 +81,16 @@ def parse_ai_response(raw: str) -> Optional[Dict[str, Any]]:
         except json.JSONDecodeError:
             pass
 
-    logger.error("❌ Could not parse the AI response. Exporting the full raw output to debug_ai_raw.log")
+    # debug_ai_raw.log writes to the container's local filesystem, which
+    # isn't reachable from Railway's log viewer — log a preview through the
+    # standard logger too (visible in `railway logs`) so a real failure is
+    # diagnosable without shell access. A truncated JSON object (see
+    # ai_model.py's max_tokens stop_reason check) shows up here as text
+    # that just stops mid-object, usually mid-string or mid-key.
+    logger.error(
+        f"❌ Could not parse the AI response ({len(raw)} chars). "
+        f"Start: {raw[:300]!r} ... End: {raw[-300:]!r}"
+    )
     try:
         with open("debug_ai_raw.log", "w", encoding="utf-8") as f:
             f.write(raw)

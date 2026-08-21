@@ -262,7 +262,16 @@ class ChatModel:
         # no .text attribute, crashing every generation with 'ThinkingBlock'
         # object has no attribute 'text'. Find the actual text block instead.
         text = next((block.text for block in response.content if block.type == "text"), None)
+
+        # stop_reason == "max_tokens" means the response (thinking and/or
+        # text) got cut off mid-generation — logged via the standard logger
+        # (visible in Railway logs) rather than only the caller's local
+        # debug file, which isn't reachable from outside the container.
+        if response.stop_reason == "max_tokens":
+            block_summary = [(getattr(b, "type", "?"), len(getattr(b, "text", "") or getattr(b, "thinking", "") or "")) for b in response.content]
+            logger.warning(f"Claude response hit max_tokens (truncated) — content blocks (type, length): {block_summary}")
+
         if text is None:
             block_types = [getattr(b, "type", "?") for b in response.content]
-            raise RuntimeError(f"No text block in Claude response (content block types: {block_types})")
+            raise RuntimeError(f"No text block in Claude response (content block types: {block_types}, stop_reason: {response.stop_reason})")
         return text
