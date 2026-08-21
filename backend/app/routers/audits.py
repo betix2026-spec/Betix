@@ -154,3 +154,17 @@ async def match_stats_endpoint(
         injuries=context.get("injuries"),
         form=form,
     )
+
+
+@router.post("/_diag/run-initial-pass-now")
+async def _diag_run_initial_pass_now(x_internal_secret: Optional[str] = Header(None)):
+    """
+    TEMPORARY, one-time — the daily initial-generation pass now only runs
+    at 00:00 Europe/Paris (see app/main.py), so today's ~24h-out backlog
+    (submitted under the old 30-min rolling scan, before this deploy)
+    won't get a same-day catch-up on its own until tomorrow's run. Fires
+    run_initial_generation_pass() immediately, once. Remove once run.
+    """
+    _check_internal_secret(x_internal_secret)
+    from scripts.updates.scheduled_audit_pass import run_initial_generation_pass
+    return await run_initial_generation_pass()

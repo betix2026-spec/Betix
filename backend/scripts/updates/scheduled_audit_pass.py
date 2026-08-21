@@ -1,17 +1,43 @@
 """
 BETIX — scheduled_audit_pass.py
-Lightweight scheduled pass, two stages per top-tier match:
-  1. INITIAL — generates an analysis ONCE, within ~24h of kickoff, if it
-     doesn't already have a fresh one. Football (the 3-league top-tier
-     scope, see tier_scope.py) goes through the Anthropic Message Batches
-     API (batch_audit.py) — 50% cheaper, and this is the highest-volume
-     sport. Basketball and tennis stay on the direct synchronous path
-     below — lower volume, not worth the added submit/poll complexity.
-  2. DELTA — a second, deliberate call ~1h before kickoff that re-checks
-     fresher data (odds/injuries/referee) against the initial analysis and
-     confirms or updates it (see audit_orchestration.ensure_delta_audit).
-     Always synchronous for every sport — a batch job can (rarely) take up
-     to 24h, which is too slow this close to kickoff.
+Two independent jobs, split across two different cadences (see app/main.py):
+
+  1. INITIAL (run_initial_generation_pass) — a FIXED-TIME daily job, once at
+     00:00 Europe/Paris, that scans every top-tier match kicking off in the
+     next ~24h and generates its first analysis. Football (the 3-league
+     top-tier scope, see tier_scope.py) goes through the Anthropic Message
+     Batches API (batch_audit.py) — 50% cheaper, and this is the
+     highest-volume sport. Basketball and tennis stay on the direct
+     synchronous path — lower volume, not worth the added submit/poll
+     complexity.
+
+     Fixed-time instead of a rolling scan deliberately: the fixture list is
+     already known days/weeks ahead (discover_matches.py), and kickoff
+     times essentially never change with under-24h notice, so there's
+     nothing to gain from re-scanning every 30 minutes — only a worse
+     guarantee for users. A rolling scan means a match's "submitted" moment
+     is effectively random (whenever now+24h first crosses its kickoff),
+     so a user opening a match shortly after that random moment sees a
+     pending state with no predictable end. Submitting the whole day's
+     scope at once means every one of those matches finishes together
+     (typically within ~1h), so anyone opening any of them a couple of
+     hours after the daily run reliably sees a completed analysis, not a
+     coin flip.
+
+  2. DELTA + POLL (run_delta_and_poll_pass) — stays on the original 30-
+     minute interval. Two unrelated jobs share this cadence because both
+     need to be frequent, not because they're related:
+       - Polling the football batch queue (a batch can take up to ~1h,
+         rarely up to 24h, so it can't be checked only once a day).
+       - The delta pass itself: a second, deliberate call ~1h before
+         kickoff that re-checks fresher data (odds/injuries/referee)
+         against the initial analysis and confirms or updates it (see
+         audit_orchestration.ensure_delta_audit). Always synchronous for
+         every sport — a batch job is too slow this close to kickoff, and
+         this is also the safety net that guarantees a fresh analysis
+         exists by kickoff even in the rare case where a football batch is
+         unusually slow.
+
 This caps every top-tier match at exactly 2 AI calls. Replaces the old
 batch (orchestrator_ai.py / batch_audit_next_days.py) which re-analyzed
 every match up to 16 times over a rolling 3-day window, and the interim
@@ -21,8 +47,6 @@ around 6h before kickoff, with no new signal driving it.
 Matches outside top-tier scope, or not yet reached by this pass, never get
 a *proactive* analysis — they can still get one on demand (routers/audits.py),
 subject to the per-user rate limit (see app/actions/match.ts).
-
-Runs every 30 minutes via APScheduler (see app/main.py).
 
 KNOWN LIMITATION (tennis): the current schema has no tour/gender column on
 tennis_tournaments — there's no way to distinguish ATP/WTA in the database
@@ -183,13 +207,21 @@ async def _needs_generation(db_public: SupabaseREST, targets: List[Tuple[str, in
     return needs
 
 
-async def run_scheduled_pass() -> dict:
-    """Entry point called by APScheduler (see app/main.py)."""
+async def run_initial_generation_pass() -> dict:
+    """
+    Entry point for the FIXED-TIME daily job (see app/main.py) — once at
+    00:00 Europe/Paris, submits/generates the first analysis for every
+    top-tier match kicking off in the next ~24h. Idempotent: safe to call
+    more than once in a day (e.g. a manual catch-up run) since both
+    _needs_generation (football) and ensure_audit's own freshness check
+    (basketball/tennis) skip anything that already has a live analysis or
+    an in-flight batch.
+    """
     settings = get_settings()
     db_analytics = SupabaseREST(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY, schema="analytics")
     db_public = SupabaseREST(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY, schema="public")
 
-    # --- Stage 1a: football initial generation, ~24h out — via Batch API ---
+    # --- Football initial generation, ~24h out — via Batch API ---
     football_targets = await _eligible_football_targets(db_analytics, LOOKAHEAD_HOURS)
     football_needing_generation = await _needs_generation(db_public, football_targets)
     batch_id = None
@@ -197,28 +229,16 @@ async def run_scheduled_pass() -> dict:
         try:
             batch_id = await submit_pending_batch(db_public, football_needing_generation)
         except Exception as e:
-            logger.error(f"Scheduled pass: batch submission failed: {e}")
+            logger.error(f"Initial pass: batch submission failed: {e}")
     logger.info(
-        f"Scheduled pass: {len(football_targets)} football matches within {LOOKAHEAD_HOURS}h, "
+        f"Initial pass: {len(football_targets)} football matches within {LOOKAHEAD_HOURS}h, "
         f"{len(football_needing_generation)} needed generation"
         + (f" (submitted batch {batch_id})" if batch_id else " (nothing new to submit)") + "."
     )
 
-    # Ingest any previously-submitted batch that has finished — independent
-    # of what was just submitted above, since a batch can take a while.
-    try:
-        batch_results = await poll_and_ingest_batches(db_public)
-    except Exception as e:
-        batch_results = {"ready": 0, "failed": 0, "still_waiting": 0}
-        logger.error(f"Scheduled pass: batch polling failed: {e}")
-    logger.info(
-        f"Scheduled pass: batch poll — {batch_results['ready']} ingested ready, "
-        f"{batch_results['failed']} ingested failed, {batch_results['still_waiting']} batch(es) still processing."
-    )
-
-    # --- Stage 1b: basketball + tennis initial generation, ~24h out — direct ---
+    # --- Basketball + tennis initial generation, ~24h out — direct ---
     non_football_targets = await _eligible_non_football_targets(db_analytics, LOOKAHEAD_HOURS)
-    logger.info(f"Scheduled pass: {len(non_football_targets)} basketball/tennis matches within {LOOKAHEAD_HOURS}h (initial).")
+    logger.info(f"Initial pass: {len(non_football_targets)} basketball/tennis matches within {LOOKAHEAD_HOURS}h.")
 
     ready, errors = 0, 0
     for sport, match_id in non_football_targets:
@@ -231,11 +251,45 @@ async def run_scheduled_pass() -> dict:
                 ready += 1
         except Exception as e:
             errors += 1
-            logger.error(f"Scheduled pass error (initial) {sport}#{match_id}: {e}")
+            logger.error(f"Initial pass error {sport}#{match_id}: {e}")
 
-    # --- Stage 2: delta, ~1h out — the deliberate second (and last) call, every sport, always synchronous ---
+    logger.info(
+        f"Initial pass done: football batch {len(football_needing_generation)} submitted, "
+        f"non-football {ready}/{len(non_football_targets)} ready ({errors} errors)."
+    )
+    return {
+        "football_batch_submitted": len(football_needing_generation),
+        "football_batch_id": batch_id,
+        "non_football_scanned": len(non_football_targets),
+        "ready": ready,
+        "errors": errors,
+    }
+
+
+async def run_delta_and_poll_pass() -> dict:
+    """
+    Entry point for the 30-minute interval job (see app/main.py) — two
+    unrelated jobs sharing one cadence because both need to be frequent:
+      - Polling the football batch queue for anything that finished.
+      - The delta pass (~1h before kickoff, every sport, synchronous).
+    """
+    settings = get_settings()
+    db_analytics = SupabaseREST(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY, schema="analytics")
+    db_public = SupabaseREST(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY, schema="public")
+
+    try:
+        batch_results = await poll_and_ingest_batches(db_public)
+    except Exception as e:
+        batch_results = {"ready": 0, "failed": 0, "still_waiting": 0}
+        logger.error(f"Delta/poll pass: batch polling failed: {e}")
+    logger.info(
+        f"Delta/poll pass: batch poll — {batch_results['ready']} ingested ready, "
+        f"{batch_results['failed']} ingested failed, {batch_results['still_waiting']} batch(es) still processing."
+    )
+
+    # --- Delta, ~1h out — the deliberate second (and last) call, every sport, always synchronous ---
     delta_targets = await _all_eligible_targets(db_analytics, DELTA_LOOKAHEAD_HOURS)
-    logger.info(f"Scheduled pass: {len(delta_targets)} top-tier matches within {DELTA_LOOKAHEAD_HOURS}h (delta).")
+    logger.info(f"Delta/poll pass: {len(delta_targets)} top-tier matches within {DELTA_LOOKAHEAD_HOURS}h (delta).")
 
     delta_ready, delta_errors = 0, 0
     for sport, match_id in delta_targets:
@@ -247,20 +301,15 @@ async def run_scheduled_pass() -> dict:
                 delta_ready += 1
         except Exception as e:
             delta_errors += 1
-            logger.error(f"Scheduled pass error (delta) {sport}#{match_id}: {e}")
+            logger.error(f"Delta/poll pass error (delta) {sport}#{match_id}: {e}")
 
     logger.info(
-        f"Scheduled pass done: football batch {len(football_needing_generation)} submitted / "
-        f"{batch_results['ready']} ingested, non-football initial {ready}/{len(non_football_targets)} ready "
-        f"({errors} errors), delta {delta_ready}/{len(delta_targets)} ready ({delta_errors} errors)."
+        f"Delta/poll pass done: {batch_results['ready']} batch(es) ingested, "
+        f"delta {delta_ready}/{len(delta_targets)} ready ({delta_errors} errors)."
     )
     return {
-        "football_batch_submitted": len(football_needing_generation),
         "football_batch_ingested_ready": batch_results["ready"],
         "football_batch_ingested_failed": batch_results["failed"],
-        "non_football_scanned": len(non_football_targets),
-        "ready": ready,
-        "errors": errors,
         "delta_scanned": len(delta_targets),
         "delta_ready": delta_ready,
         "delta_errors": delta_errors,
@@ -271,4 +320,5 @@ if __name__ == "__main__":
     import asyncio
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-    asyncio.run(run_scheduled_pass())
+    asyncio.run(run_initial_generation_pass())
+    asyncio.run(run_delta_and_poll_pass())
