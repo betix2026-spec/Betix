@@ -25,15 +25,20 @@ class DataAggregator:
             schema="analytics"
         )
 
-    async def get_match_raw_context(self, sport: str, match_id: int) -> Dict[str, Any]:
+    async def get_match_raw_context(self, sport: str, match_id: int, include_injuries: bool = True) -> Dict[str, Any]:
         """
         Aggregates all raw data into a dictionary.
         Required for archiving and specific filtering.
+
+        include_injuries: set False for read-only, non-AI callers (the
+        Preview tab's stats endpoint) — skips fetch_injuries' live
+        API-Football call entirely, since that response is never used
+        outside a generation. Tennis has no injuries fetch either way.
         """
         if sport == "tennis":
             return await self._fetch_tennis_raw(match_id)
         else:
-            return await self._fetch_team_sport_raw(sport, match_id)
+            return await self._fetch_team_sport_raw(sport, match_id, include_injuries=include_injuries)
 
     async def get_match_context(self, sport: str, match_id: int) -> str:
         """
@@ -56,17 +61,25 @@ class DataAggregator:
     # INTERNAL RAW FETCHERS
     # =========================================================================
 
-    async def _fetch_team_sport_raw(self, sport: str, match_id: int) -> Dict[str, Any]:
-        results = await asyncio.gather(
+    async def _fetch_team_sport_raw(self, sport: str, match_id: int, include_injuries: bool = True) -> Dict[str, Any]:
+        fetches = [
             self.fetch_match_details(sport, match_id),
             self.fetch_team_details(sport, match_id),
             self.fetch_h2h(sport, match_id),
             self.fetch_rolling_stats(sport, match_id),
             self.fetch_odds(sport, match_id),
             self.fetch_elo(sport, match_id),
-            self.fetch_injuries(sport, match_id),
-            return_exceptions=True
-        )
+        ]
+        # fetch_injuries is a LIVE call to API-Football (10s timeout) — only
+        # worth paying for when the result will actually be used (AI
+        # generation). The read-only /stats endpoint that powers the
+        # Preview tab has no injuries field in its response at all, so
+        # skipping this here directly fixes a real page-load slowdown, not
+        # just a theoretical one.
+        if include_injuries:
+            fetches.append(self.fetch_injuries(sport, match_id))
+
+        results = await asyncio.gather(*fetches, return_exceptions=True)
         return {
             "match": self._handle_result(results[0], "match", {}),
             "teams": self._handle_result(results[1], "teams", {}),
@@ -74,7 +87,7 @@ class DataAggregator:
             "form": self._handle_result(results[3], "form", {}),
             "odds": self._handle_result(results[4], "odds", None),
             "elo": self._handle_result(results[5], "elo", None),
-            "injuries": self._handle_result(results[6], "injuries", {"home": [], "away": []})
+            "injuries": self._handle_result(results[6], "injuries", {"home": [], "away": []}) if include_injuries else {"home": [], "away": []},
         }
 
     async def _fetch_tennis_raw(self, match_id: int) -> Dict[str, Any]:
@@ -970,9 +983,9 @@ async def get_match_context(sport: str, match_id: int) -> str:
     """Returns the TEXT report (IA Ready)."""
     return await _aggregator.get_match_context(sport, match_id)
 
-async def get_match_raw_context(sport: str, match_id: int) -> Dict[str, Any]:
+async def get_match_raw_context(sport: str, match_id: int, include_injuries: bool = True) -> Dict[str, Any]:
     """Returns the RAW data dictionary (Archiving Ready)."""
-    return await _aggregator.get_match_raw_context(sport, match_id)
+    return await _aggregator.get_match_raw_context(sport, match_id, include_injuries=include_injuries)
 
 def format_context(sport: str, raw_context: Dict[str, Any]) -> str:
     """Formats raw data into a text report."""

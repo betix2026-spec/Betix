@@ -171,9 +171,11 @@ export async function getAiAuditForMatch(apiId: string, sport: string) {
         }
 
         if (auditData.status === "failed") {
-            // Treat like "nothing generated yet" — the button lets the user
-            // (or the next proactive pass) simply try again.
-            return { locked: false, pending: false, ai_analysis: null, exists: false };
+            // Same "Generate" button as never-attempted, but flagged so the
+            // page can say the last attempt failed instead of looking
+            // identical to "nobody's asked yet" — a silent revert-to-button
+            // with no explanation reads as the click doing nothing at all.
+            return { locked: false, pending: false, ai_analysis: null, exists: false, lastFailed: true };
         }
 
         if (!isPremium) {

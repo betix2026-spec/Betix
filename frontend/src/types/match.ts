@@ -86,6 +86,10 @@ export interface Match {
         // clicked the "Generate" button. See app/actions/match.ts::
         // getAiAuditForMatch / requestOnDemandAudit.
         exists?: boolean;
+        // True when exists=false because the last generation attempt
+        // errored (not because nobody's asked yet) — lets the "Generate"
+        // button say so instead of looking identical to never-attempted.
+        lastFailed?: boolean;
     };
     // Read-only stats (H2H, rolling form, odds) fetched independently of the
     // AI audit — see app/actions/match.ts::getMatchStatsOnly. Always
