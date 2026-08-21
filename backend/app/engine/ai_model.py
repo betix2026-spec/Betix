@@ -256,4 +256,13 @@ class ChatModel:
                 response = await self.client.messages.create(**kwargs)
             else:
                 raise
-        return response.content[0].text
+
+        # content[0] is not reliably the text block — confirmed in production
+        # (2026-08-21) that Sonnet 5 can put a ThinkingBlock first, which has
+        # no .text attribute, crashing every generation with 'ThinkingBlock'
+        # object has no attribute 'text'. Find the actual text block instead.
+        text = next((block.text for block in response.content if block.type == "text"), None)
+        if text is None:
+            block_types = [getattr(b, "type", "?") for b in response.content]
+            raise RuntimeError(f"No text block in Claude response (content block types: {block_types})")
+        return text
