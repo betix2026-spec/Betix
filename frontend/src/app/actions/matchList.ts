@@ -7,7 +7,7 @@ import { localizeAnalysisText, type Locale } from "@/lib/i18n"
 // league display name since public.matches has no league_id — only
 // league_name (text). Keep these two lists in sync if the scope ever changes.
 const TOP_TIER_LEAGUE_NAMES: Record<string, Set<string>> = {
-    football: new Set(["Premier League", "Champions League", "La Liga"]),
+    football: new Set(["Premier League", "Ligue 1", "La Liga"]),
     basketball: new Set(["NBA", "Euroleague", "LNB Pro A"]), // all 3 tracked leagues
 };
 

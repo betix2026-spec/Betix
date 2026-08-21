@@ -8,6 +8,7 @@ Orchestrator script for a full match audit:
 """
 
 import asyncio
+import copy
 import json
 import logging
 import argparse
@@ -21,8 +22,8 @@ from typing import Dict, Any, Optional
 # project root on sys.path via how uvicorn starts it).
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from app.engine.data_aggregation import get_match_context
-from app.engine.confidence_generator import generate_confidence, DEFAULT_MODEL
+from app.engine.confidence_generator import generate_confidence, generate_delta_confidence, DEFAULT_MODEL
+from app.engine.delta_gate import has_material_change
 from app.services.ingestion.base_client import SupabaseREST
 from app.config import get_settings
 
@@ -154,6 +155,9 @@ async def run_audit(
             "odds": context.get("odds"),
             "h2h": context.get("h2h"),
             "rolling_stats": essential_stats,
+            # Snapshot at generation time — the delta pass's deterministic
+            # pre-filter (app/engine/delta_gate.py) diffs against this.
+            "injuries": context.get("injuries"),
             "ai_analysis": analysis,
             "ai_provider": provider,
             "ai_model": model_name,
@@ -177,6 +181,132 @@ async def run_audit(
             on_conflict="match_id,sport,run_id",
         )
         raise
+
+
+def _carry_forward_unchanged(previous_analysis: Dict[str, Any]) -> Dict[str, Any]:
+    """The shared "nothing changed" result for run_delta_audit — a full
+    copy of the original analysis (never re-emitted by the model) with
+    `changed: False`, used whether the deterministic pre-filter skipped the
+    AI call entirely or the model itself confirmed nothing needed updating."""
+    result = copy.deepcopy(previous_analysis)
+    result["changed"] = False
+    result.pop("change_summary", None)
+    return result
+
+
+async def run_delta_audit(
+    sport: str,
+    match_id: int,
+    provider: str = "claude",
+    model_name: Optional[str] = None,
+    run_id: str = LIVE_RUN_ID,
+    db: Optional[SupabaseREST] = None,
+):
+    """Runs the ~1h-before-kickoff delta pass and writes ONLY the delta_*
+    columns — never touches ai_analysis/status/attempted_at, so the
+    original ~24h-out analysis is preserved alongside it (see
+    audit_orchestration.ensure_delta_audit, the only caller).
+
+    Requires an existing 'ready' row for this match (the base analysis to
+    delta against) — raises if there isn't one; the caller is expected to
+    have already checked this.
+    """
+    settings = get_settings()
+    db = db or SupabaseREST(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY)
+    model_name = model_name or DEFAULT_MODEL
+
+    logger.info(f"Starting delta audit for {sport} #{match_id} (run: {run_id})...")
+
+    existing_rows = db.select_raw(
+        "ai_match_audits",
+        f"match_id=eq.{match_id}&sport=eq.{sport}&run_id=eq.{run_id}&limit=1",
+    )
+    existing = existing_rows[0] if existing_rows else None
+    if not existing or existing.get("status") != "ready" or not existing.get("ai_analysis"):
+        raise RuntimeError(f"No ready base analysis to delta against for {sport} #{match_id}.")
+
+    previous_analysis = existing["ai_analysis"]
+    if isinstance(previous_analysis, str):
+        previous_analysis = json.loads(previous_analysis)
+
+    # Lock: mark delta 'pending' before the AI call, same pattern as run_audit.
+    db.upsert(
+        "ai_match_audits",
+        [{
+            "match_id": match_id,
+            "sport": sport,
+            "run_id": run_id,
+            "delta_status": "pending",
+            "delta_attempted_at": datetime.now(timezone.utc).isoformat(),
+        }],
+        on_conflict="match_id,sport,run_id",
+    )
+
+    try:
+        from app.engine.data_aggregation import get_match_raw_context
+        context = await get_match_raw_context(sport, match_id)
+        if not context or not context.get("match"):
+            raise RuntimeError(f"Could not retrieve raw context for {sport} #{match_id}.")
+
+        fresh_essential_stats = filter_essential_stats(sport, context)
+
+        if has_material_change(existing, context, fresh_essential_stats, sport):
+            result = await generate_delta_confidence(
+                sport=sport,
+                match_id=match_id,
+                previous_analysis=previous_analysis,
+                provider=provider,
+                model_name=model_name,
+                context=context,
+            )
+            if not result:
+                raise RuntimeError("AI delta analysis generation failed.")
+            # The model itself may still conclude nothing needed changing —
+            # generate_delta_confidence returns the minimal {"changed":
+            # False} in that case (no picks to carry). Either way, what
+            # lands in delta_analysis should be the *complete* shape (same
+            # as generate_confidence's output, plus changed/change_summary)
+            # so nothing downstream has to special-case a bare flag.
+            delta_analysis = result if result.get("changed") else _carry_forward_unchanged(previous_analysis)
+        else:
+            # Deterministic pre-filter found nothing material — no AI call
+            # at all. Carry the original analysis forward untouched rather
+            # than re-emitting it, so there's zero risk of translation
+            # drift on the fields that didn't need to change.
+            logger.info(f"Delta for {sport} #{match_id}: pre-filter found no material change, skipping AI call.")
+            delta_analysis = _carry_forward_unchanged(previous_analysis)
+
+        db.upsert(
+            "ai_match_audits",
+            [{
+                "match_id": match_id,
+                "sport": sport,
+                "run_id": run_id,
+                "delta_status": "ready",
+                "delta_error_message": None,
+                "delta_analysis": delta_analysis,
+                "delta_generated_at": datetime.now(timezone.utc).isoformat(),
+            }],
+            on_conflict="match_id,sport,run_id",
+        )
+        logger.info(f"Delta audit archived successfully (run: {run_id}).")
+        return True
+
+    except Exception as e:
+        logger.error(f"Delta audit failed for {sport} #{match_id}: {e}")
+        db.upsert(
+            "ai_match_audits",
+            [{
+                "match_id": match_id,
+                "sport": sport,
+                "run_id": run_id,
+                "delta_status": "failed",
+                "delta_error_message": str(e)[:500],
+            }],
+            on_conflict="match_id,sport,run_id",
+        )
+        raise
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="BETIX -- Single match AI audit")

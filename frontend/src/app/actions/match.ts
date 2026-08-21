@@ -2,17 +2,62 @@
 
 import { createClient } from "@supabase/supabase-js"
 import { createClient as createServerClient } from "@/lib/supabase/server"
-import { after } from "next/server"
 
-export async function getAiAuditForMatch(apiId: string, sport: string) {
-    if (!apiId || !sport) return null;
+const SPORT_TABLES: Record<string, string> = {
+    football: "football_matches",
+    basketball: "basketball_matches",
+    tennis: "tennis_matches",
+};
 
-    // 1. Check user subscription status (Secure)
-    const userSupabase = await createServerClient();
-    const { data: { user } } = await userSupabase.auth.getUser();
+// Rolling 24h cap on user-triggered on-demand generations — the "soft
+// rate limit instead of a hard ban" replacing the old tier/window
+// eligibility gate (see backend/app/routers/audits.py, backend/app/engine/
+// audit_orchestration.py). Every match is generatable on demand now;
+// what's rationed is how often any one non-admin user can ask for it.
+// Proactive coverage (the 3-league Batch API pass, backend/app/engine/
+// batch_audit.py) means most premium users never hit this at all.
+const DAILY_ONDEMAND_LIMIT = 5;
 
-    if (!user) return null;
+/** Resolves an external api_id (as used in the URL) to the internal analytics id. */
+async function resolveInternalId(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    supabase: any,
+    apiId: string,
+    sport: string
+): Promise<number | null> {
+    const sportTable = SPORT_TABLES[sport] || "football_matches";
+    const parsedApiId = parseInt(apiId);
 
+    if (!isNaN(parsedApiId)) {
+        const { data } = await supabase
+            .schema('analytics')
+            .from(sportTable)
+            .select('id')
+            .eq('api_id', parsedApiId)
+            .maybeSingle();
+        if (data) return data.id;
+    }
+
+    const { data } = await supabase
+        .schema('analytics')
+        .from(sportTable)
+        .select('id')
+        .eq('api_id', apiId)
+        .maybeSingle();
+    return data?.id ?? null;
+}
+
+/**
+ * Shared premium/admin resolution — used by both getAiAuditForMatch (to
+ * decide whether to reveal ai_analysis) and requestOnDemandAudit (to decide
+ * whether the rate limit applies).
+ */
+async function resolveUserAccess(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    userSupabase: any,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    user: any
+): Promise<{ isPremium: boolean; isAdmin: boolean }> {
     const { data: subscription } = await userSupabase
         .from('subscriptions')
         .select('status, plan_id')
@@ -20,7 +65,6 @@ export async function getAiAuditForMatch(apiId: string, sport: string) {
         .in('status', ['active', 'trialing', 'past_due'])
         .maybeSingle();
 
-    // Check user role (admin/super_admin bypass)
     const { data: profile } = await userSupabase
         .from('profiles')
         .select('role')
@@ -29,61 +73,75 @@ export async function getAiAuditForMatch(apiId: string, sport: string) {
 
     const isAdmin = profile?.role === 'admin' || profile?.role === 'super_admin';
     const isPremium = isAdmin || (!!subscription && subscription.plan_id !== 'no_subscription') || user.email?.endsWith('@betix.ai');
+    return { isPremium, isAdmin };
+}
 
-    // 2. Database credentials
+/**
+ * Read-only stats (H2H, rolling form, odds) for the Preview tab — no AI
+ * involved, works for every match regardless of tier/window. Independent
+ * of getAiAuditForMatch on purpose: the Preview tab must render identically
+ * whether or not the Betix AI tab has anything.
+ */
+export async function getMatchStatsOnly(apiId: string, sport: string) {
+    if (!apiId || !sport) return null;
+
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!supabaseUrl || !supabaseKey) {
+        console.error("[getMatchStatsOnly] Missing Supabase credentials.");
+        return null;
+    }
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
+    const internalId = await resolveInternalId(supabase, apiId, sport);
+    if (!internalId) return null;
+
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+    const secret = process.env.INTERNAL_API_SECRET;
+    if (!secret) {
+        console.error("[getMatchStatsOnly] INTERNAL_API_SECRET is not set.");
+        return null;
+    }
+    try {
+        const res = await fetch(`${apiUrl}/audits/${sport}/${internalId}/stats`, {
+            headers: { "X-Internal-Secret": secret },
+            cache: "no-store",
+        });
+        if (!res.ok) return null;
+        return await res.json() as { h2h: unknown; rolling_stats: unknown; odds: unknown };
+    } catch (e) {
+        console.error("[getMatchStatsOnly] Failed to reach backend:", e);
+        return null;
+    }
+}
+
+/**
+ * Read-only fetch of the current AI audit state for the Betix AI tab — never
+ * triggers a generation itself. A match only ever gets generated by the
+ * proactive Batch API pass (backend/app/engine/batch_audit.py) or by the
+ * user explicitly clicking "Generate" (requestOnDemandAudit below), never
+ * as a side effect of loading this page.
+ */
+export async function getAiAuditForMatch(apiId: string, sport: string) {
+    if (!apiId || !sport) return null;
+
+    const userSupabase = await createServerClient();
+    const { data: { user } } = await userSupabase.auth.getUser();
+    if (!user) return null;
+
+    const { isPremium } = await resolveUserAccess(userSupabase, user);
+
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (!supabaseUrl || !supabaseKey) {
         console.error("Missing Supabase credentials for server action");
         return null;
     }
-
-    // Initialize using service role key to bypass schema exposure restrictions
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     try {
-        console.log(`[getAiAuditForMatch] Looking for audit: apiId=${apiId}, sport=${sport}`);
-        const sportTable = sport === 'football' ? 'football_matches' :
-            sport === 'basketball' ? 'basketball_matches' :
-                'tennis_matches';
+        const internalId = await resolveInternalId(supabase, apiId, sport);
 
-        let internalId = null;
-        const parsedApiId = parseInt(apiId);
-
-        // Try to get the internal ID as an integer
-        if (!isNaN(parsedApiId)) {
-            const { data: anaInt, error: errInt } = await supabase
-                .schema('analytics')
-                .from(sportTable)
-                .select('id')
-                .eq('api_id', parsedApiId)
-                .maybeSingle();
-
-            if (errInt) console.warn("[getAiAuditForMatch] Error looking up analytics int:", errInt);
-            if (anaInt) {
-                internalId = anaInt.id;
-                console.log(`[getAiAuditForMatch] Found internalId via int api_id: ${internalId}`);
-            }
-        }
-
-        // Try as string if integer failed
-        if (!internalId) {
-            const { data: anaStr, error: errStr } = await supabase
-                .schema('analytics')
-                .from(sportTable)
-                .select('id')
-                .eq('api_id', apiId)
-                .maybeSingle();
-
-            if (errStr) console.warn("[getAiAuditForMatch] Error looking up analytics string:", errStr);
-            if (anaStr) {
-                internalId = anaStr.id;
-                console.log(`[getAiAuditForMatch] Found internalId via string api_id: ${internalId}`);
-            }
-        }
-
-        // If we found the internal ID, fetch the audit
         let auditData = null;
         if (internalId) {
             const { data, error } = await supabase
@@ -99,98 +157,95 @@ export async function getAiAuditForMatch(apiId: string, sport: string) {
             if (error) console.error("[getAiAuditForMatch] Error fetching audit:", error);
             auditData = data;
         }
-        // Fallback: search by apiId directly (courtesy)
-        else if (!isNaN(parsedApiId)) {
-            const { data } = await supabase
-                .schema('public')
-                .from('ai_match_audits')
-                .select('*')
-                .eq('match_id', parsedApiId)
-                .eq('sport', sport)
-                .order('snapshot_at', { ascending: false })
-                .limit(1)
-                .maybeSingle();
-
-            auditData = data;
-        }
-
-        // 3. Nothing in the DB, a stuck 'pending' lock, or a 'failed' analysis —
-        //    trigger an on-demand generation and block on it, but ONLY for a
-        //    premium user (nobody else can see the result, so nobody else
-        //    should trigger its cost).
-        const needsBlockingTrigger =
-            !auditData ||
-            auditData.status === "failed" ||
-            (auditData.status === "pending" && isStuckPending(auditData.attempted_at));
-
-        // A 'ready' audit that's old enough to be stale (mirrors
-        // STALE_AFTER_HOURS in app/engine/audit_orchestration.py) still has
-        // perfectly good cached content to show right now — it should
-        // refresh quietly in the background, not flash "Generating..." over
-        // data that's already there. Without this, a 'ready' audit was
-        // served forever regardless of age: the backend's own staleness
-        // check only runs when something calls ensure_audit(), and this was
-        // the only caller that never did for 'ready' rows (the 30-min
-        // scheduled pass does call it directly, but only for top-tier
-        // matches within a 24h lookahead).
-        const needsBackgroundRefresh =
-            !needsBlockingTrigger &&
-            auditData?.status === "ready" &&
-            isStaleReady(auditData.attempted_at);
-
-        if (needsBlockingTrigger && isPremium && internalId) {
-            const triggered = await triggerAudit(sport, internalId);
-            if (triggered?.state === "ready" && triggered.audit) {
-                auditData = triggered.audit;
-            } else {
-                // "pending" — generation kicked off in the background on the backend.
-                return { locked: false, pending: true, ai_analysis: null };
-            }
-        } else if (needsBackgroundRefresh && isPremium && internalId) {
-            // Runs after the response is sent — a bare un-awaited call risks
-            // being killed mid-flight once this serverless function returns.
-            // The stale (but valid) auditData below is still shown immediately.
-            const refreshSport = sport;
-            const refreshMatchId = internalId;
-            after(() => triggerAudit(refreshSport, refreshMatchId));
-        }
 
         if (!auditData) {
-            return isPremium ? { locked: false, pending: false, ai_analysis: null } : null;
+            // Nothing generated yet — the proactive pass hasn't reached this
+            // match and nobody has requested it on demand. `exists: false`
+            // tells the page to show the "Generate" button instead of a
+            // spinner or an empty state.
+            return { locked: false, pending: false, ai_analysis: null, exists: false };
         }
 
         if (auditData.status === "pending") {
-            return { locked: false, pending: true, ai_analysis: null };
+            return { locked: false, pending: true, ai_analysis: null, exists: true };
         }
 
-        // 4. Gating Logic: Mask AI analysis if not premium
+        if (auditData.status === "failed") {
+            // Treat like "nothing generated yet" — the button lets the user
+            // (or the next proactive pass) simply try again.
+            return { locked: false, pending: false, ai_analysis: null, exists: false };
+        }
+
         if (!isPremium) {
-            console.log(`[getAiAuditForMatch] Masking premium data for non-premium user: ${user.id}`);
             return {
                 ...auditData,
-                ai_analysis: null, // Wipe sensitive predictions
-                locked: true      // Flag for frontend
+                ai_analysis: null,
+                locked: true,
+                exists: true,
             };
         }
 
-        return { ...auditData, locked: false, pending: false };
-
+        return { ...auditData, locked: false, pending: false, exists: true };
     } catch (e) {
         console.error("Error in getAiAuditForMatch:", e);
         return null;
     }
 }
 
-function isStuckPending(attemptedAt: string | null | undefined): boolean {
-    if (!attemptedAt) return true;
-    const ageMs = Date.now() - new Date(attemptedAt).getTime();
-    return ageMs > 5 * 60 * 1000; // same threshold as PENDING_LOCK_TIMEOUT_MINUTES on the backend
-}
+/**
+ * Triggers an on-demand generation for a match with no existing analysis —
+ * the only way (besides the proactive batch pass) a generation ever starts.
+ * Called when the user clicks the "Generate" button on the Betix AI tab.
+ * Rate-limited per user instead of gated by league/window (see
+ * DAILY_ONDEMAND_LIMIT above) — admins bypass it.
+ */
+export async function requestOnDemandAudit(
+    apiId: string,
+    sport: string
+): Promise<{ ok: boolean; state?: string; error?: "not_authenticated" | "not_premium" | "not_found" | "rate_limited" | "trigger_failed" }> {
+    if (!apiId || !sport) return { ok: false, error: "not_found" };
 
-function isStaleReady(attemptedAt: string | null | undefined): boolean {
-    if (!attemptedAt) return true;
-    const ageMs = Date.now() - new Date(attemptedAt).getTime();
-    return ageMs > 18 * 60 * 60 * 1000; // same threshold as STALE_AFTER_HOURS on the backend
+    const userSupabase = await createServerClient();
+    const { data: { user } } = await userSupabase.auth.getUser();
+    if (!user) return { ok: false, error: "not_authenticated" };
+
+    const { isPremium, isAdmin } = await resolveUserAccess(userSupabase, user);
+    if (!isPremium) return { ok: false, error: "not_premium" };
+
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!supabaseUrl || !supabaseKey) {
+        console.error("[requestOnDemandAudit] Missing Supabase credentials.");
+        return { ok: false, error: "trigger_failed" };
+    }
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const internalId = await resolveInternalId(supabase, apiId, sport);
+    if (!internalId) return { ok: false, error: "not_found" };
+
+    if (!isAdmin) {
+        const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        const { count, error: countError } = await supabase
+            .schema('public')
+            .from('ai_ondemand_requests')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', user.id)
+            .gte('requested_at', since);
+
+        if (!countError && (count ?? 0) >= DAILY_ONDEMAND_LIMIT) {
+            return { ok: false, error: "rate_limited" };
+        }
+    }
+
+    await supabase.schema('public').from('ai_ondemand_requests').insert({
+        user_id: user.id,
+        sport,
+        match_id: internalId,
+    });
+
+    const triggered = await triggerAudit(sport, internalId);
+    if (!triggered) return { ok: false, error: "trigger_failed" };
+    return { ok: true, state: triggered.state };
 }
 
 async function triggerAudit(sport: string, matchId: number): Promise<{ state: string; audit: Record<string, unknown> | null } | null> {

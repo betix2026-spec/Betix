@@ -12,12 +12,19 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
 from app.services.ingestion.base_client import SupabaseREST
-from scripts.updates.match_audit_script import run_audit, LIVE_RUN_ID
+from scripts.updates.match_audit_script import run_audit, run_delta_audit, LIVE_RUN_ID
 
 logger = logging.getLogger("betix.audit_orchestration")
 
-# Beyond this age, a 'ready' analysis is considered stale and regenerated if requested again.
-STALE_AFTER_HOURS = 18
+# Beyond this age, a 'ready' analysis is considered stale and regenerated if
+# requested again. Set comfortably longer than the ~24h proactive lookahead
+# window (see scheduled_audit_pass.LOOKAHEAD_HOURS) so a top-tier match's
+# initial analysis is never accidentally regenerated mid-window — the only
+# deliberate second AI call before kickoff is the ~1h "delta" pass
+# (ensure_delta_audit below). This used to be 18h, which meant the 30-min
+# scheduled pass would silently trigger a second full generation around 6h
+# before kickoff with no new signal driving it.
+STALE_AFTER_HOURS = 30
 
 # Beyond this age, a 'pending' lock is considered stuck (process died before
 # marking ready/failed) and can be reclaimed by a new trigger.
@@ -66,7 +73,10 @@ async def ensure_audit(
 ) -> Dict[str, Any]:
     """
     Returns the current analysis state for a match, triggering a generation
-    if needed (missing, stale, or a stuck 'pending' lock).
+    if needed (missing, stale, or a stuck 'pending' lock). Every match is
+    eligible for generation now — cost control is a per-user rate limit on
+    the on-demand caller (see requestOnDemandAudit in app/actions/match.ts),
+    not a hard scope/window ban here.
 
     Args:
         generate_inline: if True, waits for generation to finish before
@@ -118,3 +128,43 @@ async def ensure_audit(
     if refreshed and refreshed.get("status") == "ready":
         return {"state": "ready", "audit": refreshed}
     return {"state": "pending", "audit": None}
+
+
+async def ensure_delta_audit(
+    db: SupabaseREST,
+    sport: str,
+    match_id: int,
+    provider: str = "claude",
+    model_name: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    The deliberate second AI call, ~1h before kickoff: re-checks the match's
+    now-fresher data (odds/injuries/referee) against the existing analysis
+    and confirms it or updates it. Only ever called by the scheduled pass
+    for top-tier matches (see scheduled_audit_pass.py) — there's no
+    on-demand equivalent. Idempotent: no-ops once a delta has already been
+    generated for this match's current live analysis.
+
+    Returns:
+        {"state": "ready", "audit": {...}}        — delta already existed or was just generated
+        {"state": "skipped", "audit": None}        — no base analysis to delta against yet
+        {"state": "pending", "audit": None}        — generation failed, safe to retry later
+    """
+    existing = get_existing_audit(db, sport, match_id)
+    if not existing or existing.get("status") != "ready":
+        # Nothing to compare against — the initial 24h-out generation hasn't
+        # landed yet (or failed). The next scheduled pass will retry the
+        # initial generation; the delta pass will catch up once it's ready.
+        return {"state": "skipped", "audit": None}
+
+    if existing.get("delta_generated_at"):
+        return {"state": "ready", "audit": existing}
+
+    try:
+        await run_delta_audit(sport, match_id, provider=provider, model_name=model_name, run_id=LIVE_RUN_ID, db=db)
+    except Exception as e:
+        logger.error(f"ensure_delta_audit: generation failed for {sport}#{match_id}: {e}")
+        return {"state": "pending", "audit": None}
+
+    refreshed = get_existing_audit(db, sport, match_id)
+    return {"state": "ready", "audit": refreshed}

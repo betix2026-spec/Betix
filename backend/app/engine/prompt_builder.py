@@ -19,7 +19,6 @@ import json
 import logging
 from typing import Tuple, Optional, Dict, Any, Union
 
-from app.engine.data_aggregation import get_match_context
 from app.engine.confidence_ceiling import compute_confidence_ceiling, BASE as CEILING_BASE
 from app.engine.tier_scope import is_football_top_tier, is_basketball_top_tier
 
@@ -251,9 +250,66 @@ TRADUCTION (OBLIGATOIRE) : `match_summary`, et pour chaque sélection `market`, 
 RAPPEL IMPORTANT : Chaque catégorie (`high_confidence`, `medium_confidence`, `risky`) peut contenir entre 0 et 3 sélections, numérotées par `rank` à partir de 1. Si les données ne justifient aucun pari dans une catégorie, retourne un tableau vide `[]`. Ne force JAMAIS un pari pour remplir un quota — propose uniquement ceux que les données justifient solidement après vérification croisée."""
 
 
+# Delta-call instructions. Unlike the initial call, the expected response
+# is almost always tiny: this pass only runs for matches the deterministic
+# pre-filter (app/engine/delta_gate.py) already flagged as possibly having
+# moved — but even those don't always turn out to need a new pick, and
+# there's no reason to make the model re-emit the full JSON (all picks, all
+# 4 languages) just to say "same as before". Only the changed=true branch
+# uses the full OUTPUT_FORMAT schema appended below; changed=false is a
+# 1-field response, and the caller (run_delta_audit) carries the *original*
+# analysis forward untouched rather than trusting a re-emitted copy — so
+# there's no translation-drift risk in skipping the full JSON here either.
+DELTA_INSTRUCTIONS = """\n\n[MISE À JOUR PRÉ-MATCH]
+Tu as déjà produit une première analyse pour ce match (fournie ci-dessus, à ~24h du coup d'envoi). Voici maintenant les données réactualisées à l'approche du coup d'envoi (cotes, blessures, arbitre).
+
+Compare ta première analyse à ces données fraîches :
+- Si rien de significatif n'a changé, réponds UNIQUEMENT avec `{"changed": false}` — rien d'autre. Ne recopie PAS les catégories, le résumé ou les traductions : c'est le résultat le plus fréquent, et il n'y a aucune raison de régénérer ce qui n'a pas bougé.
+- Si quelque chose a matériellement changé (mouvement de cotes important, nouvelle blessure clé, etc.) et que ça justifie de revoir un ou plusieurs paris, réponds avec le JSON complet (format décrit ci-dessous) plus `"changed": true` et un `"change_summary"` (objet 4 langues comme les autres champs texte) expliquant en 1-2 phrases ce qui a changé et pourquoi.
+- Ne change JAMAIS un pari uniquement pour changer quelque chose — une confirmation "rien de nouveau" (`{"changed": false}`) est un résultat parfaitement valide et même le plus fréquent.
+
+Le schéma JSON complet ci-dessous ne s'applique QUE si `changed` est `true`. Si `changed` est `false`, ignore-le entièrement et ne réponds qu'avec `{"changed": false}`."""
+
+
 # ═══════════════════════════════════════════════════════════════════
 # MAIN FUNCTION
 # ═══════════════════════════════════════════════════════════════════
+
+async def build_delta_prompt(
+    sport: str,
+    match_id: int,
+    previous_analysis: Dict[str, Any],
+    context: Optional[Union[str, Dict[str, Any]]] = None,
+) -> Tuple[str, str, int]:
+    """
+    Builds the ~1h-before-kickoff "delta" prompt: same sport-expert system
+    prompt as the initial analysis, but the user_prompt asks the model to
+    compare its earlier verdict against freshly re-pulled data instead of
+    analyzing from scratch, and to respond minimally (just `{"changed":
+    false}`) when nothing material moved rather than re-emitting the full
+    JSON — see confidence_generator.generate_delta_confidence, which parses
+    this response with its own lighter path rather than reusing the
+    initial analysis's full parse/validate pipeline. Returns the same
+    (system_prompt, user_prompt, ceiling) shape as build_audit_prompt.
+    """
+    system_prompt, base_user_prompt, ceiling = await build_audit_prompt(sport, match_id, context=context)
+
+    # Strip the trailing OUTPUT_FORMAT block from the initial prompt (it's
+    # re-appended below) and keep just the fresh data report + ceiling
+    # section, then prepend the previous verdict for comparison.
+    fresh_data_section = base_user_prompt[: base_user_prompt.index(OUTPUT_FORMAT)] if OUTPUT_FORMAT in base_user_prompt else base_user_prompt
+
+    previous_json = json.dumps(previous_analysis, ensure_ascii=False, indent=2)
+    user_prompt = (
+        f"[TA PREMIÈRE ANALYSE (~24h avant le coup d'envoi)]\n{previous_json}\n\n"
+        f"{fresh_data_section}"
+        f"{DELTA_INSTRUCTIONS}"
+        f"{OUTPUT_FORMAT}"
+    )
+
+    logger.info(f"✅ Delta prompt built for {sport} #{match_id}: user={len(user_prompt)} chars, ceiling={ceiling}")
+    return system_prompt, user_prompt, ceiling
+
 
 async def build_audit_prompt(sport: str, match_id: int, context: Optional[Union[str, Dict[str, Any]]] = None) -> Tuple[str, str, int]:
     """

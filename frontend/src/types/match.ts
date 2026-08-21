@@ -80,5 +80,19 @@ export interface Match {
         ai_analysis: any;
         locked?: boolean;
         pending?: boolean;
+        // True once a generation has actually been requested for this match
+        // (ready, pending, or failed) — false means nobody has asked yet:
+        // the proactive batch pass hasn't reached it and no user has
+        // clicked the "Generate" button. See app/actions/match.ts::
+        // getAiAuditForMatch / requestOnDemandAudit.
+        exists?: boolean;
+    };
+    // Read-only stats (H2H, rolling form, odds) fetched independently of the
+    // AI audit — see app/actions/match.ts::getMatchStatsOnly. Always
+    // available (no tier/window restriction), unlike aiAudit.
+    stats?: {
+        h2h: any;
+        rolling_stats: any;
+        odds: any;
     };
 }
