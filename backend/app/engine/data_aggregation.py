@@ -4,6 +4,7 @@ import logging
 import json
 import time
 import httpx
+from urllib.parse import quote
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 
@@ -819,12 +820,16 @@ class DataAggregator:
             return []  # no draws, and win/loss already covered by rolling win%; not requested here
 
         table = f"{sport}_matches"
+        # "+00:00" in an ISO timestamp must be percent-encoded — a literal
+        # "+" in a query string is decoded as a space by PostgREST, turning
+        # the timestamp into garbage and the whole request into a 400.
+        encoded_date = quote(before_date, safe="")
         rows = await asyncio.to_thread(
             self.db.select_raw,
             table,
             "select=home_team_id,away_team_id,home_score,away_score"
             f"&status=eq.finished"
-            f"&date_time=lt.{before_date}"
+            f"&date_time=lt.{encoded_date}"
             f"&or=(home_team_id.eq.{team_id},away_team_id.eq.{team_id})"
             f"&order=date_time.desc"
             f"&limit={count}",
