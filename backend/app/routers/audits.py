@@ -138,7 +138,7 @@ async def match_stats_endpoint(
         form = {"home": home_form, "away": away_form}
 
     match_info = {
-        "venue": match_raw.get("venue"),
+        "venue": match_raw.get("stadium"),
         "date_time": match_raw.get("date_time"),
         "round": match_raw.get("round"),
         "referee_name": match_raw.get("referee_name"),

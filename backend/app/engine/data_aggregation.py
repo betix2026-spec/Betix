@@ -405,7 +405,7 @@ class DataAggregator:
 
     def _format_match(self, sport: str, data: Dict[str, Any], home_name: str = "?", away_name: str = "?", is_neutral: bool = False) -> str:
         dt = data.get("date_time", "Unknown Date")
-        venue = data.get("venue") or "Unknown Venue"
+        venue = data.get("stadium") or "Unknown Venue"
         if sport == "tennis":
             rnd = data.get("round", "Unknown Round")
             return f"[MATCH: {home_name} vs {away_name}] {dt} | {rnd} | {data.get('status', 'scheduled')}"
@@ -669,7 +669,11 @@ class DataAggregator:
         # league:league_id(api_id) — the external API-Sports league ID, needed to
         # check tier_scope.is_football_top_tier()/is_basketball_top_tier() for the
         # confidence ceiling (those take the external id, not this table's internal FK).
-        columns = "date_time,venue,status,league_id,league:league_id(api_id)"
+        # "stadium" (not "venue") — football_client.py has always written
+        # the venue name into a "stadium" column; nothing ever wrote to
+        # "venue", so selecting it here silently returned nothing for every
+        # match, including in the AI's own prompt text (_format_match below).
+        columns = "date_time,stadium,status,league_id,league:league_id(api_id)"
         if sport == 'football':
             columns += ",round,referee_name,weather"
 
@@ -808,13 +812,15 @@ class DataAggregator:
             return None
         return {"home": home_elo, "away": away_elo}
 
-    async def fetch_team_form_sequence(self, sport: str, team_id: int, before_date: str, count: int = 5) -> List[str]:
+    async def fetch_team_form_sequence(self, sport: str, team_id: int, before_date: str, count: int = 5) -> List[Dict[str, Any]]:
         """
-        Real match-by-match results ("W"/"D"/"L", most recent first) for one
-        team's last `count` finished matches — any opponent, not just H2H.
+        Real match-by-match results for one team's last `count` finished
+        matches — any opponent, not just H2H. Each entry is
+        {"result": "W"/"D"/"L", "opponent_name": str|None, "opponent_logo": str|None},
+        most recent first — the opponent identity is what lets the Preview
+        tab's form row show a badge per match instead of a bare letter.
         Distinct from the rolling table's l5_streak (current streak length
-        only, e.g. "3W") — this is the actual per-match sequence the
-        Preview tab's "Key Stats" form row shows.
+        only, e.g. "3W").
         """
         if sport == "tennis":
             return []  # no draws, and win/loss already covered by rolling win%; not requested here
@@ -835,7 +841,8 @@ class DataAggregator:
             f"&limit={count}",
         )
 
-        results = []
+        parsed = []
+        opponent_ids = set()
         for row in rows or []:
             home_score = row.get("home_score")
             away_score = row.get("away_score")
@@ -844,12 +851,30 @@ class DataAggregator:
             is_home = row.get("home_team_id") == team_id
             team_score = home_score if is_home else away_score
             opp_score = away_score if is_home else home_score
-            if team_score > opp_score:
-                results.append("W")
-            elif team_score < opp_score:
-                results.append("L")
-            else:
-                results.append("D")
+            opponent_id = row.get("away_team_id") if is_home else row.get("home_team_id")
+            result = "W" if team_score > opp_score else "L" if team_score < opp_score else "D"
+            parsed.append({"result": result, "opponent_id": opponent_id})
+            if opponent_id is not None:
+                opponent_ids.add(opponent_id)
+
+        teams_by_id: Dict[int, Dict[str, Any]] = {}
+        if opponent_ids:
+            id_list = ",".join(str(i) for i in opponent_ids)
+            team_rows = await asyncio.to_thread(
+                self.db.select_raw,
+                "teams",
+                f"select=id,name,short_name,logo_url&id=in.({id_list})",
+            )
+            teams_by_id = {t["id"]: t for t in team_rows or []}
+
+        results = []
+        for p in parsed:
+            t = teams_by_id.get(p["opponent_id"], {})
+            results.append({
+                "result": p["result"],
+                "opponent_name": t.get("short_name") or t.get("name"),
+                "opponent_logo": t.get("logo_url"),
+            })
         return results
 
     async def fetch_injuries(self, sport: str, match_id: int) -> Dict[str, List[Any]]:
@@ -1076,8 +1101,8 @@ async def get_match_raw_context(sport: str, match_id: int, include_injuries: boo
     """Returns the RAW data dictionary (Archiving Ready)."""
     return await _aggregator.get_match_raw_context(sport, match_id, include_injuries=include_injuries)
 
-async def fetch_team_form_sequence(sport: str, team_id: int, before_date: str, count: int = 5) -> List[str]:
-    """Real match-by-match W/D/L results for one team, most recent first."""
+async def fetch_team_form_sequence(sport: str, team_id: int, before_date: str, count: int = 5) -> List[Dict[str, Any]]:
+    """Real match-by-match results (with opponent identity) for one team, most recent first."""
     return await _aggregator.fetch_team_form_sequence(sport, team_id, before_date, count=count)
 
 def format_context(sport: str, raw_context: Dict[str, Any]) -> str:
