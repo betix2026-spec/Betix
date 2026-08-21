@@ -27,12 +27,14 @@ class ImminentRadar:
     def __init__(self):
         settings = get_settings()
         self.db = SupabaseREST(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY, schema="analytics")
-        
+        # public.matches — see FBMatchUpserter._sync_public (upsert_fb_data.py).
+        self.public_db = SupabaseREST(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY)
+
         self.fb_upserter = FBMatchUpserter(self.db, {
             "football": settings.API_SPORTS_KEY,
             "basketball": settings.API_SPORTS_KEY
-        })
-        self.tennis_upserter = TennisMatchUpserter(self.db, settings.API_TENNIS_KEY)
+        }, public_db_client=self.public_db)
+        self.tennis_upserter = TennisMatchUpserter(self.db, settings.API_TENNIS_KEY, public_db_client=self.public_db)
 
     async def get_target_matches(self):
         now_utc = datetime.now(timezone.utc)

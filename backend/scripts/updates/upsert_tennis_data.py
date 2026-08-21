@@ -2,12 +2,17 @@ import logging
 from datetime import datetime, timezone
 import httpx
 
+from app.services.ingestion.constants import ANALYTICS_TO_PUBLIC_STATUS
+
 logger = logging.getLogger("draft.tennis_upsert")
 
 class TennisMatchUpserter:
-    def __init__(self, db_client, api_key: str):
+    def __init__(self, db_client, api_key: str, public_db_client=None):
         self.db = db_client
         self.api_key = api_key
+        # public.matches — see upsert_fb_data.py's FBMatchUpserter for the
+        # full explanation. Same gap, same fix, tennis side.
+        self.public_db = public_db_client
         self._http_client: httpx.AsyncClient | None = None
 
     async def _get_client(self) -> httpx.AsyncClient:
@@ -52,6 +57,7 @@ class TennisMatchUpserter:
                     # so left untouched by this English sweep. Same pattern as
                     # process_daily_matches.py; flagged separately, not yet fixed.
                     self.db.update("tennis_matches", {"status": "cancelled", "status_short": "Annulé"}, {"api_id": api_id})
+                    self._sync_public(api_id, db_match, {"status": "cancelled", "status_short": "Annulé"})
                 except Exception as e:
                     logger.error(f"   ❌ DB error cancelling {api_id}: {e}")
                 return False
@@ -252,12 +258,46 @@ class TennisMatchUpserter:
         if not payload:
             logger.info(f"   💤 Match {api_id}: No change detected.")
             return False
-            
+
         try:
             self.db.update("tennis_matches", payload, {"api_id": api_id})
             updates_str = ", ".join([f"{k}={v}" for k, v in payload.items()])
             logger.info(f"   ✅ Match {api_id} updated: {updates_str}")
-            return True
         except Exception as e:
             logger.error(f"   ❌ DB error while updating {api_id}: {e}")
             return False
+
+        self._sync_public(api_id, db_match, payload)
+        return True
+
+    def _sync_public(self, api_id: int, db_match: dict, payload: dict) -> None:
+        """Mirrors a status/score/date_time change into public.matches — see
+        upsert_fb_data.py's FBMatchUpserter._sync_public for the full
+        explanation. Tennis's public score shape differs from football/
+        basketball's (a display string + sets_played, no home/away ints —
+        see tennis_client.py's _build_public_match)."""
+        if self.public_db is None:
+            return
+
+        public_payload = {}
+        if "status" in payload:
+            public_payload["status"] = ANALYTICS_TO_PUBLIC_STATUS.get(payload["status"], payload["status"])
+        if "date_time" in payload:
+            public_payload["date_time"] = payload["date_time"]
+        if "status_short" in payload:
+            public_payload["status_short"] = payload["status_short"]
+        if "score" in payload or "sets_played" in payload:
+            public_payload["score"] = {
+                "home": None,
+                "away": None,
+                "display": payload.get("score", db_match.get("score")),
+                "sets_played": payload.get("sets_played", db_match.get("sets_played")),
+            }
+
+        if not public_payload:
+            return
+
+        try:
+            self.public_db.update("matches", public_payload, {"api_sport_id": str(api_id), "sport": "tennis"})
+        except Exception as e:
+            logger.error(f"   ❌ Public sync error for tennis {api_id}: {e}")

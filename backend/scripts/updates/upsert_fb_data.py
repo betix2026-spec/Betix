@@ -2,12 +2,22 @@ import logging
 from datetime import datetime, timezone
 import httpx
 
+from app.services.ingestion.constants import ANALYTICS_TO_PUBLIC_STATUS
+
 logger = logging.getLogger("draft.fb_upsert")
 
 class FBMatchUpserter:
-    def __init__(self, db_client, api_keys: dict):
+    def __init__(self, db_client, api_keys: dict, public_db_client=None):
         self.db = db_client
         self.api_keys = api_keys # {"football": key1, "basketball": key2}
+        # public.matches — the table the dashboard's client actually reads.
+        # discover_matches.py syncs it once at discovery time, but nothing
+        # ever synced it again when a match's status/score changed, so
+        # every match sat there forever as "upcoming" (see
+        # _apply_update_if_needed below). Optional only so existing direct
+        # instantiations (e.g. draft/ scripts) don't break; None just skips
+        # the public sync.
+        self.public_db = public_db_client
         
         self.endpoints = {
             "football": {"url": "https://v3.football.api-sports.io/fixtures", "id_param": "id"},
@@ -170,12 +180,43 @@ class FBMatchUpserter:
         if not payload:
             logger.info(f"   💤 Match {sport} {api_id}: No change detected.")
             return False
-            
+
         try:
             self.db.update(f"{sport}_matches", payload, {"api_id": api_id})
             updates_str = ", ".join([f"{k}={v}" for k, v in payload.items()])
             logger.info(f"   ✅ Match {sport} {api_id} updated: {updates_str}")
-            return True
         except Exception as e:
             logger.error(f"   ❌ DB error while updating {sport} {api_id}: {e}")
             return False
+
+        self._sync_public(sport, api_id, db_match, payload)
+        return True
+
+    def _sync_public(self, sport: str, api_id: int, db_match: dict, payload: dict) -> None:
+        """Mirrors a status/score/date_time change into public.matches — the
+        table the dashboard actually reads. Without this, a match's public
+        row is stuck at whatever it looked like when discover_matches.py
+        first inserted it (always "upcoming"), forever."""
+        if self.public_db is None:
+            return
+
+        public_payload = {}
+        if "status" in payload:
+            public_payload["status"] = ANALYTICS_TO_PUBLIC_STATUS.get(payload["status"], payload["status"])
+        if "date_time" in payload:
+            public_payload["date_time"] = payload["date_time"]
+        if "status_short" in payload:
+            public_payload["status_short"] = payload["status_short"]
+        if "home_score" in payload or "away_score" in payload:
+            home_score = payload.get("home_score", db_match.get("home_score"))
+            away_score = payload.get("away_score", db_match.get("away_score"))
+            if home_score is not None:
+                public_payload["score"] = {"home": home_score, "away": away_score}
+
+        if not public_payload:
+            return
+
+        try:
+            self.public_db.update("matches", public_payload, {"api_sport_id": str(api_id), "sport": sport})
+        except Exception as e:
+            logger.error(f"   ❌ Public sync error for {sport} {api_id}: {e}")

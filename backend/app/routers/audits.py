@@ -11,6 +11,7 @@ exactly the cost problem this engine was built to eliminate.
 
 import asyncio
 import logging
+from datetime import datetime, timedelta
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException
 from pydantic import BaseModel
 from typing import Any, Dict, Optional
@@ -154,6 +155,55 @@ async def match_stats_endpoint(
         injuries=context.get("injuries"),
         form=form,
     )
+
+
+@router.post("/_diag/backfill-public-matches")
+async def _diag_backfill_public_matches(x_internal_secret: Optional[str] = Header(None)):
+    """
+    TEMPORARY, one-time — public.matches only ever got written once, at
+    discovery time (always status="upcoming"); nothing re-synced it when a
+    match went live/finished (see FBMatchUpserter._sync_public, now fixed
+    going forward). This catches up everything already live/finished/etc.
+    in analytics.* over the last 14 days so they show up immediately
+    instead of waiting for the next natural status change. Remove once run.
+    """
+    _check_internal_secret(x_internal_secret)
+
+    from app.services.ingestion.football_client import FootballClient
+    from app.services.ingestion.basketball_client import BasketballClient
+    from app.services.ingestion.tennis_client import TennisClient
+
+    since = (datetime.utcnow() - timedelta(days=14)).strftime("%Y-%m-%dT00:00:00Z")
+    results: Dict[str, Any] = {}
+
+    for sport, client_cls in [("football", FootballClient), ("basketball", BasketballClient), ("tennis", TennisClient)]:
+        client = client_cls()
+        table = f"{sport}_matches"
+        try:
+            rows = await asyncio.to_thread(
+                client.analytics.select_raw,
+                table,
+                f"select=*&status=not.in.(scheduled)&date_time=gte.{since}&order=date_time.desc&limit=500",
+            )
+        except Exception as e:
+            logger.error(f"Backfill fetch error ({sport}): {e}")
+            results[sport] = {"error": str(e)}
+            continue
+
+        synced = 0
+        for row in rows or []:
+            public_row = client._build_public_match(row)
+            if not public_row:
+                continue
+            try:
+                await asyncio.to_thread(client.public.upsert, "matches", [public_row], "api_sport_id,sport")
+                synced += 1
+            except Exception as e:
+                logger.error(f"Backfill sync error {sport} {row.get('api_id')}: {e}")
+
+        results[sport] = {"candidates": len(rows or []), "synced": synced}
+
+    return results
 
 
 @router.get("/_diag/finished-matches")
