@@ -225,8 +225,19 @@ class ChatModel:
             "model": self.target_model_name,
             "messages": messages,
             "max_tokens": config.get("max_tokens"),
-            "temperature": config.get("temperature"),
         }
+
+        # `temperature` is deliberately never sent to Claude: current-gen
+        # models (Sonnet 5, Opus 5 — the only ones this app targets) reject
+        # non-default sampling parameters outright, and confirmed via a live
+        # shape-check (2026-08-21) that .stream() — required below for large
+        # max_tokens — doesn't even accept `temperature` as a typed kwarg;
+        # passing it raises a client-side TypeError before any request is
+        # sent, so the previous "send it, catch the API's 400, retry
+        # without it" pattern can no longer work at all. Matches Anthropic's
+        # own migration guidance: "the safest migration is to omit
+        # [sampling parameters] entirely and steer with prompting." Gemini/
+        # OpenAI callers are unaffected — this only applies to this method.
 
         if system_instruction:
             # cache_control marks this block for prompt caching — a no-op
@@ -242,20 +253,14 @@ class ChatModel:
                 "cache_control": {"type": "ephemeral"},
             }]
 
-        try:
-            response = await self.client.messages.create(**kwargs)
-        except Exception as e:
-            # The newest Claude models (confirmed: Sonnet 5, Opus 5) reject
-            # `temperature` outright ("deprecated for this model") — older
-            # ones (Haiku 4.5, Sonnet 4.6) accept it fine, so this can't be a
-            # fixed per-model param set without hardcoding a model-name check
-            # that breaks the next time DEFAULT_MODEL changes. Retry once
-            # without it instead.
-            if "temperature" in str(e) and "deprecated" in str(e).lower():
-                kwargs.pop("temperature", None)
-                response = await self.client.messages.create(**kwargs)
-            else:
-                raise
+        # The SDK refuses a non-streaming request it estimates could run
+        # past ~10 minutes (idle connections drop) — confirmed in production
+        # (2026-08-21) once max_tokens was raised to 24000: "Streaming is
+        # required for operations that may take longer than 10 minutes."
+        # .stream() + get_final_message() gives the same Message shape as
+        # .create() while satisfying that requirement.
+        async with self.client.messages.stream(**kwargs) as stream:
+            response = await stream.get_final_message()
 
         # content[0] is not reliably the text block — confirmed in production
         # (2026-08-21) that Sonnet 5 can put a ThinkingBlock first, which has
