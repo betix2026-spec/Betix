@@ -101,6 +101,12 @@ export interface Match {
         odds: any;
         match_info?: any;
         injuries?: any;
-        form?: any;
+        // Most recent first. Each entry carries the opponent's identity so
+        // the Preview tab's form row can show a badge per match, not just
+        // a bare W/D/L letter.
+        form?: {
+            home?: { result: string; opponent_name?: string; opponent_logo?: string }[];
+            away?: { result: string; opponent_name?: string; opponent_logo?: string }[];
+        };
     };
 }

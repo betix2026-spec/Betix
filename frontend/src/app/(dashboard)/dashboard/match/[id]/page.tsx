@@ -98,7 +98,7 @@ function H2HCard({ match }: { match: Match }) {
                     {copy("Face-à-Face Historique")}
                 </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6 pt-8 pb-10 px-8">
+            <CardContent className="space-y-4 pt-4 pb-5 px-5">
                 {(() => {
                     const h2h = match.stats?.h2h;
                     const noH2H = !h2h || Object.keys(h2h).length === 0
@@ -106,7 +106,7 @@ function H2HCard({ match }: { match: Match }) {
                         || (typeof h2h.summary === 'object' && h2h.summary && Object.keys(h2h.summary).length === 0);
                     if (noH2H) {
                         return (
-                            <div className="py-12 flex items-center justify-center">
+                            <div className="py-6 flex items-center justify-center">
                                 <span className="text-sm text-zinc-600 font-medium">{copy("Pas encore disponible")}</span>
                             </div>
                         );
@@ -138,14 +138,14 @@ function H2HCard({ match }: { match: Match }) {
 
                     if (totalMatches === 0) {
                         return (
-                            <div className="py-16 text-center text-muted-foreground">{copy("Données H2H non disponibles.")}</div>
+                            <div className="py-8 text-center text-muted-foreground">{copy("Données H2H non disponibles.")}</div>
                         );
                     }
 
                     return (
-                        <div className="space-y-12">
+                        <div className="space-y-6">
                             {/* Jauge globale */}
-                            <div className="space-y-5">
+                            <div className="space-y-4">
                                 <div className="flex justify-between items-end text-sm font-medium">
                                     <div className="flex flex-col items-start gap-1">
                                         <span className="text-2xl font-bold text-white/80 drop-shadow-md">{homeWins}</span>
@@ -190,8 +190,8 @@ function H2HCard({ match }: { match: Match }) {
 
                             {/* Moyennes de Buts */}
                             {h2h.avg_goals_a !== undefined && (
-                                <div className="space-y-2 pt-6 border-t border-white/5">
-                                    <h4 className="text-xs font-bold uppercase tracking-[0.2em] text-white/30 mb-8 text-center">{copy("Confrontations Moyennes")}</h4>
+                                <div className="space-y-2 pt-4 border-t border-white/5">
+                                    <h4 className="text-xs font-bold uppercase tracking-[0.2em] text-white/30 mb-4 text-center">{copy("Confrontations Moyennes")}</h4>
                                     <StatBattle
                                         label={copy("Buts Moyens")}
                                         homeValue={Number(isHomeA ? h2h.avg_goals_a : h2h.avg_goals_b) || 0}
@@ -348,24 +348,24 @@ function OddsCard({ match }: { match: Match }) {
                     {copy("Cotes du Marché")}
                 </CardTitle>
             </CardHeader>
-            <CardContent className="pt-8 pb-10 px-8">
+            <CardContent className="pt-4 pb-5 px-5">
                 {homeOdds == null && awayOdds == null ? (
-                    <div className="py-12 flex items-center justify-center">
+                    <div className="py-6 flex items-center justify-center">
                         <span className="text-sm text-zinc-600 font-medium">{copy("Pas encore disponible")}</span>
                     </div>
                 ) : (
-                    <div className={cn("grid gap-4", drawOdds != null ? "grid-cols-3" : "grid-cols-2")}>
-                        <div className="flex flex-col items-center gap-2 p-4 rounded-xl bg-white/[0.02] border border-white/5">
+                    <div className={cn("grid gap-3", drawOdds != null ? "grid-cols-3" : "grid-cols-2")}>
+                        <div className="flex flex-col items-center gap-2 p-3 rounded-xl bg-white/[0.02] border border-white/5">
                             <span className="text-[10px] uppercase tracking-widest text-cyan-400 font-bold truncate max-w-full">{match.homeTeam.short}</span>
                             <span className="text-2xl font-black text-white">{homeOdds != null ? homeOdds.toFixed(2) : "—"}</span>
                         </div>
                         {drawOdds != null && (
-                            <div className="flex flex-col items-center gap-2 p-4 rounded-xl bg-white/[0.02] border border-white/5">
+                            <div className="flex flex-col items-center gap-2 p-3 rounded-xl bg-white/[0.02] border border-white/5">
                                 <span className="text-[10px] uppercase tracking-widest text-white/40 font-bold">{copy("Nul")}</span>
                                 <span className="text-2xl font-black text-white">{drawOdds.toFixed(2)}</span>
                             </div>
                         )}
-                        <div className="flex flex-col items-center gap-2 p-4 rounded-xl bg-white/[0.02] border border-white/5">
+                        <div className="flex flex-col items-center gap-2 p-3 rounded-xl bg-white/[0.02] border border-white/5">
                             <span className="text-[10px] uppercase tracking-widest text-rose-400 font-bold truncate max-w-full">{match.awayTeam.short}</span>
                             <span className="text-2xl font-black text-white">{awayOdds != null ? awayOdds.toFixed(2) : "—"}</span>
                         </div>
@@ -380,36 +380,82 @@ function OddsCard({ match }: { match: Match }) {
 // progress-fill bar. A bar's fill width implies a bounded 0-100%-style
 // proportion, which is misleading for arbitrary-scale stats like goals or
 // corners; a plain number is unambiguous and reads faster.
-function StatPair({ label, homeValue, awayValue, suffix = "" }: { label: string; homeValue: number | string | null | undefined; awayValue: number | string | null | undefined; suffix?: string }) {
+// direction tells StatPair which side counts as "better" so it can bold/
+// highlight the winning number — e.g. more goals scored is better (higher),
+// fewer cards is better (lower). Omit for stats with no inherent "better"
+// side (e.g. pace) to skip highlighting entirely.
+function StatPair({ label, homeValue, awayValue, suffix = "", direction }: { label: string; homeValue: number | string | null | undefined; awayValue: number | string | null | undefined; suffix?: string; direction?: "higher" | "lower" }) {
     const fmt = (v: number | string | null | undefined) => (v === null || v === undefined || v === "" ? "—" : `${v}${suffix}`);
+    const toNum = (v: number | string | null | undefined) => {
+        if (v === null || v === undefined || v === "") return null;
+        const n = typeof v === "number" ? v : parseFloat(String(v));
+        return Number.isFinite(n) ? n : null;
+    };
+    const hNum = toNum(homeValue);
+    const aNum = toNum(awayValue);
+    let homeWins = false;
+    let awayWins = false;
+    if (direction && hNum !== null && aNum !== null && hNum !== aNum) {
+        const homeIsHigher = hNum > aNum;
+        homeWins = direction === "higher" ? homeIsHigher : !homeIsHigher;
+        awayWins = !homeWins;
+    }
     return (
-        <div className="flex items-center justify-between py-3 border-b border-white/5 last:border-b-0">
-            <span className="text-base font-bold text-white w-16 shrink-0 text-left tabular-nums">{fmt(homeValue)}</span>
+        <div className="flex items-center justify-between py-2 border-b border-white/5 last:border-b-0">
+            <span className={cn("text-base font-bold w-16 shrink-0 text-left tabular-nums", homeWins ? "text-emerald-400" : awayWins ? "text-white/40" : "text-white")}>{fmt(homeValue)}</span>
             <span className="text-[11px] font-semibold text-white/40 uppercase tracking-wider text-center flex-1 px-2">{label}</span>
-            <span className="text-base font-bold text-white w-16 shrink-0 text-right tabular-nums">{fmt(awayValue)}</span>
+            <span className={cn("text-base font-bold w-16 shrink-0 text-right tabular-nums", awayWins ? "text-emerald-400" : homeWins ? "text-white/40" : "text-white")}>{fmt(awayValue)}</span>
         </div>
     );
 }
 
+type FormEntry = { result: string; opponent_name?: string; opponent_logo?: string };
+
 // Real match-by-match results (see backend fetch_team_form_sequence),
-// most recent first — not the rolling table's single streak string.
-function FormPills({ results }: { results?: string[] }) {
-    if (!results || results.length === 0) {
+// most recent first — a team badge per match, not just a bare letter, so
+// the "who was it against" question doesn't need a hover to answer.
+function FormPills({ items }: { items?: FormEntry[] }) {
+    if (!items || items.length === 0) {
         return <span className="text-xs text-zinc-600">—</span>;
     }
     return (
-        <div className="flex items-center gap-1">
-            {results.map((r, i) => (
-                <span
-                    key={i}
-                    className={cn(
-                        "size-6 rounded-md flex items-center justify-center text-[10px] font-black shrink-0",
-                        r === "W" ? "bg-emerald-500/20 text-emerald-400" : r === "L" ? "bg-rose-500/20 text-rose-400" : "bg-white/10 text-white/50"
-                    )}
-                >
-                    {r}
-                </span>
-            ))}
+        <div className="flex flex-col items-center gap-1.5">
+            <div className="flex items-center gap-1.5">
+                {items.map((it, i) => (
+                    <div
+                        key={i}
+                        title={it.opponent_name}
+                        className="size-6 rounded-full bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden shrink-0"
+                    >
+                        {it.opponent_logo ? (
+                            <img
+                                src={it.opponent_logo}
+                                alt={it.opponent_name || ""}
+                                className="size-full object-contain p-0.5"
+                                onError={(e) => {
+                                    (e.target as HTMLImageElement).style.display = "none";
+                                    (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-[8px] font-bold text-white/40">${(it.opponent_name || "?").slice(0, 1)}</span>`;
+                                }}
+                            />
+                        ) : (
+                            <span className="text-[8px] font-bold text-white/40">{(it.opponent_name || "?").slice(0, 1)}</span>
+                        )}
+                    </div>
+                ))}
+            </div>
+            <div className="flex items-center gap-1.5">
+                {items.map((it, i) => (
+                    <span
+                        key={i}
+                        className={cn(
+                            "size-6 rounded-md flex items-center justify-center text-[10px] font-black shrink-0",
+                            it.result === "W" ? "bg-emerald-500/20 text-emerald-400" : it.result === "L" ? "bg-rose-500/20 text-rose-400" : "bg-white/10 text-white/50"
+                        )}
+                    >
+                        {it.result}
+                    </span>
+                ))}
+            </div>
         </div>
     );
 }
@@ -418,13 +464,13 @@ function SectionCard({ icon, iconClass, title, children }: { icon: React.ReactNo
     return (
         <Card className="bg-black/20 border-white/5 backdrop-blur-sm overflow-hidden relative opacity-90 transition-opacity hover:opacity-100">
             <div className="absolute inset-0 bg-gradient-to-br from-white/[0.02] to-transparent pointer-events-none" />
-            <CardHeader className="border-b border-white/5 bg-white/[0.01] p-4">
+            <CardHeader className="border-b border-white/5 bg-white/[0.01] p-3.5">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                     <div className={cn("p-1.5 rounded-md", iconClass)}>{icon}</div>
                     {title}
                 </CardTitle>
             </CardHeader>
-            <CardContent className="pt-6 pb-8 px-8">{children}</CardContent>
+            <CardContent className="pt-4 pb-5 px-5">{children}</CardContent>
         </Card>
     );
 }
@@ -447,7 +493,7 @@ function MatchInfoCard({ match }: { match: Match }) {
 
     return (
         <SectionCard icon={<Clock className="size-3.5" />} iconClass="bg-blue-500/10 text-blue-400" title={copy("Informations du Match")}>
-            <div className="grid grid-cols-2 gap-x-8 gap-y-5">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-4">
                 {rows.map((r) => (
                     <div key={r.label} className="flex flex-col gap-1 min-w-0">
                         <span className="text-[10px] uppercase tracking-widest text-white/40 font-bold">{r.label}</span>
@@ -461,41 +507,41 @@ function MatchInfoCard({ match }: { match: Match }) {
 
 // 4. Key Stats — real per-match form (W/L/D pills) plus the headline
 // scoring numbers, individualized (see StatPair above), not a slider.
-const KEY_STAT_ROWS_BY_SPORT: Record<string, { key: string; label: string }[]> = {
+const KEY_STAT_ROWS_BY_SPORT: Record<string, { key: string; label: string; direction?: "higher" | "lower" }[]> = {
     football: [
-        { key: "l5_goals_for", label: "Buts marqués (L5)" },
-        { key: "l5_goals_against", label: "Buts encaissés (L5)" },
-        { key: "l5_xg_for", label: "Buts attendus - Pour (L5)" },
-        { key: "l5_xg_against", label: "Buts attendus - Contre (L5)" },
+        { key: "l5_goals_for", label: "Buts marqués (L5)", direction: "higher" },
+        { key: "l5_goals_against", label: "Buts encaissés (L5)", direction: "lower" },
+        { key: "l5_xg_for", label: "Buts attendus - Pour (L5)", direction: "higher" },
+        { key: "l5_xg_against", label: "Buts attendus - Contre (L5)", direction: "lower" },
     ],
     basketball: [
-        { key: "l5_ortg", label: "Rating Offensif (L5)" },
-        { key: "l5_drtg", label: "Rating Défensif (L5)" },
+        { key: "l5_ortg", label: "Rating Offensif (L5)", direction: "higher" },
+        { key: "l5_drtg", label: "Rating Défensif (L5)", direction: "lower" },
         { key: "l5_pace", label: "Rythme de jeu (L5)" },
     ],
     tennis: [
-        { key: "l10_aces_avg", label: "Aces Moy. (L10)" },
-        { key: "l10_first_serve_pct", label: "1er Service (L10)" },
-        { key: "l10_return_won_pct", label: "Points gagnés au retour (L10)" },
+        { key: "l10_aces_avg", label: "Aces Moy. (L10)", direction: "higher" },
+        { key: "l10_first_serve_pct", label: "1er Service (L10)", direction: "higher" },
+        { key: "l10_return_won_pct", label: "Points gagnés au retour (L10)", direction: "higher" },
     ],
 };
 
 function KeyStatsCard({ match, homeStats, awayStats }: { match: Match; homeStats: Record<string, any>; awayStats: Record<string, any> }) {
     const { copy } = useI18n();
     const rows = KEY_STAT_ROWS_BY_SPORT[match.sport] || KEY_STAT_ROWS_BY_SPORT.football;
-    const form = match.stats?.form as { home?: string[]; away?: string[] } | undefined;
+    const form = match.stats?.form;
 
     return (
         <SectionCard icon={<Activity className="size-3.5" />} iconClass="bg-emerald-500/10 text-emerald-400" title={copy("Statistiques Clés")}>
             {form && (form.home?.length || form.away?.length) ? (
-                <div className="flex items-center justify-between py-3 border-b border-white/5">
-                    <FormPills results={form.home} />
+                <div className="flex items-center justify-between py-2.5 border-b border-white/5">
+                    <FormPills items={form.home} />
                     <span className="text-[11px] font-semibold text-white/40 uppercase tracking-wider text-center flex-1 px-2">{copy("Forme (5 derniers)")}</span>
-                    <FormPills results={form.away} />
+                    <FormPills items={form.away} />
                 </div>
             ) : null}
             {rows.map((r) => (
-                <StatPair key={r.key} label={copy(r.label)} homeValue={homeStats?.[r.key]} awayValue={awayStats?.[r.key]} />
+                <StatPair key={r.key} label={copy(r.label)} homeValue={homeStats?.[r.key]} awayValue={awayStats?.[r.key]} direction={r.direction} />
             ))}
         </SectionCard>
     );
@@ -505,24 +551,24 @@ function KeyStatsCard({ match, homeStats, awayStats }: { match: Match; homeStats
 // shots-faced are NOT currently collected by the ingestion pipeline (no
 // such columns on football_team_rolling) — omitted rather than faked; a
 // real gap to close if these matter, not a display bug.
-const ADVANCED_STAT_ROWS_BY_SPORT: Record<string, { key: string; label: string; suffix?: string }[]> = {
+const ADVANCED_STAT_ROWS_BY_SPORT: Record<string, { key: string; label: string; suffix?: string; direction?: "higher" | "lower" }[]> = {
     football: [
-        { key: "l5_possession_avg", label: "Possession Moyenne", suffix: "%" },
-        { key: "l5_shots_avg", label: "Tirs par match (L5)" },
-        { key: "l5_corners_avg", label: "Corners par match (L5)" },
-        { key: "l5_cards_avg", label: "Cartons par match (L5)" },
-        { key: "l5_clean_sheets", label: "Clean sheets (L5)" },
-        { key: "l5_pass_accuracy", label: "Précision des passes (L5)", suffix: "%" },
+        { key: "l5_possession_avg", label: "Possession Moyenne", suffix: "%", direction: "higher" },
+        { key: "l5_shots_avg", label: "Tirs par match (L5)", direction: "higher" },
+        { key: "l5_corners_avg", label: "Corners par match (L5)", direction: "higher" },
+        { key: "l5_cards_avg", label: "Cartons par match (L5)", direction: "lower" },
+        { key: "l5_clean_sheets", label: "Clean sheets (L5)", direction: "higher" },
+        { key: "l5_pass_accuracy", label: "Précision des passes (L5)", suffix: "%", direction: "higher" },
     ],
     basketball: [
-        { key: "l5_efg_pct", label: "Réussite aux tirs pondérée (L5)", suffix: "%" },
-        { key: "l5_tov_pct", label: "Pertes de balle (L5)", suffix: "%" },
-        { key: "l5_orb_pct", label: "Rebonds offensifs (L5)", suffix: "%" },
-        { key: "l5_3pt_pct", label: "Réussite à 3 points (L5)", suffix: "%" },
+        { key: "l5_efg_pct", label: "Réussite aux tirs pondérée (L5)", suffix: "%", direction: "higher" },
+        { key: "l5_tov_pct", label: "Pertes de balle (L5)", suffix: "%", direction: "lower" },
+        { key: "l5_orb_pct", label: "Rebonds offensifs (L5)", suffix: "%", direction: "higher" },
+        { key: "l5_3pt_pct", label: "Réussite à 3 points (L5)", suffix: "%", direction: "higher" },
     ],
     tennis: [
-        { key: "l10_bp_saved_pct", label: "Balles de break sauvées (L10)", suffix: "%" },
-        { key: "l10_bp_converted_pct", label: "Balles de break converties (L10)", suffix: "%" },
+        { key: "l10_bp_saved_pct", label: "Balles de break sauvées (L10)", suffix: "%", direction: "higher" },
+        { key: "l10_bp_converted_pct", label: "Balles de break converties (L10)", suffix: "%", direction: "higher" },
     ],
 };
 
@@ -532,7 +578,7 @@ function AdvancedStatsCard({ match, homeStats, awayStats }: { match: Match; home
     return (
         <SectionCard icon={<TrendingUp className="size-3.5" />} iconClass="bg-purple-500/10 text-purple-400" title={copy("Statistiques Avancées")}>
             {rows.map((r) => (
-                <StatPair key={r.key} label={copy(r.label)} homeValue={homeStats?.[r.key]} awayValue={awayStats?.[r.key]} suffix={r.suffix} />
+                <StatPair key={r.key} label={copy(r.label)} homeValue={homeStats?.[r.key]} awayValue={awayStats?.[r.key]} suffix={r.suffix} direction={r.direction} />
             ))}
         </SectionCard>
     );
@@ -549,7 +595,7 @@ function InjuriesCard({ match }: { match: Match }) {
 
     return (
         <SectionCard icon={<Users className="size-3.5" />} iconClass="bg-rose-500/10 text-rose-400" title={copy("Blessures & Absences")}>
-            <div className="grid grid-cols-2 gap-8">
+            <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-3">
                     <span className="text-[10px] uppercase tracking-widest text-cyan-400 font-bold truncate block">{match.homeTeam.short}</span>
                     {homeList.length === 0 ? (
@@ -584,9 +630,9 @@ function InjuriesCard({ match }: { match: Match }) {
 // injuries. Every stat is an individualized number pair, not a bar.
 function PreviewSection({ match, homeStats, awayStats }: { match: Match; homeStats: Record<string, any>; awayStats: Record<string, any> }) {
     return (
-        <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-500">
+        <div className="space-y-4 sm:space-y-5 animate-in fade-in duration-500">
             <MatchInfoCard match={match} />
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
                 <OddsCard match={match} />
                 <H2HCard match={match} />
             </div>
