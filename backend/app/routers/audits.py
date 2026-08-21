@@ -154,3 +154,34 @@ async def match_stats_endpoint(
         injuries=context.get("injuries"),
         form=form,
     )
+
+
+@router.get("/_diag/finished-matches")
+async def _diag_finished_matches(x_internal_secret: Optional[str] = Header(None)):
+    """
+    TEMPORARY — read-only diagnostic for the "Finished tab is empty"
+    report. Queries public.matches (the same table/schema the dashboard's
+    client-side Supabase query reads) for status counts, grouped by date,
+    over the last 10 days. Remove once the root cause is confirmed.
+    """
+    _check_internal_secret(x_internal_secret)
+    settings = get_settings()
+    db = SupabaseREST(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY)
+
+    rows = await asyncio.to_thread(
+        db.select_raw,
+        "matches",
+        "select=id,sport,status,date_time,api_sport_id&order=date_time.desc&limit=500",
+    )
+    from collections import Counter
+    by_status = Counter(r.get("status") for r in rows or [])
+    by_date_status: Dict[str, Counter] = {}
+    for r in rows or []:
+        d = (r.get("date_time") or "")[:10]
+        by_date_status.setdefault(d, Counter())[r.get("status")] += 1
+
+    return {
+        "total_rows_fetched": len(rows or []),
+        "by_status": dict(by_status),
+        "by_date_status": {d: dict(c) for d, c in sorted(by_date_status.items(), reverse=True)},
+    }
