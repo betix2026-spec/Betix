@@ -2403,6 +2403,21 @@ const literalTranslations: Record<string, Partial<Record<Locale, string>>> = {
         es: "Análisis aún no generado",
         de: "Analyse noch nicht erstellt",
     },
+    "Cotes du Marché": {
+        en: "Market Odds",
+        es: "Cuotas del Mercado",
+        de: "Marktquoten",
+    },
+    "Forme Actuelle": {
+        en: "Current Form",
+        es: "Forma Actual",
+        de: "Aktuelle Form",
+    },
+    "Défaites": {
+        en: "Losses",
+        es: "Derrotas",
+        de: "Niederlagen",
+    },
     "Lancement de l'analyse...": {
         en: "Starting the analysis...",
         es: "Iniciando el análisis...",

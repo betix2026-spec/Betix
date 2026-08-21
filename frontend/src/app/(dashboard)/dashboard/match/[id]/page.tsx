@@ -113,7 +113,22 @@ function H2HCard({ match }: { match: Match }) {
                     }
 
                     // Football uniquement dans ce bloc
-                    const homeId = match.homeTeam.id ?? h2h.home_team_id;
+                    //
+                    // h2h.team_a_id/home_team_id are analytics-schema team
+                    // ids (see backend/app/engine/data_aggregation.py's
+                    // fetch_h2h, DataAggregator.db is schema="analytics").
+                    // match.homeTeam.id is a PUBLIC-schema team id (this
+                    // page's own `matches` query, no .schema('analytics')).
+                    // These are two different id spaces — comparing
+                    // h2h.team_a_id against match.homeTeam.id was silently
+                    // (almost) never matching, so isHomeA landed on `false`
+                    // for nearly every match and every H2H card showed the
+                    // away team's win count under the home team, and vice
+                    // versa (confirmed live, 2026-08-21: Espanyol home vs
+                    // Real Madrid away showed Real Madrid's 23 wins as
+                    // Espanyol's). h2h.home_team_id is already in the same
+                    // (analytics) id space as team_a_id — use that first.
+                    const homeId = h2h.home_team_id ?? match.homeTeam.id;
                     const isHomeA = homeId != null && h2h.team_a_id === homeId;
 
                     const homeWins = Number(isHomeA ? h2h.team_a_wins : h2h.team_b_wins) || 0;
@@ -294,15 +309,153 @@ function TrendsCard({ homeStats, awayStats }: { homeStats: Record<string, any>; 
     );
 }
 
+const PRIMARY_MARKET_BY_SPORT: Record<string, string> = {
+    football: "Match Winner",
+    basketball: "Home/Away",
+    tennis: "Home/Away",
+};
+
+function parseOddsSelections(oddsData: any): { label: string; odds: number }[] {
+    if (!oddsData) return [];
+    const parsed = typeof oddsData === "string" ? JSON.parse(oddsData) : oddsData;
+    return Array.isArray(parsed) ? parsed : [];
+}
+
+// Real data (match.stats.odds) that was already being fetched by this page
+// and never rendered anywhere — the backend returned it, nothing on the
+// frontend read it. This is the actual market odds, not the dashboard's
+// implied-probability teaser.
+function OddsCard({ match }: { match: Match }) {
+    const { copy } = useI18n();
+    const odds = match.stats?.odds as Record<string, { odds_data: any }> | undefined;
+    const marketName = PRIMARY_MARKET_BY_SPORT[match.sport] || "Match Winner";
+    const selections = parseOddsSelections(odds?.[marketName]?.odds_data);
+
+    const findSide = (side: string) =>
+        selections.find((s) => String(s.label || "").trim().toLowerCase() === side)?.odds;
+    const homeOdds = findSide("home");
+    const drawOdds = findSide("draw");
+    const awayOdds = findSide("away");
+
+    return (
+        <Card className="bg-black/20 border-white/5 backdrop-blur-sm overflow-hidden relative opacity-90 transition-opacity hover:opacity-100">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/[0.02] to-transparent pointer-events-none" />
+            <CardHeader className="border-b border-white/5 bg-white/[0.01] p-4">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <div className="p-1.5 rounded-md bg-amber-500/10 text-amber-400">
+                        <TrendingUp className="size-3.5" />
+                    </div>
+                    {copy("Cotes du Marché")}
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-8 pb-10 px-8">
+                {homeOdds == null && awayOdds == null ? (
+                    <div className="py-12 flex items-center justify-center">
+                        <span className="text-sm text-zinc-600 font-medium">{copy("Pas encore disponible")}</span>
+                    </div>
+                ) : (
+                    <div className={cn("grid gap-4", drawOdds != null ? "grid-cols-3" : "grid-cols-2")}>
+                        <div className="flex flex-col items-center gap-2 p-4 rounded-xl bg-white/[0.02] border border-white/5">
+                            <span className="text-[10px] uppercase tracking-widest text-cyan-400 font-bold truncate max-w-full">{match.homeTeam.short}</span>
+                            <span className="text-2xl font-black text-white">{homeOdds != null ? homeOdds.toFixed(2) : "—"}</span>
+                        </div>
+                        {drawOdds != null && (
+                            <div className="flex flex-col items-center gap-2 p-4 rounded-xl bg-white/[0.02] border border-white/5">
+                                <span className="text-[10px] uppercase tracking-widest text-white/40 font-bold">{copy("Nul")}</span>
+                                <span className="text-2xl font-black text-white">{drawOdds.toFixed(2)}</span>
+                            </div>
+                        )}
+                        <div className="flex flex-col items-center gap-2 p-4 rounded-xl bg-white/[0.02] border border-white/5">
+                            <span className="text-[10px] uppercase tracking-widest text-rose-400 font-bold truncate max-w-full">{match.awayTeam.short}</span>
+                            <span className="text-2xl font-black text-white">{awayOdds != null ? awayOdds.toFixed(2) : "—"}</span>
+                        </div>
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    );
+}
+
+function parseStreak(streak: unknown): { count: number; result: "W" | "D" | "L" } | null {
+    if (!streak || typeof streak !== "string") return null;
+    const m = streak.match(/^(\d+)\s*([WDL])$/i);
+    if (!m) return null;
+    return { count: parseInt(m[1], 10), result: m[2].toUpperCase() as "W" | "D" | "L" };
+}
+
+// l5_streak was already collected (see DISPLAY_KEYS_BY_SPORT) but excluded
+// from the generic stat-row loop below since it's a string, not a
+// home-vs-away number — surfaced here instead, as an actual form badge,
+// rather than silently dropped.
+function FormCard({ match, homeStats, awayStats }: { match: Match; homeStats: Record<string, any>; awayStats: Record<string, any> }) {
+    const { copy } = useI18n();
+    const homeStreak = parseStreak(homeStats?.l5_streak);
+    const awayStreak = parseStreak(awayStats?.l5_streak);
+
+    const streakStyle = (result?: "W" | "D" | "L") =>
+        result === "W"
+            ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+            : result === "L"
+                ? "bg-rose-500/15 text-rose-400 border-rose-500/30"
+                : "bg-white/5 text-white/50 border-white/10";
+    const streakLabel = (result?: "W" | "D" | "L") =>
+        result === "W" ? copy("Victoires") : result === "L" ? copy("Défaites") : copy("Nuls");
+
+    return (
+        <Card className="bg-black/20 border-white/5 backdrop-blur-sm overflow-hidden relative opacity-90 transition-opacity hover:opacity-100">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/[0.02] to-transparent pointer-events-none" />
+            <CardHeader className="border-b border-white/5 bg-white/[0.01] p-4">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <div className="p-1.5 rounded-md bg-emerald-500/10 text-emerald-400">
+                        <Activity className="size-3.5" />
+                    </div>
+                    {copy("Forme Actuelle")}
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-8 pb-10 px-8">
+                <div className="grid grid-cols-2 gap-8">
+                    <div className="flex flex-col items-center gap-3 text-center">
+                        <span className="text-xs font-bold text-white/60 uppercase tracking-widest truncate max-w-full">{match.homeTeam.name}</span>
+                        {homeStreak ? (
+                            <span className={cn("px-4 py-1.5 rounded-full border text-sm font-black", streakStyle(homeStreak.result))}>
+                                {homeStreak.count} {streakLabel(homeStreak.result)}
+                            </span>
+                        ) : (
+                            <span className="text-xs text-zinc-600">{copy("Pas encore disponible")}</span>
+                        )}
+                    </div>
+                    <div className="flex flex-col items-center gap-3 text-center">
+                        <span className="text-xs font-bold text-white/60 uppercase tracking-widest truncate max-w-full">{match.awayTeam.name}</span>
+                        {awayStreak ? (
+                            <span className={cn("px-4 py-1.5 rounded-full border text-sm font-black", streakStyle(awayStreak.result))}>
+                                {awayStreak.count} {streakLabel(awayStreak.result)}
+                            </span>
+                        ) : (
+                            <span className="text-xs text-zinc-600">{copy("Pas encore disponible")}</span>
+                        )}
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
 // Preview tab — the stats every match has, independent of whether the AI
-// has analyzed it. Same cards used everywhere else in the current design
-// (H2HCard / TrendsCard), just presented full-width as the tab's own
-// content instead of a sidebar supplement.
+// has analyzed it. Genuinely restructured (not just re-fed more data into
+// the same two boxes): a form strip, real market odds (previously fetched
+// and never rendered anywhere), H2H, then the full stat comparison —
+// four distinct sections instead of two recycled sidebar cards.
 function PreviewSection({ match, homeStats, awayStats }: { match: Match; homeStats: Record<string, any>; awayStats: Record<string, any> }) {
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 animate-in fade-in duration-500">
+            <div className="md:col-span-2">
+                <FormCard match={match} homeStats={homeStats} awayStats={awayStats} />
+            </div>
+            <OddsCard match={match} />
             <H2HCard match={match} />
-            <TrendsCard homeStats={homeStats} awayStats={awayStats} />
+            <div className="md:col-span-2">
+                <TrendsCard homeStats={homeStats} awayStats={awayStats} />
+            </div>
         </div>
     );
 }
