@@ -484,16 +484,23 @@ function MatchInfoCard({ match }: { match: Match }) {
     const dateLocale = { fr: "fr-FR", en: "en-US", es: "es-ES", de: "de-DE" }[locale];
     const kickoff = info?.date_time ? new Date(info.date_time) : null;
 
+    // Matches in this pipeline are domestic-league fixtures, always played
+    // at the home team's own ground — safe to attribute the venue to them
+    // without a separate "neutral venue" flag in the data.
+    const venueValue = info?.venue ? `${info.venue} (${match.homeTeam.short})` : null;
+    const kickoffValue = kickoff
+        ? `${kickoff.toLocaleDateString(dateLocale, { weekday: "short", day: "numeric", month: "long" })} · ${kickoff.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" })}`
+        : null;
+
     const rows: { label: string; value: string | null | undefined }[] = [
         { label: copy("Arbitre"), value: info?.referee_name },
-        { label: copy("Lieu"), value: info?.venue },
-        { label: copy("Journée"), value: info?.round },
-        { label: copy("Coup d'envoi"), value: kickoff ? `${kickoff.toLocaleDateString(dateLocale, { day: "numeric", month: "long" })} · ${kickoff.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" })}` : null },
+        { label: copy("Lieu"), value: venueValue },
+        { label: copy("Coup d'envoi"), value: kickoffValue },
     ];
 
     return (
         <SectionCard icon={<Clock className="size-3.5" />} iconClass="bg-blue-500/10 text-blue-400" title={copy("Informations du Match")}>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-4">
                 {rows.map((r) => (
                     <div key={r.label} className="flex flex-col gap-1 min-w-0">
                         <span className="text-[10px] uppercase tracking-widest text-white/40 font-bold">{r.label}</span>
@@ -636,8 +643,10 @@ function PreviewSection({ match, homeStats, awayStats }: { match: Match; homeSta
                 <OddsCard match={match} />
                 <H2HCard match={match} />
             </div>
-            <KeyStatsCard match={match} homeStats={homeStats} awayStats={awayStats} />
-            <AdvancedStatsCard match={match} homeStats={homeStats} awayStats={awayStats} />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
+                <KeyStatsCard match={match} homeStats={homeStats} awayStats={awayStats} />
+                <AdvancedStatsCard match={match} homeStats={homeStats} awayStats={awayStats} />
+            </div>
             <InjuriesCard match={match} />
         </div>
     );

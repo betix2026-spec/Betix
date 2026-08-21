@@ -903,7 +903,7 @@ class DataAggregator:
         to kickoff. Cached by fetch_injuries() above with a short TTL so
         repeat page views don't each pay for a fresh live API call.
 
-        Returns pre-formatted strings (e.g. "Messi (out, hamstring)"), matching
+        Returns pre-formatted strings (e.g. "Messi (Hamstring Injury)"), matching
         what _format_team_form()'s ', '.join(injuries) already expects.
         """
         empty = {"home": [], "away": []}
@@ -962,9 +962,15 @@ class DataAggregator:
                     continue
                 seen.add(dedupe_key)
 
+                # API-Football's "type" (e.g. "Missing Fixture", "Questionable")
+                # is a status category, redundant once shown in an "Injuries &
+                # Absences" list — only the specific reason ("Red Card",
+                # "Hamstring Injury") is actually informative. Fall back to
+                # type only on the rare item with no reason at all.
                 status = player.get("type") or item.get("type") or "unknown"
                 reason = player.get("reason") or item.get("reason")
-                label = f"{player_name} ({status}, {reason})" if reason else f"{player_name} ({status})"
+                detail = reason or status
+                label = f"{player_name} ({detail})"
                 result[side].append(label)
 
             return result
