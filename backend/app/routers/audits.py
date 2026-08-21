@@ -11,7 +11,6 @@ exactly the cost problem this engine was built to eliminate.
 
 import asyncio
 import logging
-from datetime import datetime, timedelta
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException
 from pydantic import BaseModel
 from typing import Any, Dict, Optional
@@ -155,83 +154,3 @@ async def match_stats_endpoint(
         injuries=context.get("injuries"),
         form=form,
     )
-
-
-@router.post("/_diag/backfill-public-matches")
-async def _diag_backfill_public_matches(x_internal_secret: Optional[str] = Header(None)):
-    """
-    TEMPORARY, one-time — public.matches only ever got written once, at
-    discovery time (always status="upcoming"); nothing re-synced it when a
-    match went live/finished (see FBMatchUpserter._sync_public, now fixed
-    going forward). This catches up everything already live/finished/etc.
-    in analytics.* over the last 14 days so they show up immediately
-    instead of waiting for the next natural status change. Remove once run.
-    """
-    _check_internal_secret(x_internal_secret)
-
-    from app.services.ingestion.football_client import FootballClient
-    from app.services.ingestion.basketball_client import BasketballClient
-    from app.services.ingestion.tennis_client import TennisClient
-
-    since = (datetime.utcnow() - timedelta(days=14)).strftime("%Y-%m-%dT00:00:00Z")
-    results: Dict[str, Any] = {}
-
-    for sport, client_cls in [("football", FootballClient), ("basketball", BasketballClient), ("tennis", TennisClient)]:
-        client = client_cls()
-        table = f"{sport}_matches"
-        try:
-            rows = await asyncio.to_thread(
-                client.analytics.select_raw,
-                table,
-                f"select=*&status=not.in.(scheduled)&date_time=gte.{since}&order=date_time.desc&limit=500",
-            )
-        except Exception as e:
-            logger.error(f"Backfill fetch error ({sport}): {e}")
-            results[sport] = {"error": str(e)}
-            continue
-
-        synced = 0
-        for row in rows or []:
-            public_row = client._build_public_match(row)
-            if not public_row:
-                continue
-            try:
-                await asyncio.to_thread(client.public.upsert, "matches", [public_row], "api_sport_id,sport")
-                synced += 1
-            except Exception as e:
-                logger.error(f"Backfill sync error {sport} {row.get('api_id')}: {e}")
-
-        results[sport] = {"candidates": len(rows or []), "synced": synced}
-
-    return results
-
-
-@router.get("/_diag/finished-matches")
-async def _diag_finished_matches(x_internal_secret: Optional[str] = Header(None)):
-    """
-    TEMPORARY — read-only diagnostic for the "Finished tab is empty"
-    report. Queries public.matches (the same table/schema the dashboard's
-    client-side Supabase query reads) for status counts, grouped by date,
-    over the last 10 days. Remove once the root cause is confirmed.
-    """
-    _check_internal_secret(x_internal_secret)
-    settings = get_settings()
-    db = SupabaseREST(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY)
-
-    rows = await asyncio.to_thread(
-        db.select_raw,
-        "matches",
-        "select=id,sport,status,date_time,api_sport_id&order=date_time.desc&limit=500",
-    )
-    from collections import Counter
-    by_status = Counter(r.get("status") for r in rows or [])
-    by_date_status: Dict[str, Counter] = {}
-    for r in rows or []:
-        d = (r.get("date_time") or "")[:10]
-        by_date_status.setdefault(d, Counter())[r.get("status")] += 1
-
-    return {
-        "total_rows_fetched": len(rows or []),
-        "by_status": dict(by_status),
-        "by_date_status": {d: dict(c) for d, c in sorted(by_date_status.items(), reverse=True)},
-    }
