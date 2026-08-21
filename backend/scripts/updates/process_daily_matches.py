@@ -27,6 +27,8 @@ class DailyMatchOrchestrator:
     def __init__(self):
         settings = get_settings()
         self.db = SupabaseREST(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY, schema="analytics")
+        # public.matches — see FBMatchUpserter._sync_public (upsert_fb_data.py).
+        self.public_db = SupabaseREST(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY)
         self.sports = ["football", "basketball", "tennis"]
 
     async def run(self):
@@ -92,7 +94,7 @@ class DailyMatchOrchestrator:
         from upsert_tennis_data import TennisMatchUpserter
         from pipeline_tennis import run_tennis_pipeline
 
-        upserter = TennisMatchUpserter(self.db, api_key)
+        upserter = TennisMatchUpserter(self.db, api_key, public_db_client=self.public_db)
 
         for m in matches:
             api_id = m["api_id"]
@@ -126,7 +128,7 @@ class DailyMatchOrchestrator:
         upserter = FBMatchUpserter(self.db, {
             "football": settings.API_SPORTS_KEY,
             "basketball": settings.API_SPORTS_KEY
-        })
+        }, public_db_client=self.public_db)
 
         missing_stats_targets = []
 

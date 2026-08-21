@@ -28,6 +28,7 @@ logger = logging.getLogger("betix.fix_match")
 async def fix_match(sport: str, api_id: int):
     settings = get_settings()
     db = SupabaseREST(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY, schema="analytics")
+    public_db = SupabaseREST(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY)
 
     table = f"{sport}_matches"
 
@@ -45,7 +46,7 @@ async def fix_match(sport: str, api_id: int):
     upserter = FBMatchUpserter(db, {
         "football": settings.API_SPORTS_KEY,
         "basketball": settings.API_SPORTS_KEY,
-    })
+    }, public_db_client=public_db)
 
     try:
         is_finished = await upserter.process_match(sport, db_match)
