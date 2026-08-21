@@ -192,6 +192,65 @@ function H2HCard({ match }: { match: Match }) {
     );
 }
 
+// Fields the backend returns but that don't fit a home-vs-away numeric
+// bar (a streak like "3W", a boolean back-to-back flag) — shown separately
+// or not at all, rather than mis-rendered as 0 by parseFloat.
+const NON_COMPARABLE_STAT_KEYS = new Set(["date", "l5_streak", "is_b2b"]);
+
+// French source text per rolling-stat field key — see STAT_LABELS below
+// for why copy() is called per-lookup rather than pre-resolved here.
+const STAT_LABELS: Record<string, string> = {
+    // Football
+    l5_points: "Points Inscrits (L5)",
+    l5_ppm: "Points par Match (L5)",
+    l5_goals_for: "Buts marqués (L5)",
+    l5_goals_against: "Buts encaissés (L5)",
+    l5_xg_for: "Buts attendus - Pour (L5)",
+    l5_xg_against: "Buts attendus - Contre (L5)",
+    l5_xg_diff: "Différentiel de buts attendus (L5)",
+    l5_possession_avg: "Possession Moyenne",
+    l5_win_rate: "Taux de victoire (L5)",
+    l5_btts_rate: "Les deux équipes marquent (L5)",
+    l5_over25_rate: "Plus de 2.5 buts (L5)",
+    l5_shots_avg: "Tirs par match (L5)",
+    l5_corners_avg: "Corners par match (L5)",
+    l5_cards_avg: "Cartons par match (L5)",
+    l5_clean_sheets: "Clean sheets (L5)",
+    l5_pass_accuracy: "Précision des passes (L5)",
+    // Basketball
+    l5_ortg: "Rating Offensif (L5)",
+    l5_drtg: "Rating Défensif (L5)",
+    l5_net_rtg: "Rating Net (L5)",
+    l10_ortg: "Rating Offensif (L10)",
+    l10_drtg: "Rating Défensif (L10)",
+    l10_net_rtg: "Rating Net (L10)",
+    season_ortg: "Rating Offensif (Saison)",
+    season_drtg: "Rating Défensif (Saison)",
+    l5_pace: "Rythme de jeu (L5)",
+    l5_efg_pct: "Réussite aux tirs pondérée (L5)",
+    l5_tov_pct: "Pertes de balle (L5)",
+    l5_orb_pct: "Rebonds offensifs (L5)",
+    l5_ftr: "Lancers francs tentés (L5)",
+    l5_3pt_pct: "Réussite à 3 points (L5)",
+    l5_avg_margin: "Marge de victoire moyenne (L5)",
+    rest_days: "Jours de repos",
+    games_in_7_days: "Matchs sur 7 jours",
+    // Tennis
+    l10_aces_avg: "Aces Moy. (L10)",
+    l10_first_serve_pct: "1er Service (L10)",
+    l10_first_serve_won: "Points gagnés au 1er service (L10)",
+    l10_bp_saved_pct: "Balles de break sauvées (L10)",
+    l10_return_won_pct: "Points gagnés au retour (L10)",
+    l10_bp_converted_pct: "Balles de break converties (L10)",
+    l5_win_pct: "Taux de victoire (L5)",
+    l10_win_pct: "Taux de victoire (L10)",
+    season_win_pct: "Taux de victoire (Saison)",
+    days_since_last_match: "Jours depuis le dernier match",
+    fatigue_score: "Indice de fatigue",
+    sets_played_l7: "Sets joués (7 derniers jours)",
+    minutes_played_l7: "Minutes jouées (7 derniers jours)",
+};
+
 // Rolling-form comparison card — same AI-free data source as H2HCard above.
 function TrendsCard({ homeStats, awayStats }: { homeStats: Record<string, any>; awayStats: Record<string, any> }) {
     const { copy } = useI18n();
@@ -214,31 +273,14 @@ function TrendsCard({ homeStats, awayStats }: { homeStats: Record<string, any>; 
             </CardHeader>
             <CardContent className="space-y-6 pt-8 pb-10 px-8">
                 {Object.entries(homeStats).map(([key, value]) => {
-                    if (key === 'date') return null;
-                    // Human friendly labels for common stats
-                    const labels: Record<string, string> = {
-                        'l5_points': copy('Points Inscrits (L5)'),
-                        'l10_points': copy('Points Inscrits (L10)'),
-                        'l5_ortg': 'Offensive Rating (L5)',
-                        'l5_drtg': 'Defensive Rating (L5)',
-                        'l5_net_rtg': 'Net Rating (L5)',
-                        'l5_goals_for': copy('Buts marqués (L5)'),
-                        'l5_goals_against': copy('Buts encaissés (L5)'),
-                        'l5_xg_for': 'Ex. Goals For (L5)',
-                        'l5_xg_against': 'Ex. Goals Against (L5)',
-                        'l5_possession_avg': copy('Possession Moyenne'),
-                        'l10_aces_avg': copy('Aces Moy. (L10)'),
-                        'l10_first_serve_pct': copy('1er Service (L10)'),
-                        'l10_win_pct': 'Win Rate (L10)'
-                    };
-
+                    if (NON_COMPARABLE_STAT_KEYS.has(key)) return null;
                     return (
                         <StatBattle
                             key={key}
-                            label={labels[key] || key.replace(/_/g, ' ').toUpperCase()}
+                            label={STAT_LABELS[key] ? copy(STAT_LABELS[key]) : key.replace(/_/g, ' ').toUpperCase()}
                             homeValue={parseFloat(String(value)) || 0}
                             awayValue={parseFloat(String(awayStats[key])) || 0}
-                            showPercent={key.includes('pct') || key.includes('possession')}
+                            showPercent={key.includes('pct') || key.includes('possession') || key.includes('rate') || key.includes('accuracy')}
                         />
                     );
                 })}
@@ -269,7 +311,7 @@ function PreviewSection({ match, homeStats, awayStats }: { match: Match; homeSta
 // (backend/app/engine/batch_audit.py) covers the top-3 football leagues
 // automatically; every other match needs an explicit request. Never
 // triggered on page load — only this button calls requestOnDemandAudit.
-function GenerateAnalysisButton({ onGenerate, isSubmitting }: { onGenerate: () => void; isSubmitting: boolean }) {
+function GenerateAnalysisButton({ onGenerate, isSubmitting, lastFailed }: { onGenerate: () => void; isSubmitting: boolean; lastFailed?: boolean }) {
     const { copy } = useI18n();
     return (
         <div className="relative w-full rounded-2xl overflow-hidden border border-white/5 bg-gradient-to-br from-zinc-900/60 via-black/40 to-zinc-900/60">
@@ -300,6 +342,9 @@ function GenerateAnalysisButton({ onGenerate, isSubmitting }: { onGenerate: () =
                             ? copy("Notre IA se met au travail sur ce match — la page se met à jour automatiquement.")
                             : copy("Ce match n'a pas encore été analysé par notre IA. Appuyez sur le bouton pour lancer la génération.")}
                     </p>
+                    {!isSubmitting && lastFailed && (
+                        <p className="text-xs text-rose-400 font-medium pt-1">{copy("La dernière tentative a échoué. Réessayez.")}</p>
+                    )}
                 </div>
             </div>
         </div>
@@ -420,6 +465,7 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                         locked: (auditData as any).locked,
                         pending: (auditData as any).pending,
                         exists: (auditData as any).exists === true,
+                        lastFailed: (auditData as any).lastFailed === true,
                     } : undefined,
                     stats: statsData ? {
                         h2h: statsData.h2h,
@@ -607,14 +653,38 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                    analysis layout below, unchanged, just tab-scoped.
                    ═══════════════════════════════════════════════════ */
                 <Tabs defaultValue="preview" className="space-y-6 sm:space-y-8">
-                    <TabsList className="bg-black/40 border border-white/10 p-1.5 rounded-full gap-1 backdrop-blur-md h-auto w-fit">
-                        <TabsTrigger value="preview" className="rounded-full px-6 py-2.5 text-sm font-semibold text-muted-foreground transition-all data-[state=active]:bg-white/10 data-[state=active]:text-white data-[state=active]:shadow-inner">
+                    <TabsList className="bg-black/30 border border-white/10 p-2 rounded-2xl gap-2 backdrop-blur-md h-auto w-fit">
+                        <TabsTrigger
+                            value="preview"
+                            className={cn(
+                                "h-12 sm:h-14 px-6 sm:px-8 rounded-xl text-sm sm:text-base font-bold transition-all duration-300",
+                                "text-muted-foreground hover:text-white",
+                                "data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-[0_4px_24px_-6px_rgba(255,255,255,0.4)]"
+                            )}
+                        >
                             {copy("Aperçu")}
                         </TabsTrigger>
-                        <TabsTrigger value="ai" className="rounded-full px-6 py-2.5 text-sm font-semibold text-muted-foreground transition-all gap-2 data-[state=active]:bg-primary/20 data-[state=active]:text-primary data-[state=active]:border data-[state=active]:border-primary/40 data-[state=active]:shadow-[0_0_15px_-4px_rgba(124,58,237,0.5)]">
-                            <Sparkles className="size-3.5" />
-                            Betix AI
-                        </TabsTrigger>
+
+                        {/* Spinning gradient border nudges attention toward Betix AI —
+                            same visual language as the dashboard card's CTA (MatchCard.tsx) */}
+                        <div className="relative p-[2px] rounded-xl overflow-hidden shrink-0">
+                            <div
+                                className="absolute inset-[-100%] animate-[spin_3s_linear_infinite]"
+                                style={{ background: 'conic-gradient(from 90deg at 50% 50%, transparent 0%, transparent 45%, #9333ea 70%, #a855f7 100%)' }}
+                            />
+                            <TabsTrigger
+                                value="ai"
+                                className={cn(
+                                    "relative h-12 sm:h-14 px-6 sm:px-8 rounded-[10px] text-sm sm:text-base font-bold transition-all duration-300 gap-2",
+                                    "bg-neutral-950 text-white/70 hover:text-white",
+                                    "data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-purple-600",
+                                    "data-[state=active]:text-white data-[state=active]:shadow-[0_4px_24px_-6px_rgba(124,58,237,0.7)]"
+                                )}
+                            >
+                                <Sparkles className="size-4 sm:size-5" />
+                                Betix AI
+                            </TabsTrigger>
+                        </div>
                     </TabsList>
 
                     <TabsContent value="preview" className="mt-0">
@@ -783,7 +853,7 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                                                 </div>
                                             ) : !match.aiAudit?.exists ? (
                                                 <div className="space-y-3">
-                                                    <GenerateAnalysisButton onGenerate={handleGenerate} isSubmitting={isRequestingAudit} />
+                                                    <GenerateAnalysisButton onGenerate={handleGenerate} isSubmitting={isRequestingAudit} lastFailed={match.aiAudit?.lastFailed} />
                                                     {generateError && (
                                                         <p className="text-xs text-rose-400 text-center">{generateError}</p>
                                                     )}

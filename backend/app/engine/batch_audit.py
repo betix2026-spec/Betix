@@ -88,7 +88,15 @@ async def submit_pending_batch(db: SupabaseREST, targets: List[Tuple[str, int]])
         snapshots = [m.get("snapshot_at") for m in odds_ctx.values() if m.get("snapshot_at")]
         snapshot_at = max(snapshots) if snapshots else None
 
-        custom_id = f"{sport}:{match_id}"
+        # Anthropic requires custom_id to match ^[a-zA-Z0-9_-]{1,64}$ — a
+        # colon separator (the original choice here) is rejected outright,
+        # confirmed in production: every batch submission since deploy
+        # failed at request-validation time, before even reaching Anthropic's
+        # queue (2026-08-21 logs, "requests.0.custom_id: String should match
+        # pattern"). custom_id is only ever used as an opaque lookup key
+        # (see tracking_by_id in poll_and_ingest_batches) — nothing parses
+        # it back apart — so the separator choice itself was the only bug.
+        custom_id = f"{sport}-{match_id}"
         requests.append(Request(
             custom_id=custom_id,
             params=MessageCreateParamsNonStreaming(

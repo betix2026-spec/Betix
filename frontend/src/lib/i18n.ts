@@ -2398,6 +2398,41 @@ const literalTranslations: Record<string, Partial<Record<Locale, string>>> = {
         es: "El modelo no generó un argumento detallado para esta selección, pero detectó un patrón estadístico favorable basado en el historial reciente y el modelo ELO.",
         de: "Das Modell hat für diese Auswahl keine ausführliche Begründung erstellt, aber auf Basis jüngerer Historie und ELO-Modellierung ein günstiges Muster gefunden.",
     },
+    "Analyse non générée": {
+        en: "Analysis not generated yet",
+        es: "Análisis aún no generado",
+        de: "Analyse noch nicht erstellt",
+    },
+    "Lancement de l'analyse...": {
+        en: "Starting the analysis...",
+        es: "Iniciando el análisis...",
+        de: "Analyse wird gestartet...",
+    },
+    "Ce match n'a pas encore été analysé par notre IA. Appuyez sur le bouton pour lancer la génération.": {
+        en: "This match hasn't been analyzed by our AI yet. Tap the button to start the generation.",
+        es: "Este partido aún no ha sido analizado por nuestra IA. Pulsa el botón para iniciar la generación.",
+        de: "Dieses Spiel wurde noch nicht von unserer KI analysiert. Tippe auf die Schaltfläche, um die Erstellung zu starten.",
+    },
+    "Notre IA se met au travail sur ce match — la page se met à jour automatiquement.": {
+        en: "Our AI is working on this match — the page will update automatically.",
+        es: "Nuestra IA está trabajando en este partido — la página se actualizará automáticamente.",
+        de: "Unsere KI arbeitet gerade an diesem Spiel — die Seite aktualisiert sich automatisch.",
+    },
+    "Vous avez atteint votre quota d'analyses à la demande pour aujourd'hui. Réessayez plus tard.": {
+        en: "You've reached your on-demand analysis limit for today. Try again later.",
+        es: "Has alcanzado tu límite de análisis bajo demanda por hoy. Vuelve a intentarlo más tarde.",
+        de: "Du hast dein Limit für Analysen auf Abruf für heute erreicht. Versuche es später erneut.",
+    },
+    "Impossible de lancer l'analyse pour le moment. Réessayez dans un instant.": {
+        en: "Couldn't start the analysis right now. Try again in a moment.",
+        es: "No se pudo iniciar el análisis en este momento. Inténtalo de nuevo en un momento.",
+        de: "Die Analyse konnte gerade nicht gestartet werden. Versuche es gleich noch einmal.",
+    },
+    "La dernière tentative a échoué. Réessayez.": {
+        en: "The last attempt failed. Try again.",
+        es: "El último intento falló. Inténtalo de nuevo.",
+        de: "Der letzte Versuch ist fehlgeschlagen. Versuche es erneut.",
+    },
     "Analyse en préparation": {
         en: "Analysis in preparation",
         es: "Análisis en preparación",
@@ -2472,6 +2507,201 @@ const literalTranslations: Record<string, Partial<Record<Locale, string>>> = {
         en: "First serve (L10)",
         es: "Primer servicio (L10)",
         de: "Erster Aufschlag (L10)",
+    },
+    "Points par Match (L5)": {
+        en: "Points per match (L5)",
+        es: "Puntos por partido (L5)",
+        de: "Punkte pro Spiel (L5)",
+    },
+    "Buts attendus - Pour (L5)": {
+        en: "Expected goals for (L5)",
+        es: "Goles esperados a favor (L5)",
+        de: "Erwartete Tore (L5)",
+    },
+    "Buts attendus - Contre (L5)": {
+        en: "Expected goals against (L5)",
+        es: "Goles esperados en contra (L5)",
+        de: "Erwartete Gegentore (L5)",
+    },
+    "Différentiel de buts attendus (L5)": {
+        en: "Expected goal difference (L5)",
+        es: "Diferencia de goles esperados (L5)",
+        de: "Erwartete Tordifferenz (L5)",
+    },
+    "Taux de victoire (L5)": {
+        en: "Win rate (L5)",
+        es: "Tasa de victorias (L5)",
+        de: "Siegquote (L5)",
+    },
+    "Les deux équipes marquent (L5)": {
+        en: "Both teams score (L5)",
+        es: "Ambos equipos marcan (L5)",
+        de: "Beide Teams treffen (L5)",
+    },
+    "Plus de 2.5 buts (L5)": {
+        en: "Over 2.5 goals (L5)",
+        es: "Más de 2.5 goles (L5)",
+        de: "Über 2,5 Tore (L5)",
+    },
+    "Tirs par match (L5)": {
+        en: "Shots per match (L5)",
+        es: "Tiros por partido (L5)",
+        de: "Schüsse pro Spiel (L5)",
+    },
+    "Corners par match (L5)": {
+        en: "Corners per match (L5)",
+        es: "Córners por partido (L5)",
+        de: "Ecken pro Spiel (L5)",
+    },
+    "Cartons par match (L5)": {
+        en: "Cards per match (L5)",
+        es: "Tarjetas por partido (L5)",
+        de: "Karten pro Spiel (L5)",
+    },
+    "Clean sheets (L5)": {
+        en: "Clean sheets (L5)",
+        es: "Portería a cero (L5)",
+        de: "Zu-Null-Spiele (L5)",
+    },
+    "Précision des passes (L5)": {
+        en: "Pass accuracy (L5)",
+        es: "Precisión de pase (L5)",
+        de: "Passgenauigkeit (L5)",
+    },
+    "Rating Offensif (L5)": {
+        en: "Offensive rating (L5)",
+        es: "Rating ofensivo (L5)",
+        de: "Offensiv-Rating (L5)",
+    },
+    "Rating Défensif (L5)": {
+        en: "Defensive rating (L5)",
+        es: "Rating defensivo (L5)",
+        de: "Defensiv-Rating (L5)",
+    },
+    "Rating Net (L5)": {
+        en: "Net rating (L5)",
+        es: "Rating neto (L5)",
+        de: "Netto-Rating (L5)",
+    },
+    "Rating Offensif (L10)": {
+        en: "Offensive rating (L10)",
+        es: "Rating ofensivo (L10)",
+        de: "Offensiv-Rating (L10)",
+    },
+    "Rating Défensif (L10)": {
+        en: "Defensive rating (L10)",
+        es: "Rating defensivo (L10)",
+        de: "Defensiv-Rating (L10)",
+    },
+    "Rating Net (L10)": {
+        en: "Net rating (L10)",
+        es: "Rating neto (L10)",
+        de: "Netto-Rating (L10)",
+    },
+    "Rating Offensif (Saison)": {
+        en: "Offensive rating (Season)",
+        es: "Rating ofensivo (Temporada)",
+        de: "Offensiv-Rating (Saison)",
+    },
+    "Rating Défensif (Saison)": {
+        en: "Defensive rating (Season)",
+        es: "Rating defensivo (Temporada)",
+        de: "Defensiv-Rating (Saison)",
+    },
+    "Rythme de jeu (L5)": {
+        en: "Pace (L5)",
+        es: "Ritmo de juego (L5)",
+        de: "Spieltempo (L5)",
+    },
+    "Réussite aux tirs pondérée (L5)": {
+        en: "Effective field goal % (L5)",
+        es: "% de tiro efectivo (L5)",
+        de: "Effektive Wurfquote (L5)",
+    },
+    "Pertes de balle (L5)": {
+        en: "Turnover rate (L5)",
+        es: "Tasa de pérdidas (L5)",
+        de: "Ballverlustquote (L5)",
+    },
+    "Rebonds offensifs (L5)": {
+        en: "Offensive rebound rate (L5)",
+        es: "Rebotes ofensivos (L5)",
+        de: "Offensivrebounds (L5)",
+    },
+    "Lancers francs tentés (L5)": {
+        en: "Free throw rate (L5)",
+        es: "Tasa de tiros libres (L5)",
+        de: "Freiwurfquote (L5)",
+    },
+    "Réussite à 3 points (L5)": {
+        en: "3-point % (L5)",
+        es: "% de triples (L5)",
+        de: "3-Punkte-Quote (L5)",
+    },
+    "Marge de victoire moyenne (L5)": {
+        en: "Average margin (L5)",
+        es: "Margen medio de victoria (L5)",
+        de: "Durchschn. Siegmarge (L5)",
+    },
+    "Jours de repos": {
+        en: "Rest days",
+        es: "Días de descanso",
+        de: "Ruhetage",
+    },
+    "Matchs sur 7 jours": {
+        en: "Games in 7 days",
+        es: "Partidos en 7 días",
+        de: "Spiele in 7 Tagen",
+    },
+    "Points gagnés au 1er service (L10)": {
+        en: "Points won on 1st serve (L10)",
+        es: "Puntos ganados al 1er servicio (L10)",
+        de: "Gewonnene Punkte 1. Aufschlag (L10)",
+    },
+    "Balles de break sauvées (L10)": {
+        en: "Break points saved (L10)",
+        es: "Puntos de rotura salvados (L10)",
+        de: "Abgewehrte Breakbälle (L10)",
+    },
+    "Points gagnés au retour (L10)": {
+        en: "Points won on return (L10)",
+        es: "Puntos ganados al resto (L10)",
+        de: "Gewonnene Punkte Return (L10)",
+    },
+    "Balles de break converties (L10)": {
+        en: "Break points converted (L10)",
+        es: "Puntos de rotura convertidos (L10)",
+        de: "Verwandelte Breakbälle (L10)",
+    },
+    "Taux de victoire (L10)": {
+        en: "Win rate (L10)",
+        es: "Tasa de victorias (L10)",
+        de: "Siegquote (L10)",
+    },
+    "Taux de victoire (Saison)": {
+        en: "Win rate (Season)",
+        es: "Tasa de victorias (Temporada)",
+        de: "Siegquote (Saison)",
+    },
+    "Jours depuis le dernier match": {
+        en: "Days since last match",
+        es: "Días desde el último partido",
+        de: "Tage seit letztem Spiel",
+    },
+    "Indice de fatigue": {
+        en: "Fatigue index",
+        es: "Índice de fatiga",
+        de: "Ermüdungsindex",
+    },
+    "Sets joués (7 derniers jours)": {
+        en: "Sets played (last 7 days)",
+        es: "Sets jugados (últimos 7 días)",
+        de: "Gespielte Sätze (letzte 7 Tage)",
+    },
+    "Minutes jouées (7 derniers jours)": {
+        en: "Minutes played (last 7 days)",
+        es: "Minutos jugados (últimos 7 días)",
+        de: "Gespielte Minuten (letzte 7 Tage)",
     },
     "Abonnements": {
         en: "Subscriptions",

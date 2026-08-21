@@ -17,7 +17,7 @@ from typing import Any, Dict, Optional
 from app.config import get_settings
 from app.services.ingestion.base_client import SupabaseREST
 from app.engine.audit_orchestration import ensure_audit
-from scripts.updates.match_audit_script import run_audit, filter_essential_stats, LIVE_RUN_ID
+from scripts.updates.match_audit_script import run_audit, filter_display_stats, LIVE_RUN_ID
 
 logger = logging.getLogger("betix.audits_router")
 
@@ -97,10 +97,8 @@ async def match_stats_endpoint(
 ):
     """
     Read-only aggregated stats (H2H, rolling form, odds) for a match — no AI
-    call, no ai_match_audits read/write. Powers the "match details" view for
-    fixtures outside the AI-analysis scope/window (see tier_scope.py):
-    unlike ai_analysis, these raw stats are already collected for every
-    match regardless of tier, so there's no cost reason to gate them.
+    call, no ai_match_audits read/write. Powers the Preview tab, which
+    renders identically regardless of AI state.
     """
     _check_internal_secret(x_internal_secret)
 
@@ -109,12 +107,18 @@ async def match_stats_endpoint(
 
     from app.engine.data_aggregation import get_match_raw_context
 
-    context = await get_match_raw_context(sport, match_id)
+    # include_injuries=False: this endpoint never returns injuries (see
+    # MatchStatsResponse below), so there's no reason to pay for
+    # fetch_injuries' live, 10s-timeout API-Football call on every single
+    # page view — that call was the real cause of the page's slow load.
+    context = await get_match_raw_context(sport, match_id, include_injuries=False)
     if not context or not context.get("match"):
         raise HTTPException(status_code=404, detail="Match not found")
 
     return MatchStatsResponse(
         h2h=context.get("h2h"),
-        rolling_stats=filter_essential_stats(sport, context),
+        # The fuller field set (not the AI-archival essential_stats subset)
+        # — everything already collected, actually shown to the user now.
+        rolling_stats=filter_display_stats(sport, context),
         odds=context.get("odds"),
     )

@@ -37,39 +37,73 @@ LIVE_RUN_ID = "live"
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("betix.audit_script")
 
+def _latest_rolling_snapshot(sport: str, context: Dict[str, Any], side: str, keys: list) -> Dict[str, Any]:
+    if sport == "tennis":
+        side_key = "player1" if side == "home" else "player2"
+        raw_form = context.get("rolling", {}).get(side_key, {}).get("overall", [])
+    else:
+        raw_form = context.get("form", {}).get(side, {}).get("global", [])
+
+    if not raw_form:
+        return {}
+    latest = raw_form[0]  # Most recent
+    result = {k: latest.get(k) for k in keys if k in latest}
+    result["date"] = latest.get("date")
+    return result
+
+
+# Headline subset only — keeps the ai_match_audits.rolling_stats JSON lean.
+# See DISPLAY_KEYS_BY_SPORT below for the fuller set used by the Preview
+# tab, which has no storage-size concern (nothing gets persisted from it).
+ESSENTIAL_KEYS_BY_SPORT = {
+    "basketball": ["l5_ortg", "l5_drtg", "l5_net_rtg", "l5_pace", "l5_efg_pct", "l10_ortg", "l10_drtg"],
+    "football": ["l5_goals_for", "l5_goals_against", "l5_xg_for", "l5_xg_against", "l5_possession_avg", "l5_points"],
+    "tennis": ["l10_aces_avg", "l10_first_serve_pct", "l10_first_serve_won", "l10_bp_saved_pct", "l10_return_won_pct", "l10_bp_converted_pct"],
+}
+
+# The full field set already fetched and already fed to the AI prompt (see
+# data_aggregation.py's _format_team_form / _format_tennis_player) — just
+# never previously exposed to the read-only /stats endpoint, which is why
+# the Preview tab looked sparse: it was rendering the AI-archival subset,
+# not what's actually collected.
+DISPLAY_KEYS_BY_SPORT = {
+    "basketball": [
+        "l5_ortg", "l5_drtg", "l5_net_rtg", "l5_pace", "l5_efg_pct", "l5_tov_pct", "l5_orb_pct",
+        "l5_ftr", "l5_3pt_pct", "l5_win_rate", "l5_avg_margin", "l5_streak",
+        "l10_ortg", "l10_drtg", "l10_net_rtg", "season_ortg", "season_drtg",
+        "rest_days", "is_b2b", "games_in_7_days",
+    ],
+    "football": [
+        "l5_goals_for", "l5_goals_against", "l5_xg_for", "l5_xg_against", "l5_xg_diff",
+        "l5_possession_avg", "l5_points", "l5_ppm", "l5_win_rate", "l5_btts_rate", "l5_over25_rate",
+        "l5_shots_avg", "l5_corners_avg", "l5_cards_avg", "l5_clean_sheets", "l5_pass_accuracy", "l5_streak",
+    ],
+    "tennis": [
+        "l10_aces_avg", "l10_first_serve_pct", "l10_first_serve_won", "l10_bp_saved_pct",
+        "l10_return_won_pct", "l10_bp_converted_pct", "l5_win_pct", "l10_win_pct", "season_win_pct",
+        "days_since_last_match", "fatigue_score", "sets_played_l7", "minutes_played_l7",
+    ],
+}
+
+
 def filter_essential_stats(sport: str, context: Dict[str, Any]) -> Dict[str, Any]:
     """
     Filters the context down to the 'headline' stats only, to keep the
-    JSON archive lean while preserving the substance of the audit.
+    ai_match_audits.rolling_stats JSON archive lean while preserving the
+    substance of the audit.
     """
-    filtered = {
-        "home": {},
-        "away": {}
-    }
+    keys = ESSENTIAL_KEYS_BY_SPORT.get(sport, [])
+    return {side: _latest_rolling_snapshot(sport, context, side, keys) for side in ("home", "away")}
 
-    # Key stats mapping per sport
-    keys_by_sport = {
-        "basketball": ["l5_ortg", "l5_drtg", "l5_net_rtg", "l5_pace", "l5_efg_pct", "l10_ortg", "l10_drtg"],
-        "football": ["l5_goals_for", "l5_goals_against", "l5_xg_for", "l5_xg_against", "l5_possession_avg", "l5_points"],
-        "tennis": ["l10_aces_avg", "l10_first_serve_pct", "l10_first_serve_won", "l10_bp_saved_pct", "l10_return_won_pct", "l10_bp_converted_pct"]
-    }
 
-    keys = keys_by_sport.get(sport, [])
-
-    # Get the "global" (all venues) view from the latest rolling snapshot
-    for side in ["home", "away"]:
-        if sport == "tennis":
-            side_key = "player1" if side == "home" else "player2"
-            raw_form = context.get("rolling", {}).get(side_key, {}).get("overall", [])
-        else:
-            raw_form = context.get("form", {}).get(side, {}).get("global", [])
-
-        if raw_form:
-            latest = raw_form[0] # Most recent
-            filtered[side] = {k: latest.get(k) for k in keys if k in latest}
-            filtered[side]["date"] = latest.get("date")
-
-    return filtered
+def filter_display_stats(sport: str, context: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    The fuller field set for the Preview tab's read-only /stats endpoint —
+    everything already fetched and already used in the AI prompt, just not
+    trimmed down for archival size the way filter_essential_stats is.
+    """
+    keys = DISPLAY_KEYS_BY_SPORT.get(sport, [])
+    return {side: _latest_rolling_snapshot(sport, context, side, keys) for side in ("home", "away")}
 
 async def run_audit(
     sport: str,
