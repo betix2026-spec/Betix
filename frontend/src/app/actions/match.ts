@@ -108,7 +108,7 @@ export async function getMatchStatsOnly(apiId: string, sport: string) {
             cache: "no-store",
         });
         if (!res.ok) return null;
-        return await res.json() as { h2h: unknown; rolling_stats: unknown; odds: unknown };
+        return await res.json() as { h2h: unknown; rolling_stats: unknown; odds: unknown; match_info: unknown; injuries: unknown; form: unknown };
     } catch (e) {
         console.error("[getMatchStatsOnly] Failed to reach backend:", e);
         return null;

@@ -91,12 +91,16 @@ export interface Match {
         // button say so instead of looking identical to never-attempted.
         lastFailed?: boolean;
     };
-    // Read-only stats (H2H, rolling form, odds) fetched independently of the
-    // AI audit — see app/actions/match.ts::getMatchStatsOnly. Always
-    // available (no tier/window restriction), unlike aiAudit.
+    // Read-only stats (H2H, rolling form, odds, match info, injuries, real
+    // per-match form) fetched independently of the AI audit — see
+    // app/actions/match.ts::getMatchStatsOnly. Always available (no tier/
+    // window restriction), unlike aiAudit.
     stats?: {
         h2h: any;
         rolling_stats: any;
         odds: any;
+        match_info?: any;
+        injuries?: any;
+        form?: any;
     };
 }

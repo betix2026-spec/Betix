@@ -9,6 +9,7 @@ secret so it can't be called directly by a client, which would recreate
 exactly the cost problem this engine was built to eliminate.
 """
 
+import asyncio
 import logging
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException
 from pydantic import BaseModel
@@ -35,6 +36,12 @@ class MatchStatsResponse(BaseModel):
     h2h: Optional[Dict[str, Any]] = None
     rolling_stats: Optional[Dict[str, Any]] = None
     odds: Optional[Dict[str, Any]] = None
+    match_info: Optional[Dict[str, Any]] = None
+    injuries: Optional[Dict[str, Any]] = None
+    # {"home": ["W","L","D",...], "away": [...]} — most recent first, real
+    # match-by-match results (see fetch_team_form_sequence), not the
+    # rolling table's single streak string.
+    form: Optional[Dict[str, Any]] = None
 
 
 def _check_internal_secret(x_internal_secret: Optional[str]) -> None:
@@ -96,24 +103,46 @@ async def match_stats_endpoint(
     x_internal_secret: Optional[str] = Header(None),
 ):
     """
-    Read-only aggregated stats (H2H, rolling form, odds) for a match — no AI
-    call, no ai_match_audits read/write. Powers the Preview tab, which
-    renders identically regardless of AI state.
+    Read-only aggregated stats (H2H, rolling form, odds, match info,
+    injuries, real per-match form) for a match — no AI call, no
+    ai_match_audits read/write. Powers the Preview tab, which renders
+    identically regardless of AI state.
     """
     _check_internal_secret(x_internal_secret)
 
     if sport not in VALID_SPORTS:
         raise HTTPException(status_code=400, detail=f"Invalid sport: {sport}")
 
-    from app.engine.data_aggregation import get_match_raw_context
+    from app.engine.data_aggregation import get_match_raw_context, fetch_team_form_sequence
 
-    # include_injuries=False: this endpoint never returns injuries (see
-    # MatchStatsResponse below), so there's no reason to pay for
-    # fetch_injuries' live, 10s-timeout API-Football call on every single
-    # page view — that call was the real cause of the page's slow load.
-    context = await get_match_raw_context(sport, match_id, include_injuries=False)
+    # include_injuries=True: the Preview tab now shows injuries directly
+    # (fetch_injuries is cached with a TTL — see data_aggregation.py's
+    # _INJURIES_CACHE — so this doesn't reintroduce the live-API-on-every-
+    # page-load lag that was fixed earlier by turning it off entirely).
+    context = await get_match_raw_context(sport, match_id, include_injuries=True)
     if not context or not context.get("match"):
         raise HTTPException(status_code=404, detail="Match not found")
+
+    match_raw = context.get("match") or {}
+    teams = context.get("teams") or {}
+    home_team_id = (teams.get("home") or {}).get("id")
+    away_team_id = (teams.get("away") or {}).get("id")
+    match_date = match_raw.get("date_time")
+
+    form = None
+    if sport != "tennis" and home_team_id and away_team_id and match_date:
+        home_form, away_form = await asyncio.gather(
+            fetch_team_form_sequence(sport, home_team_id, match_date),
+            fetch_team_form_sequence(sport, away_team_id, match_date),
+        )
+        form = {"home": home_form, "away": away_form}
+
+    match_info = {
+        "venue": match_raw.get("venue"),
+        "date_time": match_raw.get("date_time"),
+        "round": match_raw.get("round"),
+        "referee_name": match_raw.get("referee_name"),
+    }
 
     return MatchStatsResponse(
         h2h=context.get("h2h"),
@@ -121,4 +150,7 @@ async def match_stats_endpoint(
         # — everything already collected, actually shown to the user now.
         rolling_stats=filter_display_stats(sport, context),
         odds=context.get("odds"),
+        match_info=match_info,
+        injuries=context.get("injuries"),
+        form=form,
     )
