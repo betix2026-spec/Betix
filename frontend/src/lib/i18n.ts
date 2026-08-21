@@ -2403,6 +2403,56 @@ const literalTranslations: Record<string, Partial<Record<Locale, string>>> = {
         es: "Análisis aún no generado",
         de: "Analyse noch nicht erstellt",
     },
+    "Arbitre": {
+        en: "Referee",
+        es: "Árbitro",
+        de: "Schiedsrichter",
+    },
+    "Lieu": {
+        en: "Venue",
+        es: "Lugar",
+        de: "Austragungsort",
+    },
+    "Journée": {
+        en: "Matchday",
+        es: "Jornada",
+        de: "Spieltag",
+    },
+    "Coup d'envoi": {
+        en: "Kickoff",
+        es: "Inicio",
+        de: "Anstoß",
+    },
+    "Informations du Match": {
+        en: "Match Info",
+        es: "Información del Partido",
+        de: "Spielinformationen",
+    },
+    "Forme (5 derniers)": {
+        en: "Form (last 5)",
+        es: "Forma (últimos 5)",
+        de: "Form (letzte 5)",
+    },
+    "Statistiques Clés": {
+        en: "Key Stats",
+        es: "Estadísticas Clave",
+        de: "Wichtige Statistiken",
+    },
+    "Statistiques Avancées": {
+        en: "Advanced Stats",
+        es: "Estadísticas Avanzadas",
+        de: "Erweiterte Statistiken",
+    },
+    "Blessures & Absences": {
+        en: "Injuries & Absences",
+        es: "Lesiones y Ausencias",
+        de: "Verletzungen & Ausfälle",
+    },
+    "Aucune absence connue": {
+        en: "No known absences",
+        es: "Sin ausencias conocidas",
+        de: "Keine bekannten Ausfälle",
+    },
     "Cotes du Marché": {
         en: "Market Odds",
         es: "Cuotas del Mercado",

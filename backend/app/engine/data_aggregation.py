@@ -2,6 +2,7 @@
 import asyncio
 import logging
 import json
+import time
 import httpx
 from typing import Dict, Any, Optional, List
 from datetime import datetime
@@ -13,6 +14,18 @@ from app.services.ingestion.base_client import SupabaseREST
 logger = logging.getLogger(__name__)
 
 NEUTRAL_VENUE_LEAGUE_IDS = {87, 93, 97, 98, 101, 104, 109, 118}
+
+# In-process cache for fetch_injuries' live API-Football call — the Preview
+# tab now displays injuries (previously skipped there entirely for speed,
+# see include_injuries), and re-hitting a live, uncached external API on
+# every single page view would reintroduce the exact multi-second lag that
+# was already fixed once tonight. Injury news doesn't change second to
+# second, so a short TTL is enough to make repeat views fast without
+# serving badly stale data. Keyed by (sport, match_id); process-local, so
+# it resets on deploy/restart — acceptable, a cold cache just costs one
+# slow request per match, same as before this existed.
+_INJURIES_CACHE: Dict[tuple, tuple] = {}
+INJURIES_CACHE_TTL_SECONDS = 20 * 60
 
 
 async def _empty_list() -> list:
@@ -794,7 +807,62 @@ class DataAggregator:
             return None
         return {"home": home_elo, "away": away_elo}
 
+    async def fetch_team_form_sequence(self, sport: str, team_id: int, before_date: str, count: int = 5) -> List[str]:
+        """
+        Real match-by-match results ("W"/"D"/"L", most recent first) for one
+        team's last `count` finished matches — any opponent, not just H2H.
+        Distinct from the rolling table's l5_streak (current streak length
+        only, e.g. "3W") — this is the actual per-match sequence the
+        Preview tab's "Key Stats" form row shows.
+        """
+        if sport == "tennis":
+            return []  # no draws, and win/loss already covered by rolling win%; not requested here
+
+        table = f"{sport}_matches"
+        rows = await asyncio.to_thread(
+            self.db.select_raw,
+            table,
+            "select=home_team_id,away_team_id,home_score,away_score"
+            f"&status=eq.finished"
+            f"&date_time=lt.{before_date}"
+            f"&or=(home_team_id.eq.{team_id},away_team_id.eq.{team_id})"
+            f"&order=date_time.desc"
+            f"&limit={count}",
+        )
+
+        results = []
+        for row in rows or []:
+            home_score = row.get("home_score")
+            away_score = row.get("away_score")
+            if home_score is None or away_score is None:
+                continue
+            is_home = row.get("home_team_id") == team_id
+            team_score = home_score if is_home else away_score
+            opp_score = away_score if is_home else home_score
+            if team_score > opp_score:
+                results.append("W")
+            elif team_score < opp_score:
+                results.append("L")
+            else:
+                results.append("D")
+        return results
+
     async def fetch_injuries(self, sport: str, match_id: int) -> Dict[str, List[Any]]:
+        """Cached wrapper around _fetch_injuries_live — see _INJURIES_CACHE."""
+        empty = {"home": [], "away": []}
+        if sport != "football":
+            return empty
+
+        cache_key = (sport, match_id)
+        cached = _INJURIES_CACHE.get(cache_key)
+        if cached and (time.time() - cached[0]) < INJURIES_CACHE_TTL_SECONDS:
+            return cached[1]
+
+        result = await self._fetch_injuries_live(sport, match_id)
+        _INJURIES_CACHE[cache_key] = (time.time(), result)
+        return result
+
+    async def _fetch_injuries_live(self, sport: str, match_id: int) -> Dict[str, List[Any]]:
         """
         Football only — no confirmed API-Basketball injuries endpoint exists
         (or is referenced anywhere in this codebase); rather than guess at
@@ -802,17 +870,13 @@ class DataAggregator:
         confirmed, same as before this method did anything at all.
 
         Live fetch (not pre-ingested/stored) — injury news changes right up
-        to kickoff, and this only runs at analysis-generation time (proactive
-        pass within ~24h of kickoff, or on-demand), not on every dashboard
-        page load, so the extra API call is bounded and the data is always
-        as fresh as it can be.
+        to kickoff. Cached by fetch_injuries() above with a short TTL so
+        repeat page views don't each pay for a fresh live API call.
 
         Returns pre-formatted strings (e.g. "Messi (out, hamstring)"), matching
         what _format_team_form()'s ', '.join(injuries) already expects.
         """
         empty = {"home": [], "away": []}
-        if sport != "football":
-            return empty
 
         try:
             match_rows = await asyncio.to_thread(
@@ -1006,6 +1070,10 @@ async def get_match_context(sport: str, match_id: int) -> str:
 async def get_match_raw_context(sport: str, match_id: int, include_injuries: bool = True) -> Dict[str, Any]:
     """Returns the RAW data dictionary (Archiving Ready)."""
     return await _aggregator.get_match_raw_context(sport, match_id, include_injuries=include_injuries)
+
+async def fetch_team_form_sequence(sport: str, team_id: int, before_date: str, count: int = 5) -> List[str]:
+    """Real match-by-match W/D/L results for one team, most recent first."""
+    return await _aggregator.fetch_team_form_sequence(sport, team_id, before_date, count=count)
 
 def format_context(sport: str, raw_context: Dict[str, Any]) -> str:
     """Formats raw data into a text report."""

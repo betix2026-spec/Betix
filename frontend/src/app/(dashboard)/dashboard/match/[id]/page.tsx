@@ -376,86 +376,223 @@ function OddsCard({ match }: { match: Match }) {
     );
 }
 
-function parseStreak(streak: unknown): { count: number; result: "W" | "D" | "L" } | null {
-    if (!streak || typeof streak !== "string") return null;
-    const m = streak.match(/^(\d+)\s*([WDL])$/i);
-    if (!m) return null;
-    return { count: parseInt(m[1], 10), result: m[2].toUpperCase() as "W" | "D" | "L" };
+// A single stat, shown as two plain numbers either side of a label — no
+// progress-fill bar. A bar's fill width implies a bounded 0-100%-style
+// proportion, which is misleading for arbitrary-scale stats like goals or
+// corners; a plain number is unambiguous and reads faster.
+function StatPair({ label, homeValue, awayValue, suffix = "" }: { label: string; homeValue: number | string | null | undefined; awayValue: number | string | null | undefined; suffix?: string }) {
+    const fmt = (v: number | string | null | undefined) => (v === null || v === undefined || v === "" ? "—" : `${v}${suffix}`);
+    return (
+        <div className="flex items-center justify-between py-3 border-b border-white/5 last:border-b-0">
+            <span className="text-base font-bold text-white w-16 shrink-0 text-left tabular-nums">{fmt(homeValue)}</span>
+            <span className="text-[11px] font-semibold text-white/40 uppercase tracking-wider text-center flex-1 px-2">{label}</span>
+            <span className="text-base font-bold text-white w-16 shrink-0 text-right tabular-nums">{fmt(awayValue)}</span>
+        </div>
+    );
 }
 
-// l5_streak was already collected (see DISPLAY_KEYS_BY_SPORT) but excluded
-// from the generic stat-row loop below since it's a string, not a
-// home-vs-away number — surfaced here instead, as an actual form badge,
-// rather than silently dropped.
-function FormCard({ match, homeStats, awayStats }: { match: Match; homeStats: Record<string, any>; awayStats: Record<string, any> }) {
-    const { copy } = useI18n();
-    const homeStreak = parseStreak(homeStats?.l5_streak);
-    const awayStreak = parseStreak(awayStats?.l5_streak);
+// Real match-by-match results (see backend fetch_team_form_sequence),
+// most recent first — not the rolling table's single streak string.
+function FormPills({ results }: { results?: string[] }) {
+    if (!results || results.length === 0) {
+        return <span className="text-xs text-zinc-600">—</span>;
+    }
+    return (
+        <div className="flex items-center gap-1">
+            {results.map((r, i) => (
+                <span
+                    key={i}
+                    className={cn(
+                        "size-6 rounded-md flex items-center justify-center text-[10px] font-black shrink-0",
+                        r === "W" ? "bg-emerald-500/20 text-emerald-400" : r === "L" ? "bg-rose-500/20 text-rose-400" : "bg-white/10 text-white/50"
+                    )}
+                >
+                    {r}
+                </span>
+            ))}
+        </div>
+    );
+}
 
-    const streakStyle = (result?: "W" | "D" | "L") =>
-        result === "W"
-            ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
-            : result === "L"
-                ? "bg-rose-500/15 text-rose-400 border-rose-500/30"
-                : "bg-white/5 text-white/50 border-white/10";
-    const streakLabel = (result?: "W" | "D" | "L") =>
-        result === "W" ? copy("Victoires") : result === "L" ? copy("Défaites") : copy("Nuls");
-
+function SectionCard({ icon, iconClass, title, children }: { icon: React.ReactNode; iconClass: string; title: string; children: React.ReactNode }) {
     return (
         <Card className="bg-black/20 border-white/5 backdrop-blur-sm overflow-hidden relative opacity-90 transition-opacity hover:opacity-100">
             <div className="absolute inset-0 bg-gradient-to-br from-white/[0.02] to-transparent pointer-events-none" />
             <CardHeader className="border-b border-white/5 bg-white/[0.01] p-4">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <div className="p-1.5 rounded-md bg-emerald-500/10 text-emerald-400">
-                        <Activity className="size-3.5" />
-                    </div>
-                    {copy("Forme Actuelle")}
+                    <div className={cn("p-1.5 rounded-md", iconClass)}>{icon}</div>
+                    {title}
                 </CardTitle>
             </CardHeader>
-            <CardContent className="pt-8 pb-10 px-8">
-                <div className="grid grid-cols-2 gap-8">
-                    <div className="flex flex-col items-center gap-3 text-center">
-                        <span className="text-xs font-bold text-white/60 uppercase tracking-widest truncate max-w-full">{match.homeTeam.name}</span>
-                        {homeStreak ? (
-                            <span className={cn("px-4 py-1.5 rounded-full border text-sm font-black", streakStyle(homeStreak.result))}>
-                                {homeStreak.count} {streakLabel(homeStreak.result)}
-                            </span>
-                        ) : (
-                            <span className="text-xs text-zinc-600">{copy("Pas encore disponible")}</span>
-                        )}
-                    </div>
-                    <div className="flex flex-col items-center gap-3 text-center">
-                        <span className="text-xs font-bold text-white/60 uppercase tracking-widest truncate max-w-full">{match.awayTeam.name}</span>
-                        {awayStreak ? (
-                            <span className={cn("px-4 py-1.5 rounded-full border text-sm font-black", streakStyle(awayStreak.result))}>
-                                {awayStreak.count} {streakLabel(awayStreak.result)}
-                            </span>
-                        ) : (
-                            <span className="text-xs text-zinc-600">{copy("Pas encore disponible")}</span>
-                        )}
-                    </div>
-                </div>
-            </CardContent>
+            <CardContent className="pt-6 pb-8 px-8">{children}</CardContent>
         </Card>
     );
 }
 
-// Preview tab — the stats every match has, independent of whether the AI
-// has analyzed it. Genuinely restructured (not just re-fed more data into
-// the same two boxes): a form strip, real market odds (previously fetched
-// and never rendered anywhere), H2H, then the full stat comparison —
-// four distinct sections instead of two recycled sidebar cards.
+// 1. Match Info — referee, venue, round, kickoff date/time. Referee was
+// already fetched (data_aggregation.py's fetch_match_details) but never
+// exposed by the /stats endpoint until now.
+function MatchInfoCard({ match }: { match: Match }) {
+    const { copy, locale } = useI18n();
+    const info = match.stats?.match_info as { venue?: string; date_time?: string; round?: string; referee_name?: string } | undefined;
+    const dateLocale = { fr: "fr-FR", en: "en-US", es: "es-ES", de: "de-DE" }[locale];
+    const kickoff = info?.date_time ? new Date(info.date_time) : null;
+
+    const rows: { label: string; value: string | null | undefined }[] = [
+        { label: copy("Arbitre"), value: info?.referee_name },
+        { label: copy("Lieu"), value: info?.venue },
+        { label: copy("Journée"), value: info?.round },
+        { label: copy("Coup d'envoi"), value: kickoff ? `${kickoff.toLocaleDateString(dateLocale, { day: "numeric", month: "long" })} · ${kickoff.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" })}` : null },
+    ];
+
+    return (
+        <SectionCard icon={<Clock className="size-3.5" />} iconClass="bg-blue-500/10 text-blue-400" title={copy("Informations du Match")}>
+            <div className="grid grid-cols-2 gap-x-8 gap-y-5">
+                {rows.map((r) => (
+                    <div key={r.label} className="flex flex-col gap-1 min-w-0">
+                        <span className="text-[10px] uppercase tracking-widest text-white/40 font-bold">{r.label}</span>
+                        <span className="text-sm font-semibold text-white truncate">{r.value || copy("Pas encore disponible")}</span>
+                    </div>
+                ))}
+            </div>
+        </SectionCard>
+    );
+}
+
+// 4. Key Stats — real per-match form (W/L/D pills) plus the headline
+// scoring numbers, individualized (see StatPair above), not a slider.
+const KEY_STAT_ROWS_BY_SPORT: Record<string, { key: string; label: string }[]> = {
+    football: [
+        { key: "l5_goals_for", label: "Buts marqués (L5)" },
+        { key: "l5_goals_against", label: "Buts encaissés (L5)" },
+        { key: "l5_xg_for", label: "Buts attendus - Pour (L5)" },
+        { key: "l5_xg_against", label: "Buts attendus - Contre (L5)" },
+    ],
+    basketball: [
+        { key: "l5_ortg", label: "Rating Offensif (L5)" },
+        { key: "l5_drtg", label: "Rating Défensif (L5)" },
+        { key: "l5_pace", label: "Rythme de jeu (L5)" },
+    ],
+    tennis: [
+        { key: "l10_aces_avg", label: "Aces Moy. (L10)" },
+        { key: "l10_first_serve_pct", label: "1er Service (L10)" },
+        { key: "l10_return_won_pct", label: "Points gagnés au retour (L10)" },
+    ],
+};
+
+function KeyStatsCard({ match, homeStats, awayStats }: { match: Match; homeStats: Record<string, any>; awayStats: Record<string, any> }) {
+    const { copy } = useI18n();
+    const rows = KEY_STAT_ROWS_BY_SPORT[match.sport] || KEY_STAT_ROWS_BY_SPORT.football;
+    const form = match.stats?.form as { home?: string[]; away?: string[] } | undefined;
+
+    return (
+        <SectionCard icon={<Activity className="size-3.5" />} iconClass="bg-emerald-500/10 text-emerald-400" title={copy("Statistiques Clés")}>
+            {form && (form.home?.length || form.away?.length) ? (
+                <div className="flex items-center justify-between py-3 border-b border-white/5">
+                    <FormPills results={form.home} />
+                    <span className="text-[11px] font-semibold text-white/40 uppercase tracking-wider text-center flex-1 px-2">{copy("Forme (5 derniers)")}</span>
+                    <FormPills results={form.away} />
+                </div>
+            ) : null}
+            {rows.map((r) => (
+                <StatPair key={r.key} label={copy(r.label)} homeValue={homeStats?.[r.key]} awayValue={awayStats?.[r.key]} />
+            ))}
+        </SectionCard>
+    );
+}
+
+// 5. Advanced — possession, corners, cards, clean sheets, shots. Fouls and
+// shots-faced are NOT currently collected by the ingestion pipeline (no
+// such columns on football_team_rolling) — omitted rather than faked; a
+// real gap to close if these matter, not a display bug.
+const ADVANCED_STAT_ROWS_BY_SPORT: Record<string, { key: string; label: string; suffix?: string }[]> = {
+    football: [
+        { key: "l5_possession_avg", label: "Possession Moyenne", suffix: "%" },
+        { key: "l5_shots_avg", label: "Tirs par match (L5)" },
+        { key: "l5_corners_avg", label: "Corners par match (L5)" },
+        { key: "l5_cards_avg", label: "Cartons par match (L5)" },
+        { key: "l5_clean_sheets", label: "Clean sheets (L5)" },
+        { key: "l5_pass_accuracy", label: "Précision des passes (L5)", suffix: "%" },
+    ],
+    basketball: [
+        { key: "l5_efg_pct", label: "Réussite aux tirs pondérée (L5)", suffix: "%" },
+        { key: "l5_tov_pct", label: "Pertes de balle (L5)", suffix: "%" },
+        { key: "l5_orb_pct", label: "Rebonds offensifs (L5)", suffix: "%" },
+        { key: "l5_3pt_pct", label: "Réussite à 3 points (L5)", suffix: "%" },
+    ],
+    tennis: [
+        { key: "l10_bp_saved_pct", label: "Balles de break sauvées (L10)", suffix: "%" },
+        { key: "l10_bp_converted_pct", label: "Balles de break converties (L10)", suffix: "%" },
+    ],
+};
+
+function AdvancedStatsCard({ match, homeStats, awayStats }: { match: Match; homeStats: Record<string, any>; awayStats: Record<string, any> }) {
+    const { copy } = useI18n();
+    const rows = ADVANCED_STAT_ROWS_BY_SPORT[match.sport] || ADVANCED_STAT_ROWS_BY_SPORT.football;
+    return (
+        <SectionCard icon={<TrendingUp className="size-3.5" />} iconClass="bg-purple-500/10 text-purple-400" title={copy("Statistiques Avancées")}>
+            {rows.map((r) => (
+                <StatPair key={r.key} label={copy(r.label)} homeValue={homeStats?.[r.key]} awayValue={awayStats?.[r.key]} suffix={r.suffix} />
+            ))}
+        </SectionCard>
+    );
+}
+
+// 6. Injuries & absences — listed per team. Football only (see
+// data_aggregation.py's fetch_injuries); cached server-side with a TTL so
+// this doesn't reintroduce the live-API-per-page-view lag.
+function InjuriesCard({ match }: { match: Match }) {
+    const { copy } = useI18n();
+    const injuries = match.stats?.injuries as { home?: string[]; away?: string[] } | undefined;
+    const homeList = injuries?.home || [];
+    const awayList = injuries?.away || [];
+
+    return (
+        <SectionCard icon={<Users className="size-3.5" />} iconClass="bg-rose-500/10 text-rose-400" title={copy("Blessures & Absences")}>
+            <div className="grid grid-cols-2 gap-8">
+                <div className="space-y-3">
+                    <span className="text-[10px] uppercase tracking-widest text-cyan-400 font-bold truncate block">{match.homeTeam.short}</span>
+                    {homeList.length === 0 ? (
+                        <p className="text-xs text-zinc-600">{copy("Aucune absence connue")}</p>
+                    ) : (
+                        <ul className="space-y-2">
+                            {homeList.map((p, i) => (
+                                <li key={i} className="text-sm text-white/80 leading-snug">{p}</li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
+                <div className="space-y-3">
+                    <span className="text-[10px] uppercase tracking-widest text-rose-400 font-bold truncate block">{match.awayTeam.short}</span>
+                    {awayList.length === 0 ? (
+                        <p className="text-xs text-zinc-600">{copy("Aucune absence connue")}</p>
+                    ) : (
+                        <ul className="space-y-2">
+                            {awayList.map((p, i) => (
+                                <li key={i} className="text-sm text-white/80 leading-snug">{p}</li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
+            </div>
+        </SectionCard>
+    );
+}
+
+// Preview tab — six explicit segments, in the order requested: match info,
+// odds, head-to-head, key stats (real form + scoring), advanced stats,
+// injuries. Every stat is an individualized number pair, not a bar.
 function PreviewSection({ match, homeStats, awayStats }: { match: Match; homeStats: Record<string, any>; awayStats: Record<string, any> }) {
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 animate-in fade-in duration-500">
-            <div className="md:col-span-2">
-                <FormCard match={match} homeStats={homeStats} awayStats={awayStats} />
+        <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-500">
+            <MatchInfoCard match={match} />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
+                <OddsCard match={match} />
+                <H2HCard match={match} />
             </div>
-            <OddsCard match={match} />
-            <H2HCard match={match} />
-            <div className="md:col-span-2">
-                <TrendsCard homeStats={homeStats} awayStats={awayStats} />
-            </div>
+            <KeyStatsCard match={match} homeStats={homeStats} awayStats={awayStats} />
+            <AdvancedStatsCard match={match} homeStats={homeStats} awayStats={awayStats} />
+            <InjuriesCard match={match} />
         </div>
     );
 }
@@ -624,6 +761,9 @@ export default function MatchAnalysisPage({ params }: { params: Promise<{ id: st
                         h2h: statsData.h2h,
                         rolling_stats: statsData.rolling_stats,
                         odds: statsData.odds,
+                        match_info: statsData.match_info,
+                        injuries: statsData.injuries,
+                        form: statsData.form,
                     } : undefined
                 };
                 setMatch(transformed);
