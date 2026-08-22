@@ -4,6 +4,7 @@ BETIX Backend — FastAPI entry point
 
 import logging
 from contextlib import asynccontextmanager
+from datetime import datetime
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -13,6 +14,7 @@ from app.routers import matches, predictions, system, audits, webhooks
 from app.services.ingestion.orchestrator import IngestionOrchestrator
 from scripts.updates.scheduled_audit_pass import run_initial_generation_pass, run_delta_and_poll_pass
 from scripts.updates.grade_predictions_pass import run_grading_pass
+from scripts.updates.reconcile_public_matches import run_reconciliation
 
 logger = logging.getLogger("app.main")
 settings = get_settings()
@@ -33,6 +35,27 @@ async def lifespan(app: FastAPI):
         minutes=5,
         id="live_match_refresh",
         replace_existing=True
+    )
+
+    # Self-healing reconciliation for public.matches — the dashboard's
+    # only data source. Twice now (2026-08-21, 2026-08-22), every live/
+    # finished/postponed/cancelled row vanished from public.matches
+    # entirely while analytics.*_matches stayed correct, with no write
+    # path in this codebase found responsible after an exhaustive audit
+    # (see reconcile_public_matches.py's module docstring). This doesn't
+    # fix whatever's removing the rows — it can't, if the cause is
+    # outside this app — but it rebuilds anything missing within 10
+    # minutes instead of the gap staying open for up to a day.
+    scheduler.add_job(
+        run_reconciliation,
+        "interval",
+        minutes=10,
+        id="public_matches_reconciliation",
+        replace_existing=True,
+        # Fire once immediately on every startup too, not just every 10min
+        # from then on — a fresh deploy shouldn't have to wait 10 minutes
+        # to repair whatever was missing when it booted.
+        next_run_time=datetime.now(),
     )
 
     # Proactive AI — initial generation: a FIXED-TIME daily job instead of a
@@ -86,6 +109,7 @@ async def lifespan(app: FastAPI):
     scheduler.start()
     logger.info(
         "Scheduler (APScheduler) started: live sync every 5min, "
+        "public.matches reconciliation every 10min, "
         "AI initial generation daily at 00:00 Europe/Paris, "
         "AI delta+batch-poll every 30min, prediction grading every 30min."
     )
