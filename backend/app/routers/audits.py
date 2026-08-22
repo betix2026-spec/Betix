@@ -154,3 +154,58 @@ async def match_stats_endpoint(
         injuries=context.get("injuries"),
         form=form,
     )
+
+
+@router.get("/_diag/promoted-team-api-check")
+async def _diag_promoted_team_api_check(team: str, season: int, x_internal_secret: Optional[str] = Header(None)):
+    """
+    TEMPORARY — checking whether API-Football actually has prior-season
+    data for a promoted/newly-in-scope team (e.g. Ipswich) even though our
+    own analytics.football_matches has none (rolling stats are computed
+    from OUR ingested match history, not a live API call — see
+    update_match_rolling.py's get_team_history — so if the team's prior
+    season was in an out-of-scope competition, e.g. the Championship,
+    which isn't in FOOTBALL_LEAGUES, we never ingested it, regardless of
+    whether the provider has it). Calls /fixtures?team=<api_id>&season=<season>
+    directly, with NO league filter, to see every competition the
+    provider actually has on record. Remove once checked.
+    """
+    _check_internal_secret(x_internal_secret)
+    settings = get_settings()
+    db_analytics = SupabaseREST(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY, schema="analytics")
+
+    teams = await asyncio.to_thread(db_analytics.select_raw, "teams", f"select=id,api_id,name&name=ilike.*{team}*&sport=eq.football")
+    if not teams:
+        return {"error": "team not found", "team": team}
+    api_id = teams[0]["api_id"]
+
+    from app.services.ingestion.football_client import FootballClient
+    client = FootballClient()
+    try:
+        data = await client._api_get("/fixtures", {"team": api_id, "season": season})
+    finally:
+        await client.close()
+
+    fixtures = data.get("response", [])
+    leagues_seen = {}
+    for f in fixtures:
+        lg = f.get("league", {})
+        key = f"{lg.get('id')} - {lg.get('name')} ({lg.get('country')})"
+        leagues_seen[key] = leagues_seen.get(key, 0) + 1
+
+    return {
+        "matched_team": teams[0],
+        "season_queried": season,
+        "total_fixtures_returned_by_api": len(fixtures),
+        "leagues_represented": leagues_seen,
+        "sample_fixtures": [
+            {
+                "date": f.get("fixture", {}).get("date"),
+                "league": f.get("league", {}).get("name"),
+                "home": f.get("teams", {}).get("home", {}).get("name"),
+                "away": f.get("teams", {}).get("away", {}).get("name"),
+                "score": f.get("goals"),
+            }
+            for f in fixtures[:5]
+        ],
+    }
