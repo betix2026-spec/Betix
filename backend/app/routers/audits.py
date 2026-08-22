@@ -156,36 +156,18 @@ async def match_stats_endpoint(
     )
 
 
-@router.post("/_diag/regen-and-check")
-async def _diag_regen_and_check(q: str, x_internal_secret: Optional[str] = Header(None)):
+@router.post("/_diag/regen-by-id")
+async def _diag_regen_by_id(match_id: int, x_internal_secret: Optional[str] = Header(None)):
     """
-    TEMPORARY — verifying the league/tournament-name fix. Finds a football
-    match by team name substring, force-regenerates its analysis (bypassing
-    the freshness check so the fix is actually exercised, not skipped
-    because a "fresh" but wrong analysis already exists), and returns the
-    new match_summary text so it can be checked for the right competition
-    name. Remove once verified.
+    TEMPORARY — verifying the league/tournament-name fix on a specific,
+    already-identified match_id. Force-regenerates (bypassing the
+    freshness check so the fix is actually exercised, not skipped because
+    a "fresh" but wrong analysis already exists) and returns the new
+    match_summary text. Remove once verified.
     """
     _check_internal_secret(x_internal_secret)
     settings = get_settings()
-    db_analytics = SupabaseREST(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY, schema="analytics")
     db_public = SupabaseREST(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY)
-
-    teams = await asyncio.to_thread(db_analytics.select_raw, "teams", f"select=id,name&name=ilike.*{q}*&sport=eq.football")
-    team_ids = [t["id"] for t in teams or []]
-    if not team_ids:
-        return {"error": "no team matched", "q": q}
-
-    id_list = ",".join(str(i) for i in team_ids)
-    matches = await asyncio.to_thread(
-        db_analytics.select_raw,
-        "football_matches",
-        f"select=id,api_id,home_team_id,away_team_id,league_id,date_time&or=(home_team_id.in.({id_list}),away_team_id.in.({id_list}))&order=date_time.desc&limit=3",
-    )
-    if not matches:
-        return {"error": "no match found", "matched_teams": teams}
-
-    match_id = matches[0]["id"]
 
     await asyncio.to_thread(
         db_public.upsert,
@@ -203,7 +185,6 @@ async def _diag_regen_and_check(q: str, x_internal_secret: Optional[str] = Heade
     )
 
     return {
-        "matched_match": matches[0],
         "run_audit_result": result,
         "match_summary": (fresh[0].get("ai_analysis") or {}).get("match_summary") if fresh else None,
         "status": fresh[0].get("status") if fresh else None,
