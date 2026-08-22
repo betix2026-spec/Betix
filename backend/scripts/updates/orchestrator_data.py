@@ -23,6 +23,8 @@ from scripts.updates.upsert_odds import OddsIngester
 from scripts.updates.discover_matches import MatchDiscoverer
 from scripts.updates.update_tennis_rankings import TennisRankingsUpdater
 from app.services.config_reader import ConfigReader
+from app.services.ingestion.football_client import FootballClient
+from app.services.ingestion.basketball_client import BasketballClient
 
 logging.basicConfig(
     level=logging.INFO,
@@ -93,6 +95,32 @@ async def run_forever():
 
             # MATCH DISCOVERY + ODDS INGESTION (configurable frequency)
             if iteration % cfg["discovery_every_n"] == 0:
+                # Team roster refresh — MUST run before Match Discovery.
+                # ingest_teams() re-fetches each league's CURRENT roster
+                # from the API and upserts it, so it's the only thing that
+                # ever picks up a promoted/newly added club. Nothing called
+                # this automatically before — team ingestion was a one-time
+                # manual bootstrap (IngestionOrchestrator.run_initial_import,
+                # never wired into any scheduled job) — so any club added
+                # to a league after that one manual run stayed permanently
+                # invisible to analytics.teams. Any match involving such a
+                # club then silently failed team-id resolution in
+                # _transform_match() and was dropped during discovery,
+                # with only a log line ("unresolved IDs") nobody sees.
+                # Confirmed live: Arsenal vs Coventry (2026-08-21, Premier
+                # League, in scope) was missing entirely because Coventry
+                # was never in analytics.teams.
+                logger.info("Running Team Roster Refresh...")
+                for client_cls in (FootballClient, BasketballClient):
+                    client = client_cls()
+                    try:
+                        count = await client.ingest_teams()
+                        logger.info(f"[{client.sport}] Team roster refresh: {count} teams upserted.")
+                    except Exception as e:
+                        logger.error(f"Error refreshing teams for {client.sport}: {e}")
+                    finally:
+                        await client.close()
+
                 logger.info("Running Match Discovery...")
                 try:
                     discoverer = MatchDiscoverer(days=cfg["discovery_days"])
