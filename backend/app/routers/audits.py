@@ -208,3 +208,43 @@ async def _diag_regen_and_check(q: str, x_internal_secret: Optional[str] = Heade
         "match_summary": (fresh[0].get("ai_analysis") or {}).get("match_summary") if fresh else None,
         "status": fresh[0].get("status") if fresh else None,
     }
+
+
+@router.get("/_diag/check-match")
+async def _diag_check_match(match_id: int, x_internal_secret: Optional[str] = Header(None)):
+    """TEMPORARY — read-only: team names, league name, and the current
+    stored analysis for a specific internal football match_id, no
+    regeneration triggered. Remove once verified."""
+    _check_internal_secret(x_internal_secret)
+    settings = get_settings()
+    db_analytics = SupabaseREST(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY, schema="analytics")
+    db_public = SupabaseREST(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY)
+
+    match_rows = await asyncio.to_thread(
+        db_analytics.select_raw,
+        "football_matches",
+        f"select=id,date_time,home_team_id,away_team_id,league_id,league:league_id(name)&id=eq.{match_id}",
+    )
+    if not match_rows:
+        return {"error": "match not found"}
+    m = match_rows[0]
+
+    teams = await asyncio.to_thread(
+        db_analytics.select_raw, "teams", f"select=id,name&id=in.({m['home_team_id']},{m['away_team_id']})",
+    )
+    team_names = {t["id"]: t["name"] for t in teams or []}
+
+    audit = await asyncio.to_thread(
+        db_public.select_raw,
+        "ai_match_audits",
+        f"select=status,attempted_at,ai_analysis&match_id={match_id}&sport=eq.football&run_id=eq.{LIVE_RUN_ID}",
+    )
+
+    return {
+        "match": m,
+        "home_team": team_names.get(m["home_team_id"]),
+        "away_team": team_names.get(m["away_team_id"]),
+        "audit_status": audit[0].get("status") if audit else None,
+        "attempted_at": audit[0].get("attempted_at") if audit else None,
+        "match_summary": (audit[0].get("ai_analysis") or {}).get("match_summary") if audit else None,
+    }
