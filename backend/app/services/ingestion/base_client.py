@@ -307,7 +307,22 @@ class BaseSportClient(ABC):
 
         all_rows: list[dict] = []
 
-        for api_league_id, internal_league_id in self._league_id_map.items():
+        # Scoped to self.league_ids (the sport's configured leagues, e.g.
+        # FOOTBALL_LEAGUES) — NOT self._league_id_map, which holds every
+        # league ever stored in analytics.leagues for this sport. For
+        # football that DB table has 36 rows but only 6 are in current
+        # product scope; the other 30 are international/national-team
+        # competitions (World Cup, Euro, Copa America, various
+        # qualifiers...) left over from a broader ingestion scope that no
+        # other code path uses — discover_matches.py's discovery_football()
+        # already only scans self.league_ids, so this was iterating 6x
+        # more leagues than anything actually needed, for no benefit.
+        for api_league_id in self.league_ids.keys():
+            internal_league_id = self._league_id_map.get(api_league_id)
+            if internal_league_id is None:
+                logger.warning(f"[{self.sport}] League api_id={api_league_id} not found in analytics.leagues — skipping team fetch.")
+                continue
+
             logger.info(f"[{self.sport}] Fetching teams for league api_id={api_league_id}...")
             params = self._get_teams_params(api_league_id)
             data = await self._api_get(self._get_teams_endpoint(), params)
@@ -317,6 +332,21 @@ class BaseSportClient(ABC):
                 all_rows.append(transformed)
 
             await asyncio.sleep(1.0)  # Rate limit
+
+        # Dedupe by (api_id, sport) — a club in more than one scoped league
+        # (e.g. any Champions League qualifier, also fetched under its
+        # domestic league) appears twice in all_rows. Two rows with the
+        # same conflict-target key in one INSERT ... ON CONFLICT statement
+        # is a Postgres error (21000: "ON CONFLICT DO UPDATE command
+        # cannot affect row a second time"), not a silent second update —
+        # it aborted the ENTIRE batch containing the duplicate, and every
+        # batch after it, every time this ran. team.league_id is cosmetic
+        # (whichever league a team was last fetched under — matches store
+        # their own league_id independently, see football_client.py's
+        # _transform_match), so keeping either copy is correct; last one
+        # wins here, simplest to write.
+        deduped_by_key = {(r["api_id"], r["sport"]): r for r in all_rows}
+        all_rows = list(deduped_by_key.values())
 
         if all_rows:
             # Batch upsert to avoid 500/timeout issues
