@@ -248,3 +248,28 @@ async def _diag_check_match(match_id: int, x_internal_secret: Optional[str] = He
         "attempted_at": audit[0].get("attempted_at") if audit else None,
         "match_summary": (audit[0].get("ai_analysis") or {}).get("match_summary") if audit else None,
     }
+
+
+@router.get("/_diag/find-pairing")
+async def _diag_find_pairing(a: str, b: str, x_internal_secret: Optional[str] = Header(None)):
+    """TEMPORARY — find the specific fixture between two named teams (in
+    either order), regardless of date. Remove once verified."""
+    _check_internal_secret(x_internal_secret)
+    settings = get_settings()
+    db_analytics = SupabaseREST(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY, schema="analytics")
+
+    team_a = await asyncio.to_thread(db_analytics.select_raw, "teams", f"select=id,name&name=ilike.*{a}*&sport=eq.football")
+    team_b = await asyncio.to_thread(db_analytics.select_raw, "teams", f"select=id,name&name=ilike.*{b}*&sport=eq.football")
+    if not team_a or not team_b:
+        return {"error": "team not found", "team_a_matches": team_a, "team_b_matches": team_b}
+
+    a_ids = ",".join(str(t["id"]) for t in team_a)
+    b_ids = ",".join(str(t["id"]) for t in team_b)
+    matches = await asyncio.to_thread(
+        db_analytics.select_raw,
+        "football_matches",
+        f"select=id,api_id,date_time,status,round,home_team_id,away_team_id"
+        f"&or=(and(home_team_id.in.({a_ids}),away_team_id.in.({b_ids})),and(home_team_id.in.({b_ids}),away_team_id.in.({a_ids})))"
+        f"&order=date_time.asc",
+    )
+    return {"team_a_matches": team_a, "team_b_matches": team_b, "fixtures": matches}
