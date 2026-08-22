@@ -154,3 +154,64 @@ async def match_stats_endpoint(
         injuries=context.get("injuries"),
         form=form,
     )
+
+
+@router.get("/_diag/finished-recheck")
+async def _diag_finished_recheck(x_internal_secret: Optional[str] = Header(None)):
+    """
+    TEMPORARY — the Finished tab is reportedly empty AGAIN despite last
+    night's fix + backfill. Cross-references public.matches (what the
+    dashboard reads) against analytics.football_matches (source of truth)
+    for the last 10 days, so we can tell whether analytics itself lost the
+    finished status, or public.matches specifically fell out of sync
+    again. Remove once the cause is confirmed.
+    """
+    _check_internal_secret(x_internal_secret)
+    from collections import Counter
+    from datetime import datetime, timedelta
+
+    settings = get_settings()
+    db_public = SupabaseREST(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY)
+    db_analytics = SupabaseREST(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY, schema="analytics")
+
+    since = (datetime.utcnow() - timedelta(days=10)).strftime("%Y-%m-%dT00:00:00Z")
+
+    public_rows = await asyncio.to_thread(
+        db_public.select_raw,
+        "matches",
+        f"select=id,sport,status,date_time,api_sport_id&sport=eq.football&date_time=gte.{since}&order=date_time.desc&limit=500",
+    )
+    analytics_rows = await asyncio.to_thread(
+        db_analytics.select_raw,
+        "football_matches",
+        f"select=id,api_id,status,date_time,home_score,away_score&date_time=gte.{since}&order=date_time.desc&limit=500",
+    )
+
+    def by_date(rows, date_key="date_time", status_key="status"):
+        out: Dict[str, Counter] = {}
+        for r in rows or []:
+            d = (r.get(date_key) or "")[:10]
+            out.setdefault(d, Counter())[r.get(status_key)] += 1
+        return {d: dict(c) for d, c in sorted(out.items(), reverse=True)}
+
+    # Sample a few analytics 'finished' rows and show whether their
+    # api_id shows up in public.matches at all, and with what status.
+    public_by_api_id = {str(r.get("api_sport_id")): r for r in public_rows or []}
+    analytics_finished = [r for r in (analytics_rows or []) if r.get("status") == "finished"]
+    mismatches = []
+    for r in analytics_finished[:20]:
+        api_id = str(r.get("api_id"))
+        pub = public_by_api_id.get(api_id)
+        mismatches.append({
+            "api_id": api_id,
+            "date_time": r.get("date_time"),
+            "analytics_status": r.get("status"),
+            "public_status": pub.get("status") if pub else "MISSING_FROM_PUBLIC",
+        })
+
+    return {
+        "public_matches_by_date_status": by_date(public_rows),
+        "analytics_matches_by_date_status": by_date(analytics_rows),
+        "analytics_finished_count": len(analytics_finished),
+        "sample_finished_cross_check": mismatches,
+    }
