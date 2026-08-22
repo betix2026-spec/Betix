@@ -237,7 +237,7 @@ async def _diag_check_match(match_id: int, x_internal_secret: Optional[str] = He
     audit = await asyncio.to_thread(
         db_public.select_raw,
         "ai_match_audits",
-        f"select=status,attempted_at,ai_analysis&match_id={match_id}&sport=eq.football&run_id=eq.{LIVE_RUN_ID}",
+        f"select=status,attempted_at,ai_analysis&match_id=eq.{match_id}&sport=eq.football&run_id=eq.{LIVE_RUN_ID}",
     )
 
     return {
