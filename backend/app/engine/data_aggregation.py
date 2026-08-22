@@ -406,19 +406,26 @@ class DataAggregator:
     def _format_match(self, sport: str, data: Dict[str, Any], home_name: str = "?", away_name: str = "?", is_neutral: bool = False) -> str:
         dt = data.get("date_time", "Unknown Date")
         venue = data.get("stadium") or "Unknown Venue"
+        # The actual competition name — without this the model has zero
+        # grounded signal for which league/tournament it's analyzing and
+        # falls back to its own training knowledge of the teams involved,
+        # which is unreliable (confirmed live: a real Premier League
+        # fixture got analyzed as "This Championship opener...").
+        comp = (data.get("league") or {}).get("name") or (data.get("tournament") or {}).get("name")
+        comp_tag = f"[{comp}] " if comp else ""
         if sport == "tennis":
             rnd = data.get("round", "Unknown Round")
-            return f"[MATCH: {home_name} vs {away_name}] {dt} | {rnd} | {data.get('status', 'scheduled')}"
+            return f"{comp_tag}[MATCH: {home_name} vs {away_name}] {dt} | {rnd} | {data.get('status', 'scheduled')}"
         elif sport == "football":
             rnd = data.get("round", "Unknown Round")
             ref = data.get("referee_name", "N/A")
             if is_neutral:
-                return f"[MATCH: {home_name} vs {away_name}] {dt} | {venue} (TERRAIN NEUTRE) | {rnd} | Ref: {ref}"
-            return f"[MATCH: {home_name} (DOM) vs {away_name} (EXT)] {dt} | {venue} | {rnd} | Ref: {ref}"
+                return f"{comp_tag}[MATCH: {home_name} vs {away_name}] {dt} | {venue} (TERRAIN NEUTRE) | {rnd} | Ref: {ref}"
+            return f"{comp_tag}[MATCH: {home_name} (DOM) vs {away_name} (EXT)] {dt} | {venue} | {rnd} | Ref: {ref}"
         else:
             if is_neutral:
-                return f"[MATCH: {home_name} vs {away_name}] {dt} | {venue} (TERRAIN NEUTRE) | {data.get('status', 'scheduled')}"
-            return f"[MATCH: {home_name} (DOM) vs {away_name} (EXT)] {dt} | {venue} | {data.get('status', 'scheduled')}"
+                return f"{comp_tag}[MATCH: {home_name} vs {away_name}] {dt} | {venue} (TERRAIN NEUTRE) | {data.get('status', 'scheduled')}"
+            return f"{comp_tag}[MATCH: {home_name} (DOM) vs {away_name} (EXT)] {dt} | {venue} | {data.get('status', 'scheduled')}"
 
     def _format_team_form(self, sport: str, team_name: str, form_data: Dict[str, Any], injuries: List[Any], is_home: bool) -> str:
         label = "HOME" if is_home else "AWAY"
@@ -666,14 +673,22 @@ class DataAggregator:
 
     async def fetch_match_details(self, sport: str, match_id: int) -> Dict[str, Any]:
         table = f"{sport}_matches"
-        # league:league_id(api_id) — the external API-Sports league ID, needed to
-        # check tier_scope.is_football_top_tier()/is_basketball_top_tier() for the
-        # confidence ceiling (those take the external id, not this table's internal FK).
+        # league:league_id(api_id,name) — api_id is the external API-Sports
+        # league ID, needed to check tier_scope.is_football_top_tier()/
+        # is_basketball_top_tier() for the confidence ceiling (those take
+        # the external id, not this table's internal FK). name is the
+        # actual competition name (e.g. "Premier League") — the AI was
+        # NEVER given this anywhere in its context. Confirmed live: asked
+        # to analyze a real Premier League fixture, it wrote "This
+        # Championship opener..." — not a data bug, the model was simply
+        # never told which competition it's looking at, so it fell back to
+        # its own (unreliable, especially for a simulated season) training
+        # knowledge of the two clubs. _format_match below now surfaces it.
         # "stadium" (not "venue") — football_client.py has always written
         # the venue name into a "stadium" column; nothing ever wrote to
         # "venue", so selecting it here silently returned nothing for every
         # match, including in the AI's own prompt text (_format_match below).
-        columns = "date_time,stadium,status,league_id,league:league_id(api_id)"
+        columns = "date_time,stadium,status,league_id,league:league_id(api_id,name)"
         if sport == 'football':
             columns += ",round,referee_name,weather"
 
@@ -988,11 +1003,14 @@ class DataAggregator:
     # =========================================================================
 
     async def fetch_tennis_match_details(self, match_id: int) -> Dict[str, Any]:
-        """Fetch match info: surface, indoor/outdoor, round, date, sets."""
+        """Fetch match info: surface, indoor/outdoor, round, date, sets, tournament."""
         rows = await asyncio.to_thread(
             self.db.select,
             "tennis_matches",
-            "date_time,surface,indoor_outdoor,round,status,sets_played,score",
+            # tournament:tournament_id(name) — same gap as football/basketball
+            # (see fetch_match_details) — the model was never told which
+            # tournament it's analyzing. _format_match reads data["tournament"]["name"].
+            "date_time,surface,indoor_outdoor,round,status,sets_played,score,tournament:tournament_id(name)",
             {"id": match_id}
         )
         if not rows:
