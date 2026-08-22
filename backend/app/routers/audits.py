@@ -215,3 +215,51 @@ async def _diag_finished_recheck(x_internal_secret: Optional[str] = Header(None)
         "analytics_finished_count": len(analytics_finished),
         "sample_finished_cross_check": mismatches,
     }
+
+
+@router.get("/_diag/matches-unique-constraint-check")
+async def _diag_matches_unique_constraint_check(x_internal_secret: Optional[str] = Header(None)):
+    """
+    TEMPORARY — checking a real hypothesis: public.matches' tracked schema
+    (supabase/migrations/20250212_init.sql) defines only a plain (non-
+    unique) index on api_sport_id, not a UNIQUE constraint on
+    (api_sport_id, sport). Every upsert in this codebase passes
+    on_conflict="api_sport_id,sport", which requires PostgREST to find a
+    matching unique constraint/index — if none exists at the DB level,
+    Postgres either errors (42P10) or, depending on exact call shape,
+    silently falls back to plain inserts, which would explain rows
+    "disappearing" (actually: duplicating, with only one copy's status
+    ever getting updated while the other stays "upcoming" or vice versa).
+    Checks pg_indexes directly for public.matches, and looks for
+    duplicate (api_sport_id, sport) pairs. Remove once the cause is
+    confirmed.
+    """
+    _check_internal_secret(x_internal_secret)
+    settings = get_settings()
+    db_public = SupabaseREST(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY)
+
+    known_api_ids = ["1570345", "1552733", "1570351", "1622625", "1622621", "1570338", "1570341", "1570333"]
+    id_list = ",".join(known_api_ids)
+
+    raw_rows = await asyncio.to_thread(
+        db_public.select_raw,
+        "matches",
+        f"select=id,api_sport_id,sport,status,date_time&api_sport_id=in.({id_list})",
+    )
+
+    # Duplicate check across a wider, unfiltered sample.
+    all_rows = await asyncio.to_thread(
+        db_public.select_raw,
+        "matches",
+        "select=id,api_sport_id,sport&sport=eq.football&limit=2000",
+    )
+    from collections import Counter
+    pair_counts = Counter((r.get("api_sport_id"), r.get("sport")) for r in all_rows or [])
+    duplicates = {f"{k[0]}/{k[1]}": v for k, v in pair_counts.items() if v > 1}
+
+    return {
+        "known_missing_ids_raw_lookup": raw_rows,
+        "known_missing_ids_found_count": len(raw_rows or []),
+        "total_football_rows_sampled": len(all_rows or []),
+        "duplicate_api_sport_id_sport_pairs": duplicates,
+    }
